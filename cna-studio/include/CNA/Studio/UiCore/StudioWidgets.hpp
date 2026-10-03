@@ -1,0 +1,858 @@
+// SPDX-License-Identifier: MS-PL
+#pragma once
+
+/**
+ * @file CNA/Studio/UiCore/StudioWidgets.hpp
+ * @brief Buttons, toggles, tabs and menu items, over the one `interact()` the router provides.
+ *
+ * `plan.md` STUDIO-03003, STUDIO-06003, STUDIO-06004, STUDIO-06006.
+ *
+ * These are the smallest things in Studio a user can press. They are deliberately free functions
+ * over a @ref StudioFrame rather than objects: a widget owns no state of its own — identity comes
+ * from the id stack, retained state from the state store, interaction from the router, appearance
+ * from the theme — and a type with no state and one method is a function with extra ceremony.
+ *
+ * ### The rule that makes the two-pass frame safe
+ *
+ * Every helper is called **twice per frame**: once in the input pass and once in the draw pass.
+ * `interaction` is identical in both, because the frame replays it. But
+ * @ref StudioWidgetResult::activated and @ref StudioWidgetResult::changed are **true only in the
+ * input pass**, and any state a widget owns is mutated only there.
+ *
+ * That is not a convention to remember. It is what stops the single most likely bug in this
+ * architecture: a caller that runs its action on `activated` would otherwise run it twice per
+ * click, and a toggle would flip back to where it started before anybody saw it move. Because the
+ * flag is false in the draw pass, the obvious code is the correct code.
+ *
+ * ### What "professional" costs here, concretely
+ *
+ * - A button acts on **click**, not on press: press-and-slide-off cancels, which is how a user
+ *   changes their mind. A menu item acts on release for the same reason.
+ * - A **disabled** control is drawn disabled, is not a tab stop, does not hover, and still blocks
+ *   the pointer from reaching what is behind it.
+ * - **Keyboard** activation is not an afterthought: Space and Enter activate the focused control,
+ *   and are ignored while a text field is taking input.
+ * - Labels that do not fit are **truncated with an ellipsis** rather than clipped mid-glyph or
+ *   allowed to overrun their control.
+ * - No helper contains a literal colour or a literal pixel size. Every value comes from the theme.
+ */
+
+#include "CNA/Studio/UiCore/StudioFrame.hpp"
+#include "CNA/Studio/UiCore/StudioIcons.hpp"
+#include "CNA/Studio/UiCore/StudioTheme.hpp"
+#include "CNA/Studio/UiCore/UiRect.hpp"
+#include "CNA/Studio/UiCore/WidgetId.hpp"
+
+#include <string>
+#include <string_view>
+
+namespace CNA::Studio
+{
+    /** @brief Horizontal placement of text inside a box. */
+    enum class StudioTextAlign : std::uint8_t
+    {
+        Left,
+        Center,
+        Right
+    };
+
+    /** @brief What happened to a widget this frame. */
+    struct StudioWidgetResult
+    {
+        /** @brief Hover, press, capture, focus and disabled state. Identical in both passes. */
+        StudioInteraction interaction;
+
+        /**
+         * @brief The user asked for this widget's action.
+         *
+         * A completed click, or Space/Enter on it while it has focus. **True only in the input
+         * pass**, so acting on it runs the action once per gesture.
+         */
+        bool activated = false;
+
+        /**
+         * @brief A value this widget owns changed this frame.
+         *
+         * **True only in the input pass**, for the same reason as @ref activated.
+         */
+        bool changed = false;
+
+        /** @brief Convenience: whether the widget is hovered. */
+        [[nodiscard]] bool hovered() const { return interaction.hovered; }
+        /** @brief Convenience: whether the widget has keyboard focus. */
+        [[nodiscard]] bool focused() const { return interaction.focused; }
+    };
+
+    /** @brief How a button presents itself. */
+    enum class StudioButtonKind : std::uint8_t
+    {
+        /** @brief An ordinary button: filled control surface, border, label. */
+        Normal,
+        /** @brief The primary action: accent fill. */
+        Accent,
+        /** @brief A toolbar button: no fill at rest, fill on hover. */
+        Toolbar,
+        /** @brief Text only, no surface at all, for low-emphasis actions. */
+        Ghost
+    };
+
+    /** @brief The adjustable parts of a button. */
+    struct StudioButtonOptions
+    {
+        /** @brief False to draw and route it as disabled. */
+        bool enabled = true;
+        /** @brief True to draw it as the currently chosen option in a group. */
+        bool selected = false;
+        /** @brief False to remove it from the Tab order, e.g. a redundant toolbar duplicate. */
+        bool focusable = true;
+        /** @brief Presentation. */
+        StudioButtonKind kind = StudioButtonKind::Normal;
+        /** @brief Typographic role for the label. */
+        StudioFontRole font = StudioFontRole::Body;
+        /** @brief Where the label sits. */
+        StudioTextAlign align = StudioTextAlign::Center;
+        /** @brief Cursor requested while the pointer is over it. */
+        StudioCursor cursor = StudioCursor::Arrow;
+
+        /**
+         * @brief An icon drawn before the label, or @ref StudioIcon::None.
+         *
+         * With a label, the two sit together and the pair is centred. Without one — which is what
+         * a toolbar wants once its icons are recognisable — the icon takes the whole button.
+         */
+        StudioIcon icon = StudioIcon::None;
+
+        /**
+         * @brief What a tooltip says about this button. Empty offers none.
+         *
+         * Not derived from the label. An icon-only button's tooltip needs to say more than the
+         * word the button would have shown — "Undo (Ctrl+Z)" rather than "Undo" — and a button
+         * showing its label usually needs no tooltip at all.
+         */
+        std::string_view tooltip;
+
+        /**
+         * @brief Draw the icon only, even when a label is given.
+         *
+         * The label is still what a screen reader and a tooltip use, and it is still what decides
+         * the button's identity. Dropping it from the struct instead would make an icon-only
+         * toolbar a toolbar with nothing to say about itself.
+         */
+        bool iconOnly = false;
+    };
+
+    /** @brief The adjustable parts of a tab. */
+    struct StudioTabOptions
+    {
+        /** @brief True for the tab whose panel is showing. */
+        bool active = false;
+        /** @brief False to draw and route it as disabled. */
+        bool enabled = true;
+        /** @brief True when the panel behind it has unsaved changes. */
+        bool modified = false;
+    };
+
+    /** @brief Which way a splitter divides, and therefore which way it drags. */
+    enum class StudioSplitterAxis : std::uint8_t
+    {
+        /** @brief Divides left from right; drags along x. */
+        Horizontal,
+        /** @brief Divides top from bottom; drags along y. */
+        Vertical
+    };
+
+    /** @brief What a splitter did this frame. */
+    struct StudioSplitterResult
+    {
+        /** @brief Hover, capture and press state. */
+        StudioInteraction interaction;
+        /**
+         * @brief Movement along the split axis since the previous frame, in logical units.
+         *
+         * Non-zero only in the input pass and only while the splitter holds the mouse. Reported in
+         * pixels because that is what a drag produces; converting to a fraction is the dock tree's
+         * job, which is the only place that knows the minimums it has to respect.
+         */
+        float delta = 0.0f;
+        /** @brief Whether a drag is in progress. */
+        bool dragging = false;
+    };
+
+    /** @brief The adjustable parts of a menu item. */
+    struct StudioMenuItemOptions
+    {
+        /** @brief False to draw it greyed and refuse activation. */
+        bool enabled = true;
+        /** @brief True to reserve the check column and draw a mark when checked. */
+        bool checkable = false;
+        /** @brief For a checkable item, whether it is on. */
+        bool checked = false;
+        /** @brief True to draw a submenu arrow instead of a shortcut hint. */
+        bool hasSubmenu = false;
+        /** @brief True to draw it as the keyboard-highlighted item. */
+        bool highlighted = false;
+        /** @brief Shortcut hint, right-aligned, e.g. `"Ctrl+S"`. */
+        std::string_view shortcut;
+    };
+
+    // --- Text ------------------------------------------------------------------------------------
+
+    /**
+     * @brief Returns @p text, truncated with an ellipsis to fit @p maxWidth.
+     *
+     * Truncates on **code-point** boundaries, so a multi-byte character is never cut in half into
+     * bytes no decoder can read. A string that does not fit even as one character plus the
+     * ellipsis returns the ellipsis alone rather than nothing: a blank cell reads as missing data,
+     * and the data is not missing.
+     *
+     * @param frame Frame supplying measurement.
+     * @param style Font style, already DPI-scaled.
+     * @param text Text to fit.
+     * @param maxWidth Space available in logical units.
+     * @return The text to draw.
+     */
+    [[nodiscard]] std::string studioTruncateText(const StudioFrame& frame,
+                                                 const StudioFontStyle& style,
+                                                 std::string_view text, float maxWidth);
+
+    /**
+     * @brief Draws one line of text inside a box, on its correct baseline.
+     *
+     * Does nothing outside the draw pass, so a widget helper can call it unconditionally in both
+     * passes and stay readable.
+     *
+     * @param frame Frame to draw into.
+     * @param box Box to place the text in.
+     * @param text Text to draw.
+     * @param role Typographic role.
+     * @param color Text colour.
+     * @param align Horizontal placement.
+     * @return The rectangle the text occupies.
+     */
+    UiRect studioDrawText(StudioFrame& frame, const UiRect& box, std::string_view text,
+                          StudioFontRole role, StudioColor color,
+                          StudioTextAlign align = StudioTextAlign::Left);
+
+    /**
+     * @brief The width a label needs inside a control, including its horizontal padding.
+     * @param frame Frame supplying measurement and metrics.
+     * @param text Label text.
+     * @param role Typographic role.
+     * @return The control width in logical units.
+     */
+    [[nodiscard]] float studioLabelWidth(const StudioFrame& frame, std::string_view text,
+                                         StudioFontRole role = StudioFontRole::Body);
+
+    // --- Widgets ----------------------------------------------------------------------------------
+
+    /**
+     * @brief A push button.
+     *
+     * @param frame Frame to describe into.
+     * @param id The button's identity.
+     * @param bounds Its rectangle.
+     * @param label Its text. A `"##"` suffix is used for identity and not drawn.
+     * @param options Presentation and state.
+     * @return What happened to it.
+     */
+    StudioWidgetResult studioButton(StudioFrame& frame, WidgetId id, const UiRect& bounds,
+                                    std::string_view label, const StudioButtonOptions& options = {});
+
+    /**
+     * @brief A button that carries an on/off state the caller owns.
+     *
+     * @p checked is flipped in the input pass only, so the draw pass sees — and draws — the new
+     * value on the same frame the user clicked.
+     *
+     * @param frame Frame to describe into.
+     * @param id The toggle's identity.
+     * @param bounds Its rectangle.
+     * @param label Its text.
+     * @param checked The state to show and flip.
+     * @param options Presentation and state; `selected` is overridden by @p checked.
+     * @return What happened to it; `changed` is true on the frame the state flipped.
+     */
+    StudioWidgetResult studioToggle(StudioFrame& frame, WidgetId id, const UiRect& bounds,
+                                    std::string_view label, bool& checked,
+                                    const StudioButtonOptions& options = {});
+
+    /** @brief How a slider is drawn and what it will accept. */
+    struct StudioSliderOptions
+    {
+        /** @brief The low end of the range. */
+        float minimum = 0.0f;
+
+        /** @brief The high end. A slider whose ends are equal draws its track and takes nothing. */
+        float maximum = 1.0f;
+
+        /**
+         * @brief Round the value to a multiple of this, or 0 for continuous.
+         *
+         * Applied after the clamp, so a step that does not divide the range still cannot produce a
+         * value outside it -- the last stop before the maximum is a stop, and the maximum is one.
+         */
+        float step = 0.0f;
+
+        bool enabled = true;
+
+        /** @brief Shown beside the pointer while it rests on the track. */
+        std::string tooltip;
+    };
+
+    /**
+     * @brief A bounded numeric control: a track, a filled portion and a thumb.
+     *
+     * `plan.md` STUDIO-19003. `PropertyDescriptor` has carried a `minimum` and a `maximum` since
+     * descriptors existed and said in its own comment that "the inspector may present a slider
+     * instead of a text field". Eight built-in properties declare a range -- a sound's volume, a
+     * camera's field of view, a tile map's columns -- and nothing read either field: every one of
+     * them was a text box a user could type 4000 into.
+     *
+     * **Clamped, never refused.** A value outside the range arrives from a hand-edited file and
+     * from an older build, and a control that refused to show it would leave the user unable to
+     * see what is wrong, let alone fix it. The thumb pins to whichever end it is past and the
+     * first drag brings the value into range.
+     *
+     * **Clicking the track jumps to that point** rather than stepping towards it. A slider is a
+     * position, and the gesture that says "put it here" should put it there; nudging belongs to
+     * the arrow keys, which move by `step` or by a hundredth of the range.
+     *
+     * @param value Read for the thumb's position and written when the user moves it.
+     * @return `changed` when @p value was written this frame; `interaction.held` while dragging.
+     */
+    StudioWidgetResult studioSlider(StudioFrame& frame, WidgetId id, const UiRect& bounds,
+                                    float& value, const StudioSliderOptions& options = {});
+
+    /**
+     * @brief A checkbox: a square indicator and a label beside it.
+     *
+     * @param frame Frame to describe into.
+     * @param id The checkbox's identity.
+     * @param bounds Its rectangle, including the label.
+     * @param label Its text.
+     * @param checked The state to show and flip.
+     * @param enabled False to draw and route it as disabled.
+     * @return What happened to it.
+     */
+    StudioWidgetResult studioCheckbox(StudioFrame& frame, WidgetId id, const UiRect& bounds,
+                                      std::string_view label, bool& checked, bool enabled = true);
+
+    /**
+     * @brief One tab in a tab strip.
+     *
+     * @param frame Frame to describe into.
+     * @param id The tab's identity.
+     * @param bounds Its rectangle.
+     * @param label Its text.
+     * @param options Presentation and state.
+     * @return What happened to it; `activated` is true on the frame it was chosen.
+     */
+    StudioWidgetResult studioTab(StudioFrame& frame, WidgetId id, const UiRect& bounds,
+                                 std::string_view label, const StudioTabOptions& options = {});
+
+    /**
+     * @brief One title in the application menu bar.
+     *
+     * Reports what happened; whether the menu opens is the menu controller's decision, because
+     * "click opens, and then hovering a neighbour switches without another click" is a property of
+     * the *bar*, not of any one title in it.
+     *
+     * @param frame Frame to describe into.
+     * @param id The title's identity.
+     * @param bounds Its rectangle.
+     * @param label Its text.
+     * @param open True while this menu's popup is showing.
+     * @param enabled False to draw and route it as disabled.
+     * @return What happened to it.
+     */
+    StudioWidgetResult studioMenuBarItem(StudioFrame& frame, WidgetId id, const UiRect& bounds,
+                                         std::string_view label, bool open, bool enabled = true);
+
+    /**
+     * @brief One row inside an open menu.
+     *
+     * @param frame Frame to describe into.
+     * @param id The item's identity.
+     * @param bounds Its rectangle.
+     * @param label Its text.
+     * @param options Enablement, check state, submenu arrow and shortcut hint.
+     * @return What happened to it; `activated` is true on the frame it was chosen.
+     */
+    StudioWidgetResult studioMenuItem(StudioFrame& frame, WidgetId id, const UiRect& bounds,
+                                      std::string_view label,
+                                      const StudioMenuItemOptions& options = {});
+
+    /**
+     * @brief A draggable divider between two docked regions.
+     *
+     * The **grab** area is deliberately wider than the drawn divider. A 4-pixel splitter drawn at
+     * 4 pixels is a 4-pixel target, which at 150% DPI on a trackpad is a target people miss; the
+     * hit zone is widened on both sides so that the thing you can grab is bigger than the thing you
+     * can see. Every professional tool does this and none of them mention it.
+     *
+     * @param frame Frame to describe into.
+     * @param id The splitter's identity.
+     * @param bounds The divider as drawn.
+     * @param axis Which way it divides.
+     * @param grabPadding Extra hit distance on each side, in logical units.
+     * @return What it did this frame.
+     */
+    StudioSplitterResult studioSplitter(StudioFrame& frame, WidgetId id, const UiRect& bounds,
+                                        StudioSplitterAxis axis, float grabPadding = 3.0f);
+
+    /**
+     * @brief A horizontal rule between groups of menu items.
+     * @param frame Frame to draw into.
+     * @param bounds The row the separator occupies.
+     */
+    void studioMenuSeparator(StudioFrame& frame, const UiRect& bounds);
+
+    /**
+     * @brief The height one menu row occupies, from theme metrics.
+     * @param theme Theme supplying metrics.
+     * @return Row height in logical units.
+     */
+    [[nodiscard]] float studioMenuItemHeight(const StudioTheme& theme);
+
+    /**
+     * @brief The height a separator row occupies inside a menu.
+     * @param theme Theme supplying metrics.
+     * @return Row height in logical units.
+     */
+    [[nodiscard]] float studioMenuSeparatorHeight(const StudioTheme& theme);
+
+    /** @brief One row of a panel's own right-click menu. */
+    struct StudioContextMenuItem
+    {
+        /** @brief What it says. Empty draws a separator, which cannot be chosen. */
+        std::string label;
+
+        /** @brief False to grey it out. A row that is absent tells the user less than one that is
+         *         present and unavailable, because absence looks the same as "this menu is short". */
+        bool enabled = true;
+
+        /** @brief Shortcut hint, right-aligned, e.g. `"F2"`. */
+        std::string shortcut;
+    };
+
+    /**
+     * @brief Opens @p owner's right-click menu at a point.
+     *
+     * `plan.md` STUDIO-09009. A panel's own menu, distinct from `StudioShell::openContextMenu`:
+     * the shell's rows are *action ids* from the registry, which is right for the commands that
+     * also live in the menu bar and wrong for rows that exist only while one asset is under the
+     * pointer. Registering "Duplicate 'Crate.png'" as an application action to show it in a menu
+     * would leave it in the command palette too.
+     *
+     * @param frame Frame to describe into.
+     * @param owner The widget the menu belongs to -- the panel, not the row.
+     * @param x Where the pointer was, in logical units.
+     * @param y Where the pointer was, in logical units.
+     */
+    void studioOpenContextMenu(StudioFrame& frame, WidgetId owner, float x, float y);
+
+    /**
+     * @brief Draws @p owner's right-click menu, if it is open, and reports what was chosen.
+     *
+     * Called every frame in both passes, like any other widget: the draw pass paints the rows the
+     * input pass routed. The body is deferred, so the menu escapes the panel it belongs to rather
+     * than being clipped to it -- a menu opened on the last row of a short panel would otherwise
+     * show two of its five entries.
+     *
+     * @param frame Frame to describe into.
+     * @param owner The same id passed to @ref studioOpenContextMenu.
+     * @param items The rows. Captured by value, because a caller that builds them inline hands
+     *        this a vector that is gone by the time the deferred body runs.
+     * @return The index of the row chosen since the last call, or -1. Input pass only.
+     */
+    [[nodiscard]] int studioContextMenu(StudioFrame& frame, WidgetId owner,
+                                        const std::vector<StudioContextMenuItem>& items);
+
+    // ---------------------------------------------------------------------------------------
+    // Scrolling
+    // ---------------------------------------------------------------------------------------
+
+    /** @brief What a scroll view is being asked to show. */
+    struct StudioScrollOptions
+    {
+        /** @brief Total height of the content, in logical units. */
+        float contentHeight = 0.0f;
+
+        /** @brief Total width of the content. Zero, or less than the view, means no horizontal bar. */
+        float contentWidth = 0.0f;
+
+        /**
+         * @brief Keep the view pinned to the end as content grows.
+         *
+         * Honoured only while the user is already at the end. A console that yanked the view back
+         * to the bottom while somebody was reading further up would be unusable, and "auto-scroll"
+         * has never meant "take the scrollbar away from me".
+         */
+        bool stickToEnd = false;
+
+        /** @brief How far one wheel notch scrolls, in logical units. Zero uses the theme's row height. */
+        float wheelStep = 0.0f;
+    };
+
+    /** @brief A scroll view's resolved geometry and position. */
+    struct StudioScrollResult
+    {
+        /**
+         * @brief Where content should be drawn, excluding any scrollbar.
+         *
+         * In view coordinates, not content coordinates: a caller draws a row at
+         * `viewport.top() - offsetY + rowIndex * rowHeight`.
+         */
+        UiRect viewport;
+
+        /** @brief How far the content is scrolled down, in logical units. Never negative. */
+        float offsetY = 0.0f;
+
+        /** @brief How far the content is scrolled right, in logical units. */
+        float offsetX = 0.0f;
+
+        /** @brief Whether the view is showing the end of the content. */
+        bool atEnd = true;
+
+        /** @brief Whether a vertical scrollbar was needed. */
+        bool hasVerticalBar = false;
+
+        /**
+         * @brief The range of rows worth describing, given a uniform row height.
+         *
+         * Culling by hand rather than relying on the clip is what keeps a hundred-thousand-line log
+         * costing the same as a ten-line one: the clip stops the pixels, but only this stops the
+         * work of measuring and laying out text that was never going to be seen.
+         *
+         * @param rowHeight Height of one row.
+         * @param rowCount How many rows there are.
+         * @param outFirst Receives the first visible row index.
+         * @param outLast Receives one past the last visible row index.
+         */
+        void visibleRows(float rowHeight, std::size_t rowCount,
+                         std::size_t& outFirst, std::size_t& outLast) const;
+
+        /**
+         * @brief The range of items worth describing in a uniform grid.
+         *
+         * `plan.md` STUDIO-30010, the grid's answer to @ref visibleRows. Culling *inside* the loop
+         * is not the same thing: it stops the drawing and still walks every item, which at a
+         * hundred thousand assets is a hundred thousand iterations a pass to show forty.
+         *
+         * More than that, this is answerable *before* the items exist — which is the part that
+         * matters, because the expensive half of a large grid is building the model, not drawing
+         * it. A caller asks the window, then builds only what is in it.
+         *
+         * @param cellWidth Width of one cell, spacing excluded.
+         * @param cellHeight Height of one cell, spacing excluded.
+         * @param spacing The gap between cells, and the margin before the first.
+         * @param itemCount How many items there are.
+         * @param outColumns Receives how many fit across, never less than one.
+         * @param outFirst Receives the first visible item's index.
+         * @param outLast Receives one past the last.
+         */
+        void visibleCells(float cellWidth, float cellHeight, float spacing, std::size_t itemCount,
+                          std::size_t& outColumns, std::size_t& outFirst,
+                          std::size_t& outLast) const;
+    };
+
+    /**
+     * @brief How tall a uniform grid's content is, for @ref StudioScrollOptions::contentHeight.
+     *
+     * The same arithmetic @ref StudioScrollResult::visibleCells does, available *before* the scroll
+     * region exists — which is the order a caller needs it in, because the extent has to be handed
+     * to `studioBeginScroll` and the window can only be asked afterwards.
+     *
+     * @param viewportWidth The width the cells are laid out across.
+     * @param cellWidth Width of one cell, spacing excluded.
+     * @param cellHeight Height of one cell, spacing excluded.
+     * @param spacing The gap between cells, and the margin before the first.
+     * @param itemCount How many items there are.
+     * @return The total height, including the margin at each end.
+     */
+    [[nodiscard]] float studioGridContentHeight(float viewportWidth, float cellWidth,
+                                                float cellHeight, float spacing,
+                                                std::size_t itemCount);
+
+    /**
+     * @brief How many cells of @p cellWidth fit across @p viewportWidth, never fewer than one.
+     *
+     * One function rather than the same `floor` written at each call site: a grid whose extent and
+     * whose layout disagreed about the column count would scroll past its own last row, and the two
+     * are computed in different places.
+     */
+    [[nodiscard]] std::size_t studioGridColumns(float viewportWidth, float cellWidth, float spacing);
+
+    /**
+     * @brief A scrollable region: wheel, draggable thumb, and a clipped viewport.
+     *
+     * Call it with the area the region occupies and the size of the content that goes in it, draw
+     * the content into @ref StudioScrollResult::viewport offset by the returned position, then call
+     * @ref studioEndScroll. It pushes a clip, so the two must be paired in both passes.
+     *
+     * The scroll position is retained state keyed by @p id, so it survives the frame and survives
+     * the content changing underneath it.
+     *
+     * @param frame The frame.
+     * @param id Identity of the view.
+     * @param bounds Area the view occupies, scrollbar included.
+     * @param options What the content is.
+     * @return Where and how to draw the content.
+     */
+    StudioScrollResult studioBeginScroll(StudioFrame& frame, WidgetId id, const UiRect& bounds,
+                                         const StudioScrollOptions& options);
+
+    /** @brief Ends the region opened by @ref studioBeginScroll, popping its clip. */
+    void studioEndScroll(StudioFrame& frame);
+
+    // ---------------------------------------------------------------------------------------
+    // Text entry
+    // ---------------------------------------------------------------------------------------
+
+    /** @brief How a text field behaves and what it says when empty. */
+    struct StudioTextFieldOptions
+    {
+        /** @brief False to draw and route it read-only. */
+        bool enabled = true;
+
+        /** @brief Shown, dimmed, when the field is empty and unfocused. */
+        std::string_view placeholder;
+
+        /**
+         * @brief A short label drawn inside the field, at the left, always.
+         *
+         * `STUDIO-35032`. This is what makes a row of three numbers a *vector* rather than three
+         * numbers. The component letters were on @ref placeholder, which shows only while a field
+         * is empty — so every populated Position, Rotation and Scale in Studio was three unlabelled
+         * boxes, which is precisely the case the letters exist for.
+         *
+         * One or two characters. The text area is inset past it, so a long value scrolls rather
+         * than running underneath.
+         */
+        std::string_view prefix;
+
+        /**
+         * @brief The colour @ref prefix is drawn in.
+         *
+         * Defaulted to secondary text, and set to an axis colour by a vector field. Red, green,
+         * blue in axis order is the convention every 3D tool shares, and it has to match the
+         * gizmo's — an inspector teaching a mapping the viewport contradicts is worse than no
+         * colour coding, because the user learns it and is then wrong.
+         */
+        StudioColorRole prefixRole = StudioColorRole::TextSecondary;
+
+        /** @brief Typographic role. Monospace suits a number or an identifier. */
+        StudioFontRole font = StudioFontRole::Body;
+
+        /**
+         * @brief Select everything when the field takes focus.
+         *
+         * What a property grid wants: tabbing to a number and typing should replace it, not append
+         * to it. What a long free-text field does not want, because one keystroke then loses the
+         * lot.
+         */
+        bool selectAllOnFocus = false;
+    };
+
+    /** @brief What a text field did this frame. */
+    struct StudioTextFieldResult
+    {
+        /** @brief Hover, press, focus and disabled state. */
+        StudioInteraction interaction;
+
+        /**
+         * @brief The value changed and was committed. Input pass only.
+         *
+         * Committed means Enter, or focus leaving the field. Not every keystroke: a property bound
+         * to a field that wrote on every character would put a hundred entries in the undo stack
+         * for one edit, and would re-validate a number while it is half-typed.
+         */
+        bool committed = false;
+
+        /** @brief The user is editing: the text differs from @p value. Both passes. */
+        bool editing = false;
+
+        /** @brief The edit was abandoned with Escape. Input pass only. */
+        bool cancelled = false;
+    };
+
+    /**
+     * @brief An editable single-line text field.
+     *
+     * Click to place the caret, drag to select, Shift with the arrows and Home/End to extend,
+     * Ctrl+A to select all, Ctrl+C/X/V through the frame's clipboard, Escape to abandon and Enter
+     * to commit. The in-progress text is retained state keyed by @p id, so it survives the frames
+     * between keystrokes and a value changing underneath it does not throw away what was typed.
+     *
+     * @param frame The frame.
+     * @param id Identity of the field.
+     * @param bounds Area it occupies.
+     * @param value Read for the displayed value; written on commit.
+     * @param options Behaviour.
+     * @return What happened.
+     */
+    StudioTextFieldResult studioTextField(StudioFrame& frame, WidgetId id, const UiRect& bounds,
+                                          std::string& value,
+                                          const StudioTextFieldOptions& options = {});
+
+    /** @brief How a numeric field scrubs, on top of how its text field behaves. */
+    struct StudioNumericFieldOptions
+    {
+        /** @brief Everything a text field understands; the number is rendered into it. */
+        StudioTextFieldOptions text;
+
+        /**
+         * @brief Units the value moves per pixel of horizontal drag.
+         *
+         * Not a fraction of a range, because a position has no range. A step is what makes the
+         * gesture mean the same thing on a coordinate in the hundreds and on a scale around one —
+         * which is why a caller sets it per property rather than inheriting one number.
+         */
+        float step = 1.0f;
+
+        /** @brief Round to whole numbers, for a count or an index. */
+        bool integral = false;
+
+        /** @brief False to leave the value alone and behave as a plain text field. */
+        bool draggable = true;
+    };
+
+    /** @brief What a numeric field did this frame. */
+    struct StudioNumericFieldResult
+    {
+        /** @brief What the underlying text field did. */
+        StudioTextFieldResult text;
+
+        /** @brief The value changed, by typing or by dragging. Input pass only. */
+        bool changed = false;
+
+        /**
+         * @brief A scrub is in flight this frame. Both passes.
+         *
+         * What tells a caller to push its change as `MergePolicy::MergeWithPrevious` rather than
+         * as a new entry — and, on the frame it goes false, that the interaction has ended.
+         */
+        bool dragging = false;
+    };
+
+    /**
+     * @brief A numeric field that is typed into *or* dragged sideways to scrub.
+     *
+     * `STUDIO-07055`. Every 3D tool scrubs its number fields, and a property grid without it is one
+     * where setting a position means selecting the text and typing four characters — for a value
+     * the user wants to *feel* their way to rather than know in advance.
+     *
+     * ### A click still places the caret
+     *
+     * The drag only begins once the pointer has actually moved, exactly like `studioDragSource`'s
+     * threshold and for the same reason: without it, clicking a field on a trackpad would nudge the
+     * value, and a field that changes when you click it is a field nobody dares click. Below the
+     * threshold the press is the text field's, and it does what it always did.
+     *
+     * ### It does not fight the keyboard
+     *
+     * A field being typed into is not scrubbed. The two would otherwise race over the same string —
+     * the drag writing a value in while the user is halfway through typing another.
+     *
+     * @param frame The frame.
+     * @param id Identity of the field.
+     * @param bounds Area it occupies.
+     * @param value Read for the displayed value; written on commit or on a scrub.
+     * @param options Behaviour.
+     * @return What happened.
+     */
+    StudioNumericFieldResult studioNumericField(StudioFrame& frame, WidgetId id,
+                                                const UiRect& bounds, float& value,
+                                                const StudioNumericFieldOptions& options = {});
+
+    // ---------------------------------------------------------------------------------------
+    // Drag and drop
+    // ---------------------------------------------------------------------------------------
+
+    /**
+     * @brief Draws the label of whatever is being carried, beside the pointer.
+     *
+     * Call it once at the end of the draw pass, after everything else. It routes nothing and
+     * raises no layer: a preview that swallowed input would stop the target underneath it from
+     * ever seeing the drop.
+     *
+     * @param frame The frame. Does nothing when no drag is in flight.
+     */
+    void studioDrawDragPreview(StudioFrame& frame);
+
+    /**
+     * @brief Starts a drag from a widget the pointer is holding, once it has moved far enough.
+     *
+     * The threshold is what keeps a click that wobbled by a pixel from becoming a drag — without
+     * it, selecting a row on a trackpad would start carrying it.
+     *
+     * @param frame The frame.
+     * @param source The widget being held.
+     * @param interaction Its interaction this frame.
+     * @param payload What it would carry.
+     * @return True on the frame the drag starts.
+     */
+    bool studioDragSource(StudioFrame& frame, WidgetId source,
+                          const StudioInteraction& interaction,
+                          StudioFrame::StudioDragPayload payload);
+
+    // ---------------------------------------------------------------------------------------
+    // Drop-down
+    // ---------------------------------------------------------------------------------------
+
+    /** @brief How a drop-down behaves. */
+    struct StudioDropdownOptions
+    {
+        /** @brief False to draw it dimmed and refuse interaction. */
+        bool enabled = true;
+
+        /** @brief Shown when the selection is out of range, e.g. `"(none)"`. */
+        std::string_view placeholder = "";
+
+        /** @brief Hover help, offered after the pointer rests. */
+        std::string_view tooltip = "";
+
+        /**
+         * @brief How many rows the list shows before it scrolls.
+         *
+         * A list of every renderer or every font on the machine must not become a popup taller
+         * than the window.
+         */
+        int visibleRows = 10;
+    };
+
+    /** @brief What a drop-down did this frame. */
+    struct StudioDropdownResult
+    {
+        /** @brief Hover, press and focus of the closed control. */
+        StudioInteraction interaction;
+
+        /** @brief The selection changed. Input pass only. */
+        bool changed = false;
+
+        /** @brief The index now selected, or -1. */
+        int selected = -1;
+
+        /** @brief The list is showing. Both passes. */
+        bool open = false;
+    };
+
+    /**
+     * @brief A drop-down selection.
+     *
+     * Click or press Enter/Space/Down to open, arrows to move, Enter to choose, Escape or a press
+     * elsewhere to dismiss. The list is a *deferred* popup, so it escapes the panel it sits in
+     * rather than being clipped by it, and it flips above the control when there is no room below.
+     *
+     * @param frame The frame.
+     * @param id Identity of the control.
+     * @param bounds Area the closed control occupies.
+     * @param items What can be chosen.
+     * @param selected Index of the current selection, or -1. Written when the user chooses.
+     * @param options Behaviour.
+     * @return What happened.
+     */
+    StudioDropdownResult studioDropdown(StudioFrame& frame, WidgetId id, const UiRect& bounds,
+                                        const std::vector<std::string>& items, int& selected,
+                                        const StudioDropdownOptions& options = {});
+} // namespace CNA::Studio

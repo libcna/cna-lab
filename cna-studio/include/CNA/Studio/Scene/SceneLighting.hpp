@@ -1,0 +1,291 @@
+// SPDX-License-Identifier: MS-PL
+#pragma once
+
+/**
+ * @file CNA/Studio/Scene/SceneLighting.hpp
+ * @brief What lights a scene, reduced to what an XNA-shaped effect can be told (ED-402, ED-404).
+ *
+ * `CNA.Light` has been a component descriptor since Phase 1 and nothing has ever read it. This is
+ * the half that reads it, and it is here -- CNA-free, in `cna-studio-scene` -- rather than in the
+ * viewport for the reason everything else in this module is: what lights a scene is a fact about
+ * the *document*, and a fact about a document can be tested without a GPU.
+ *
+ * **The reduction this file performs is the interesting part, and it is forced by the API.**
+ * `IEffectLights` -- which both `BasicEffect` and CNA's `PbrEffect` implement -- is XNA's
+ * fixed-function lighting: an ambient colour and exactly **three directional lights**. It has no
+ * point light and no spot light. A scene may hold any number of all three kinds, so something has
+ * to give, and there are only three honest options: draw nothing, ignore what does not fit, or
+ * approximate. This picks the third and writes down exactly how, because an approximation nobody
+ * can see the shape of is indistinguishable from a bug.
+ *
+ * - **A directional light is used as it is.** Its direction is its entity's own forward axis, so
+ *   rotating the light entity in the viewport turns the light, which is the only behaviour a user
+ *   would predict.
+ * - **A point or spot light becomes a directional light aimed at whatever is being drawn**, and
+ *   dimmed by how far outside its `range` that thing is. That is the classic XNA workaround and it
+ *   is genuinely position-dependent: the same lamp lights two entities from two different angles,
+ *   which is what a point light *does*. What it cannot do is fall off across one large model --
+ *   the whole model is lit as though it were at its own origin.
+ * - **A spot light's cone is not modelled at all**, only its direction and range. `IEffectLights`
+ *   has nowhere to put a cone angle. Spot lights therefore light like point lights, and the
+ *   Validation panel is where that should be said to a user rather than here.
+ * - **Where more than three lights would apply, the three brightest at that point win.** Brightest
+ *   rather than nearest or first-in-document: a distant sun matters more to how a model looks than
+ *   a dim lamp beside it, and document order is not something a user arranges deliberately.
+ *
+ * **A correction, added by `plan.md` STUDIO-20006.** Everything above is true of
+ * `IEffectLights` and is *not* true of CNA. CNA's own additions live in its CNAEXT layer:
+ * `PbrEffect::setPunctualLightEXT` takes a point or spot light with a position, a range and inner
+ * and outer cone angles, `IShadowReceiverEXT` lets an effect sample a shadow map, and
+ * `CNA::Graphics::ShadowMap` generates one. Two CNA gaps were filed against that misunderstanding
+ * and have been withdrawn (`docs/CNA-GAPS.md` G-13, G-14).
+ *
+ * `STUDIO-20003` acted on the first half: `EffectLighting` now carries one `EffectPunctualLight`
+ * beside the three directional slots, so a point light keeps its position and a spot light its
+ * cone. Everything above still describes what the *other* lights get -- the runners-up for that
+ * single slot, and every light at all on a `BasicEffect` build, which does not implement the
+ * extension. The shadow half is `STUDIO-20006` and is not written yet.
+ *
+ * When a scene has no enabled light at all, `computeEffectLighting` says so through
+ * `EffectLighting::useDefaultLighting` and the renderer calls XNA's own `EnableDefaultLighting()`.
+ * That is a decision, not a fallback for its own sake: a scene with no lights rendered black looks
+ * exactly like a renderer that is broken, and the commonest scene of all -- one somebody has just
+ * dropped a model into -- has no lights in it.
+ */
+
+#include <array>
+#include <cstddef>
+#include <string_view>
+#include <vector>
+
+#include "CNA/Studio/Core/StudioMath.hpp"
+#include "CNA/Studio/Core/Uuid.hpp"
+
+namespace CNA::Studio
+{
+    class SceneDocument;
+
+    /** @brief Which of `CNA.Light`'s three kinds a light is. */
+    enum class SceneLightKind
+    {
+        Directional,
+        Point,
+        Spot
+    };
+
+    /** @brief Returns the stable name of @p kind, matching the descriptor's enum options. */
+    [[nodiscard]] const char* toString(SceneLightKind kind);
+
+    /**
+     * @brief Returns the kind @p name spells, and Directional for anything it does not.
+     *
+     * The inverse of @ref toString, and public for the same reason that is: the spelling of a
+     * light's kind has to be one answer. `validateScene` asks the same question the lighting
+     * reduction does, and a second `if (name == "Point")` somewhere else is how a fourth kind
+     * comes to be understood by one of them and not the other.
+     *
+     * **Directional for anything unrecognised, rather than nothing.** A scene written by a newer
+     * Studio with a kind this build has never heard of should still light something: the wrong
+     * kind of light is a visible, correctable state, while no light at all reads as the component
+     * having been ignored.
+     */
+    [[nodiscard]] SceneLightKind parseSceneLightKind(std::string_view name);
+
+    /**
+     * @brief Which of a light's fields mean anything for @p kind (`plan.md` STUDIO-20002).
+     *
+     * Three predicates rather than three conditions written out wherever they are needed. They
+     * are read by the Inspector -- through `CNA.Light`'s `appliesWhen`, which
+     * `TheLightInspectorAndTheLightOverlayAgreeAboutWhatEachKindUses` holds to these -- and by the
+     * viewport overlay, which drew a direction arrow on a point light and a range ring on none.
+     *
+     * A point light shines equally in every direction, so its rotation is nothing to it; a
+     * directional light is infinitely far away, so its position and range are nothing to it; a
+     * spot light is the only kind that uses all three, and `IEffectLights` cannot draw its cone
+     * at all -- which is `STUDIO-20008`'s business rather than these predicates'.
+     */
+    [[nodiscard]] bool sceneLightUsesDirection(SceneLightKind kind);
+
+    /** @brief Whether @p kind is lit from a place in the scene. @see sceneLightUsesDirection */
+    [[nodiscard]] bool sceneLightUsesPosition(SceneLightKind kind);
+
+    /** @brief Whether @p kind's reach is bounded by its range. @see sceneLightUsesDirection */
+    [[nodiscard]] bool sceneLightUsesRange(SceneLightKind kind);
+
+    /** @brief One `CNA.Light` in the scene, resolved into world space. */
+    struct SceneLight
+    {
+        Uuid entityId;
+
+        SceneLightKind kind = SceneLightKind::Directional;
+
+        /** @brief World position, from the entity's transform. Meaningless for a directional light. */
+        StudioVector3 position;
+
+        /**
+         * @brief Unit world direction the light points along: the entity's own forward axis.
+         *
+         * +Z rotated by the entity's world rotation. +Z because this editor's world is Y-down and
+         * its 2D plane is XY, so the axis that points *into* the scene is the one a light with no
+         * rotation should shine along -- an unrotated light shines the way the unrotated camera
+         * looks, which is what makes a newly added light do something visible.
+         */
+        StudioVector3 direction{0.0f, 0.0f, 1.0f};
+
+        /** @brief The light's colour, straight from the component. */
+        StudioColor color{255, 255, 255, 255};
+
+        /** @brief Multiplies the colour. Not clamped: over-bright is a legitimate authoring choice. */
+        float intensity = 1.0f;
+
+        /**
+         * @brief Half-angle of a spot light's fully lit centre, in radians (`plan.md` STUDIO-20003).
+         *
+         * Meaningless for the other two kinds, and the Inspector greys it out for them. Stored in
+         * *radians* here and authored in degrees, which is the same split `CNA.Camera`'s field of
+         * view uses: a person types 35 and every renderer wants the angle in radians.
+         */
+        float innerAngle = 0.0f;
+
+        /** @brief Half-angle at which a spot light's cone ends, in radians. @see innerAngle */
+        float outerAngle = 0.0f;
+
+        /** @brief How far a point or spot light reaches, in world units. Ignored for directional. */
+        float range = 10.0f;
+    };
+
+    /**
+     * @brief Returns every enabled `CNA.Light` in @p scene, in document order.
+     *
+     * A light on a disabled entity is left out, and so is one whose entity has no transform: a
+     * light with no position is not a light this editor can place, and silently giving it the
+     * origin would put it somewhere the user never chose.
+     */
+    [[nodiscard]] std::vector<SceneLight> collectSceneLights(const SceneDocument& scene);
+
+    /** @brief One directional light, in the form `IEffectLights` takes. */
+    struct EffectDirectionalLight
+    {
+        /** @brief Unit direction the light travels along. */
+        StudioVector3 direction{0.0f, 0.0f, 1.0f};
+
+        /** @brief Colour premultiplied by intensity and by any distance falloff. */
+        StudioVector3 diffuseColor{1.0f, 1.0f, 1.0f};
+
+        /** @brief The specular colour, which is the diffuse one -- XNA's own default behaviour. */
+        StudioVector3 specularColor{1.0f, 1.0f, 1.0f};
+    };
+
+    /**
+     * @brief The one point or spot light an object is drawn with, in CNA's own terms.
+     *
+     * `plan.md` STUDIO-20003. CNA's lit effects take **one** punctual light per draw beside the
+     * three directional slots -- `PbrEffect::setPunctualLightEXT` -- with a real position, a
+     * range and, for a spot, inner and outer cone angles. CNA's own documentation calls that a
+     * deliberate ceiling rather than a limitation: each shadowed punctual light is another
+     * generation pass, six of them for a point light.
+     *
+     * So one is what this carries. A scene with two lamps near one crate sends the brighter of
+     * them here and the other through the directional approximation below, which is the answer
+     * every light got before this existed.
+     */
+    struct EffectPunctualLight
+    {
+        /** @brief Point or Spot. A directional light is never one of these. */
+        SceneLightKind kind = SceneLightKind::Point;
+
+        /** @brief Where the light is, in world space. */
+        StudioVector3 position;
+
+        /** @brief The direction the cone points. Ignored for a point light. */
+        StudioVector3 direction{0.0f, 0.0f, 1.0f};
+
+        /** @brief Colour premultiplied by intensity. *Not* by distance falloff. */
+        StudioVector3 diffuseColor{1.0f, 1.0f, 1.0f};
+
+        /**
+         * @brief Distance past which the light contributes nothing.
+         *
+         * The falloff is the effect's to compute here, unlike the directional approximation, which
+         * has no position to measure from and so has its falloff baked into its colour. That is
+         * the whole reason this is worth sending: the shading is per *pixel* rather than per
+         * object, so a lamp beside a large model lights the near end and not the far one.
+         */
+        float range = 0.0f;
+
+        /** @brief Half-angle of the fully lit centre, in radians. Spot only. */
+        float innerAngle = 0.0f;
+
+        /** @brief Half-angle at which the cone ends, in radians. Spot only. */
+        float outerAngle = 0.0f;
+    };
+
+    /** @brief Everything an `IEffectLights` needs, for one object at one place in the world. */
+    struct EffectLighting
+    {
+        /**
+         * @brief True when the scene had no enabled light and the caller should use XNA's default.
+         *
+         * When this is set the three slots below are untouched and must not be applied: XNA's
+         * `EnableDefaultLighting()` sets its own, and half-applying both gives a scene lit by a
+         * mixture the user cannot account for from anything on screen.
+         */
+        bool useDefaultLighting = true;
+
+        /** @brief The ambient term: a floor under everything, so nothing is pure black. */
+        StudioVector3 ambientColor{0.05f, 0.05f, 0.06f};
+
+        /**
+         * @brief Whether @ref ambientColor must be applied even under the default rig.
+         *
+         * `plan.md` STUDIO-20004, and it exists because of a defect this row found. When a scene
+         * has no lights the renderer calls XNA's `EnableDefaultLighting()` and returns, which sets
+         * that rig's *own* ambient -- so a user who darkened the scene's ambient saw nothing
+         * happen, in exactly the scene the default rig exists for: the one somebody has just
+         * dropped a model into.
+         *
+         * Set when the scene states an ambient that is not the default one. That condition is the
+         * whole of the design: a scene nobody has touched keeps XNA's rig exactly, so a CNA scene
+         * and an XNA one with no lights still look the same (which is why `EnableDefaultLighting`
+         * is called at all); a scene somebody has deliberately darkened gets the dark they asked
+         * for. Always overriding would have broken the first promise to keep the second, and
+         * never overriding is the defect.
+         *
+         * Meaningless unless @ref useDefaultLighting is set -- when it is not, the ambient is
+         * applied unconditionally.
+         */
+        bool ambientOverridesDefault = false;
+
+        /** @brief Up to three lights. `lightCount` says how many are filled in. */
+        std::array<EffectDirectionalLight, 3> lights{};
+
+        std::size_t lightCount = 0;
+
+        /** @brief Whether @ref punctual carries a light. @see EffectPunctualLight */
+        bool hasPunctual = false;
+
+        /**
+         * @brief The one point or spot light this object gets, when a scene offers one.
+         *
+         * Meaningless unless @ref hasPunctual is set. An effect that does not implement CNA's
+         * punctual extension -- `BasicEffect` does not -- simply never reads it, and the object is
+         * lit by the directional slots alone, which is what every object got before this existed.
+         */
+        EffectPunctualLight punctual;
+    };
+
+    /**
+     * @brief Reduces @p lights to what one object at @p targetWorld can be drawn with.
+     *
+     * @param targetWorld Where the object being lit is. Point and spot lights are resolved against
+     *        it -- see this file's header for what that approximation can and cannot do.
+     *
+     * Returns `useDefaultLighting` when @p lights is empty, or when every light in it contributes
+     * nothing at @p targetWorld (all out of range, or all at zero intensity). The second case
+     * matters as much as the first: a scene whose only lamp is on the other side of the level
+     * would otherwise render its models black, and "unlit" and "too far from the light" look
+     * identical to somebody who has just added a model.
+     */
+    [[nodiscard]] EffectLighting computeEffectLighting(const std::vector<SceneLight>& lights,
+                                                       const StudioVector3& targetWorld);
+}

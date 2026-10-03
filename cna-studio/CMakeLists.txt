@@ -1,0 +1,642 @@
+cmake_minimum_required(VERSION 3.20)
+
+# 1.0.0 on the day the Core workflow was declared complete and the product entered maintenance
+# mode (`plan.md` CORE-11, 2026-09-23). What the number means here is written down in
+# CHANGELOG.md and is narrower than it usually is: the eleven steps `plan.md` names are built,
+# tested and documented. It is not a claim about parity with any other tool.
+project(CnaStudio
+    VERSION 1.0.0
+    DESCRIPTION "A lightweight visual development companion for CNA applications"
+    LANGUAGES CXX)
+
+# C++23 and the "no compiler extensions" stance both match CNA's own root CMakeLists.txt, so that
+# the editor and CNA can be compiled into one build tree without fighting over the standard.
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Build type" FORCE)
+endif()
+
+# ---------------------------------------------------------------------------------------------
+# Options
+# ---------------------------------------------------------------------------------------------
+
+# Default OFF, deliberately. cna-studio-core, -scene, -assets, -project, -ui and -runtime-bridge
+# have no CNA dependency at all, and keeping the default build CNA-free is what makes the editor
+# clonable and testable on its own -- with no ../cna checkout, no ../sharp-runtime checkout, no
+# GPU and no window. See ANALYSIS.md decision D-03.
+option(CNA_STUDIO_WITH_CNA "Build the CNA-backed viewport (requires a ../cna sibling checkout)" OFF)
+
+option(CNA_STUDIO_BUILD_TESTS "Build the cna-studio test suite" ON)
+
+# Empty by default, and expensive when it is not. Each entry is a *separate build of CNA*, because
+# CNA fixes its graphics backend at compile time (ANALYSIS.md finding F-01): a second backend means
+# a second cna-player binary, which means compiling CNA again. That is minutes, not seconds, which
+# is why nobody gets it without asking.
+#
+# What it buys is the thing F-01 otherwise makes impossible: play mode offering a real choice, and
+# the backend comparison (plan.md ED-510/ED-511) having something to compare. With one player
+# binary installed the comparison can only report that a backend matches itself.
+#
+#   cmake -S . -B build -DCNA_STUDIO_WITH_CNA=ON -DCNA_STUDIO_PLAYER_BACKENDS="SOFTWARE;EASYGL"
+set(CNA_STUDIO_PLAYER_BACKENDS "" CACHE STRING
+    "Extra CNA backends to build cna-player for, e.g. SOFTWARE;EASYGL. Each is a full CNA build.")
+option(CNA_STUDIO_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
+
+set(CNA_STUDIO_CNA_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../cna"
+    CACHE PATH "Path to the CNA sibling checkout, used when CNA_STUDIO_WITH_CNA is ON")
+
+# ---------------------------------------------------------------------------------------------
+# Shared compile settings
+# ---------------------------------------------------------------------------------------------
+
+add_library(cna-studio-settings INTERFACE)
+target_compile_features(cna-studio-settings INTERFACE cxx_std_23)
+target_include_directories(cna-studio-settings INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+target_compile_definitions(cna-studio-settings INTERFACE
+    CNA_STUDIO_VERSION="${PROJECT_VERSION}")
+
+if(MSVC)
+    target_compile_options(cna-studio-settings INTERFACE /W4 /permissive-)
+    if(CNA_STUDIO_WARNINGS_AS_ERRORS)
+        target_compile_options(cna-studio-settings INTERFACE /WX)
+    endif()
+else()
+    target_compile_options(cna-studio-settings INTERFACE -Wall -Wextra -Wpedantic)
+    if(CNA_STUDIO_WARNINGS_AS_ERRORS)
+        target_compile_options(cna-studio-settings INTERFACE -Werror)
+    endif()
+endif()
+
+# ---------------------------------------------------------------------------------------------
+# Modules
+#
+# The split mirrors plan.md's module table. It is enforced by what each target links, not by
+# convention: cna-studio-core cannot accidentally acquire a UI dependency, because nothing it
+# links has one.
+# ---------------------------------------------------------------------------------------------
+
+# cna-studio-core -- identity, JSON, reflection metadata, commands, undo.
+# Links nothing but the C++ standard library. Every other module depends on this one; it depends
+# on none of them, which is what keeps the document model testable in isolation.
+add_library(cna-studio-core STATIC
+    src/core/Uuid.cpp
+    src/core/Json.cpp
+    src/core/PropertyValue.cpp
+    src/core/ComponentDescriptor.cpp
+    src/core/CommandHistory.cpp
+    src/core/Sha256.cpp
+    src/core/StudioFileWrite.cpp
+    src/core/StudioJobs.cpp
+    src/core/FormatMigration.cpp
+    src/core/ImageDiff.cpp
+    src/core/MeshData.cpp
+    src/core/NumberText.cpp
+    src/core/StudioMatrix.cpp
+    src/core/UserPaths.cpp)
+# Threads, for the background job system (STUDIO-30001). PUBLIC because the job system's header is
+# part of cna-studio-core's interface, and every target that uses it needs the same flags: on Linux
+# a missing -pthread is not a link error, it is a std::system_error at the first thread creation.
+find_package(Threads REQUIRED)
+target_link_libraries(cna-studio-core PUBLIC cna-studio-settings Threads::Threads)
+
+# The runtime an exported game carries, embedded the same way the typefaces are and for the same
+# reason: a shipped Studio has no source tree beside it, and export must work from the binary alone.
+# Embedding from the sources Studio itself compiles is also what stops the exported runtime drifting
+# from the writer that produced the scene -- a committed second copy would be free to.
+set(CNA_STUDIO_EMBEDDED_RUNTIME_SOURCES "")
+foreach(_runtimeFile
+        "include/CNA/Studio/Core/Json.hpp|kRuntimeJsonHeader"
+        "src/core/Json.cpp|kRuntimeJsonSource"
+        "include/CNA/Studio/Core/Uuid.hpp|kRuntimeUuidHeader"
+        "src/core/Uuid.cpp|kRuntimeUuidSource"
+        "include/CNA/Studio/Runtime/SceneLoader.hpp|kRuntimeSceneLoaderHeader")
+    string(REPLACE "|" ";" _parts "${_runtimeFile}")
+    list(GET _parts 0 _runtimePath)
+    list(GET _parts 1 _runtimeSymbol)
+
+    set(_runtimeInput "${CMAKE_CURRENT_SOURCE_DIR}/${_runtimePath}")
+    set(_runtimeOutput "${CMAKE_CURRENT_BINARY_DIR}/generated/${_runtimeSymbol}.cpp")
+
+    add_custom_command(
+        OUTPUT "${_runtimeOutput}"
+        COMMAND "${CMAKE_COMMAND}"
+                -DINPUT=${_runtimeInput}
+                -DOUTPUT=${_runtimeOutput}
+                -DSYMBOL=${_runtimeSymbol}
+                -DNAMESPACE=CNA::Studio::Generated
+                -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/EmbedBinary.cmake"
+        DEPENDS "${_runtimeInput}" "${CMAKE_CURRENT_SOURCE_DIR}/cmake/EmbedBinary.cmake"
+        COMMENT "Embedding exported runtime source ${_runtimePath}"
+        VERBATIM)
+    list(APPEND CNA_STUDIO_EMBEDDED_RUNTIME_SOURCES "${_runtimeOutput}")
+endforeach()
+
+# cna-studio-scene -- the scene document, its entities, and every undoable scene operation.
+add_library(cna-studio-scene STATIC
+    src/scene/StudioEntity.cpp
+    src/scene/EntityJson.cpp
+    src/scene/SceneDocument.cpp
+    src/scene/PrefabDocument.cpp
+    src/scene/PrefabCommands.cpp
+    src/scene/Tilemap.cpp
+    src/scene/SpriteAnimation.cpp
+    src/scene/SceneCommands.cpp
+    src/scene/BuiltinComponents.cpp
+    src/scene/EntityArchetypes.cpp
+    src/scene/AssetDrop.cpp
+    src/scene/SceneTransform.cpp
+    src/scene/SceneLock.cpp
+    src/scene/StudioCamera2D.cpp
+    src/scene/StudioCamera3D.cpp
+    src/scene/SceneSprites3D.cpp
+    src/scene/SceneModels.cpp
+    src/scene/SceneLighting.cpp
+    src/scene/SceneShadows.cpp
+    src/scene/SceneSky.cpp
+    src/scene/SceneDebugView.cpp
+    src/scene/SceneSelectionOverlay.cpp
+    src/scene/SceneWireframe.cpp
+    src/scene/GameCamera.cpp
+    src/scene/StudioIcons.cpp
+    src/scene/MissingReferences.cpp
+    src/scene/SceneValidation.cpp
+    src/scene/TransformGizmos.cpp
+    src/scene/TransformGizmos3D.cpp
+    src/viewport/NullStudioViewport.cpp)
+target_link_libraries(cna-studio-scene PUBLIC cna-studio-core)
+
+# cgltf, vendored. Header-only C99, so the one translation unit that instantiates it is ours;
+# see THIRD_PARTY_NOTICES.md. Built unconditionally and with no option to turn it off, unlike
+# ImGui and unlike CNA: it has no system dependencies, it is what makes the glTF importer work in
+# the default CNA-free build, and an importer that some builds have and others do not would be a
+# second configuration to reason about for no gain. Warnings off, as the ImGui vendor target is.
+add_library(cna-studio-cgltf-vendor STATIC third_party/cgltf/cgltf_impl.cpp)
+target_include_directories(cna-studio-cgltf-vendor SYSTEM PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/third_party/cgltf")
+target_compile_features(cna-studio-cgltf-vendor PUBLIC cxx_std_23)
+if(NOT MSVC)
+    target_compile_options(cna-studio-cgltf-vendor PRIVATE -w)
+endif()
+
+# cna-studio-assets -- stable asset identity, sidecars, dependency and reimport tracking.
+# cgltf is linked PRIVATE: it is an implementation detail of ModelImport.cpp, and `MeshData` --
+# the thing every other module actually wants -- is in cna-studio-core and mentions no cgltf type.
+add_library(cna-studio-assets STATIC
+    src/assets/AssetDatabase.cpp
+    src/assets/AssetCommands.cpp
+    src/assets/AssetDependencies.cpp
+    src/assets/AssetDocumentCache.cpp
+    src/assets/AssetReimport.cpp
+    src/assets/AssetShortcuts.cpp
+    src/assets/AssetRelink.cpp
+    src/assets/AssetWatcher.cpp
+    src/assets/AssetImporter.cpp
+    src/assets/AssetImporters.cpp
+    src/assets/ImageDecode.cpp
+    src/assets/ThumbnailCache.cpp
+    src/assets/ModelImport.cpp
+    src/assets/TextureImport.cpp
+    src/assets/AudioImport.cpp
+    src/assets/FontImport.cpp
+    src/assets/ImportJobs.cpp
+    src/assets/EnvironmentMapImport.cpp
+    src/assets/EnvironmentMapDocument.cpp
+    src/assets/MaterialDocument.cpp
+    src/assets/MaterialCapabilities.cpp
+    src/assets/MaterialPreview.cpp
+    src/assets/MeshCache.cpp
+    src/assets/AssetTree.cpp)
+target_link_libraries(cna-studio-assets PUBLIC cna-studio-core PRIVATE cna-studio-cgltf-vendor)
+
+# stb_image, vendored, included by exactly one translation unit (src/assets/ImageDecode.cpp) with
+# STB_IMAGE_STATIC so its symbols have internal linkage -- the same arrangement StudioFontAtlas.cpp
+# has with stb_truetype, for the same reason. SYSTEM so that a third-party header's warnings are not
+# this project's warnings: the Release build treats warnings as errors and a vendored file is not
+# ours to fix. See THIRD_PARTY_NOTICES.md and third_party/PROVENANCE.tsv.
+target_include_directories(cna-studio-assets SYSTEM PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/third_party/stb")
+
+# cna-studio-project -- the .cnaproject format and the backend capability table.
+# The C++ language adapter lives under src/project/cpp/, and STUDIO-02085's guard test refuses a
+# reference to CMake -- the executable, its cache variables, its CMakeLists.txt -- anywhere else in
+# Studio. Everything above that line is language-neutral: the Project Hub, the Build panel, the
+# export command and the packaging workflow reach a project's toolchain through
+# StudioLanguageAdapter and cannot learn from it what a compiler is.
+add_library(cna-studio-project STATIC
+    src/project/DerivedData.cpp
+    src/project/RendererCatalog.cpp
+    src/project/StudioHostRequirements.cpp
+    src/project/TargetProfile.cpp
+    src/project/Project.cpp
+    src/project/RecoveryStore.cpp
+    src/project/StudioReveal.cpp
+    src/project/BuildDiagnostics.cpp
+    src/project/StudioExternalEditor.cpp
+    src/project/BuildRunner.cpp
+    src/project/LanguageAdapter.cpp
+    src/project/ProjectTemplate.cpp
+    src/project/ProjectCreation.cpp
+    src/project/ProjectValidation.cpp
+    src/project/RecentProjects.cpp
+    src/project/StudioBuiltInLanguages.cpp
+    src/project/ProjectPackaging.cpp
+    src/project/cpp/CppLanguage.cpp
+    src/project/cpp/CppToolchain.cpp
+    src/project/cpp/CppRuntimeSources.cpp
+    src/project/cpp/CppProjectExport.cpp
+    ${CNA_STUDIO_EMBEDDED_RUNTIME_SOURCES})
+target_link_libraries(cna-studio-project PUBLIC cna-studio-core)
+
+# Where a development build finds the templates that ship with Studio. An installed Studio keeps
+# them beside the executable (see studioTemplateSearchPaths); baking the source tree in as well is
+# what lets `cna-studio` run out of a build directory offer the same templates a user gets -- and
+# what lets CI create and build every one of them with no install step, which is STUDIO-08011.
+target_compile_definitions(cna-studio-project PRIVATE
+    CNA_STUDIO_TEMPLATE_DIRECTORY="${CMAKE_CURRENT_SOURCE_DIR}/templates")
+
+# cna-studio-ui -- the toolkit-independent UI surface plus its null implementation, and the two
+# types that carry data across the toolkit boundary: UiDrawData (geometry out) and UiInputState
+# (input in). No panel or plugin may call a toolkit directly; they call this. See ANALYSIS.md
+# decisions D-02 and D-14.
+add_library(cna-studio-ui STATIC
+    src/ui/NullStudioUi.cpp
+    src/ui/StudioLog.cpp
+    src/ui/UiDrawData.cpp
+    src/ui/UiInputState.cpp)
+target_link_libraries(cna-studio-ui PUBLIC cna-studio-core)
+
+# cna-studio-ui-core -- the foundations of the native CNA Studio UI (plan.md Phase 3).
+#
+# This is the module that replaced the Dear ImGui presentation (STUDIO-07030), and the most
+# important thing about it is what it does NOT link: no CNA, no toolkit, no window system. Layout, widget identity,
+# retained state, focus and styling are all decided by code that runs in CI with no GPU, which is
+# what keeps the UI workstream testable rather than only lookable-at. Only the pixels need a
+# device, and those are cna-studio-ui-renderer's problem (Phase 4).
+#
+# It is deliberately separate from cna-studio-ui: that module is the *abstraction* every panel
+# talks to, and this one is an implementation being grown underneath it.
+# The shipped typefaces, turned into byte arrays at build time. The .ttf files are the source of
+# truth; the generated .cpp files are artefacts and are never committed (see cmake/EmbedBinary.cmake
+# for why a committed copy of the same bytes would be a second source of truth free to drift).
+set(CNA_STUDIO_EMBEDDED_FONT_SOURCES "")
+foreach(_font
+        "IBMPlexSans-Regular.ttf|kPlexSansRegular"
+        "IBMPlexSans-SemiBold.ttf|kPlexSansSemiBold"
+        "IBMPlexMono-Regular.ttf|kPlexMonoRegular")
+    string(REPLACE "|" ";" _parts "${_font}")
+    list(GET _parts 0 _fontFile)
+    list(GET _parts 1 _fontSymbol)
+
+    set(_fontInput "${CMAKE_CURRENT_SOURCE_DIR}/third_party/fonts/${_fontFile}")
+    set(_fontOutput "${CMAKE_CURRENT_BINARY_DIR}/generated/${_fontSymbol}.cpp")
+
+    add_custom_command(
+        OUTPUT "${_fontOutput}"
+        COMMAND "${CMAKE_COMMAND}"
+                -DINPUT=${_fontInput}
+                -DOUTPUT=${_fontOutput}
+                -DSYMBOL=${_fontSymbol}
+                -DNAMESPACE=CNA::Studio::Generated
+                -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/EmbedBinary.cmake"
+        DEPENDS "${_fontInput}" "${CMAKE_CURRENT_SOURCE_DIR}/cmake/EmbedBinary.cmake"
+        COMMENT "Embedding ${_fontFile}"
+        VERBATIM)
+    list(APPEND CNA_STUDIO_EMBEDDED_FONT_SOURCES "${_fontOutput}")
+endforeach()
+
+add_library(cna-studio-ui-core STATIC
+    src/ui-core/StudioTheme.cpp
+    src/ui-core/StudioThemeNames.cpp
+    src/ui-core/WidgetId.cpp
+    src/ui-core/WidgetStateStore.cpp
+    src/ui-core/UiRect.cpp
+    src/ui-core/StudioDrawList.cpp
+    src/ui-core/StudioShellLayout.cpp
+    src/ui-core/StudioWorkspaceStore.cpp
+    src/ui-core/StudioLogPanel.cpp
+    src/ui-core/StudioTreeView.cpp
+    src/ui-core/StudioTextEdit.cpp
+    src/ui-core/StudioIcons.cpp
+    src/ui-core/StudioDialog.cpp
+    src/ui-core/StudioPreferences.cpp
+    src/ui-core/StudioDockTree.cpp
+    src/ui-core/StudioNotifications.cpp
+    src/ui-core/StudioInputRouter.cpp
+    src/ui-core/StudioFrame.cpp
+    src/ui-core/StudioTextMeasure.cpp
+    src/ui-core/StudioWidgets.cpp
+    src/ui-core/StudioFontAtlas.cpp
+    src/ui-core/StudioEmbeddedFonts.cpp
+    ${CNA_STUDIO_EMBEDDED_FONT_SOURCES}
+    src/ui-core/StudioActionRegistry.cpp
+    src/ui-core/StudioShell.cpp
+    src/ui-core/StudioUiBenchmark.cpp
+    src/ui-core/UiSoftwareRasterizer.cpp)
+# cna-studio-ui links in because the native UI emits UiDrawData -- the same seam the prototype's
+# toolkit filled and CnaUiRenderer already consumes through CNA's public API. That is the whole
+# leverage of the strangler migration: the new UI inherits a working, tested CNA renderer on its
+# first frame instead of needing one written for it.
+target_link_libraries(cna-studio-ui-core PUBLIC cna-studio-core cna-studio-ui)
+# The vendored glyph rasterizer (public domain / MIT; third_party/stb/LICENSE). PRIVATE: exactly one
+# translation unit includes it, so nothing above the font atlas can reach for it and no consumer of
+# cna-studio-ui-core inherits a third-party header on its include path.
+target_include_directories(cna-studio-ui-core PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/third_party/stb")
+
+# cna-studio-runtime-bridge -- the editor/player wire protocol, its loopback TCP transport, and
+# the editor-side process supervisor. Sockets and process spawning are the only platform-specific
+# code in this repository; both are contained here.
+add_library(cna-studio-runtime-bridge STATIC
+    src/runtime-bridge/StudioProtocol.cpp
+    src/runtime-bridge/MessageChannel.cpp
+    src/runtime-bridge/PlayerProcess.cpp
+    src/runtime-bridge/BackendComparison.cpp)
+target_link_libraries(cna-studio-runtime-bridge PUBLIC cna-studio-core)
+if(WIN32)
+    target_link_libraries(cna-studio-runtime-bridge PUBLIC ws2_32)
+endif()
+
+# cna-studio-player -- the player-side protocol and state machine. Deliberately CNA-free, so the
+# whole message-handling surface is unit-testable headless; the CNA-linked half is cna-player's
+# own main loop. See ANALYSIS.md decision D-15.
+add_library(cna-studio-player STATIC
+    src/player/PlayerHost.cpp)
+target_link_libraries(cna-studio-player PUBLIC
+    cna-studio-scene
+    cna-studio-assets
+    cna-studio-project
+    cna-studio-runtime-bridge)
+
+# cna-studio-plugins -- manifest discovery and validation.
+add_library(cna-studio-plugins STATIC
+    src/plugins/PluginHost.cpp
+    src/plugins/PluginStartup.cpp
+    src/plugins/PluginExtensions.cpp)
+target_link_libraries(cna-studio-plugins PUBLIC cna-studio-core)
+
+# cna-studio-context -- the composition layer: one object holding the open project, the open
+# scene, the component registry, the asset database, the undo stack and the selection.
+#
+# It lives above the other modules rather than inside cna-studio-core precisely because it depends
+# on all of them. Putting StudioContext in core would make core depend on scene, and scene already
+# depends on core -- a cycle. Keeping the hub in its own module is what lets the dependency graph
+# stay acyclic and the layering stay checkable by the build system rather than by review.
+add_library(cna-studio-context STATIC
+    src/context/StudioContext.cpp
+    src/context/StudioStartupDocument.cpp
+    src/context/StudioAssetReload.cpp
+    src/context/ProjectCommands.cpp
+    src/context/PrefabWorkflow.cpp
+    src/context/StudioRecovery.cpp)
+target_link_libraries(cna-studio-context PUBLIC
+    cna-studio-scene
+    cna-studio-assets
+    cna-studio-project
+    cna-studio-ui)
+
+# ---------------------------------------------------------------------------------------------
+# Optional CNA-backed viewport
+# ---------------------------------------------------------------------------------------------
+
+if(CNA_STUDIO_WITH_CNA)
+    if(NOT EXISTS "${CNA_STUDIO_CNA_ROOT}/CMakeLists.txt")
+        message(FATAL_ERROR
+            "CNA_STUDIO_WITH_CNA is ON but no CNA checkout was found at "
+            "${CNA_STUDIO_CNA_ROOT}. CNA is a sibling checkout, not a submodule -- and it in turn "
+            "needs its own ../sharp-runtime sibling. Fix:\n"
+            "  cd ${CMAKE_CURRENT_SOURCE_DIR}/.. && \\\n"
+            "  git clone https://github.com/openeggbert/cna.git && \\\n"
+            "  git clone https://github.com/openeggbert/sharp-runtime.git\n"
+            "Or configure with -DCNA_STUDIO_WITH_CNA=OFF to build the CNA-free editor core.")
+    endif()
+
+    message(STATUS "cna-studio: building the CNA-backed viewport from ${CNA_STUDIO_CNA_ROOT}")
+    message(STATUS "cna-studio: CNA selects its graphics backend at compile time; this editor "
+                   "binary will be fixed to whatever CNA_GRAPHICS_RENDERER is set to")
+    add_subdirectory("${CNA_STUDIO_CNA_ROOT}" "${CMAKE_CURRENT_BINARY_DIR}/cna")
+
+    # cna-studio-ui-renderer -- layer 2 of docs/UI-RENDER-PATH.md: the UI GPU renderer.
+    #
+    # Its own module rather than three files inside cna-studio-viewport, because the two answer
+    # different questions and were only together by history. The viewport draws a *scene* with a
+    # camera and a model pass; this draws the *UI*, which has no camera and no depth and is the
+    # thing the host capability contract is about. Separating them is also what lets the A/B
+    # comparison of STUDIO-04025 link one and not the other.
+    #
+    # One backend lives here now: StudioModernUiRenderer, behind StudioUiRenderBackend.
+    # STUDIO-04027 deleted the classic CnaUiRenderer this module used to hold alongside it, once
+    # STUDIO-02074 retired the compatibility host profile that was CnaUiRenderer's only remaining
+    # caller. The module survives its own rationale going from two backends to one: it is still
+    # the UI GPU renderer, separate from cna-studio-viewport's scene renderer, for the same reason
+    # it always was -- the two answer different questions.
+    add_library(cna-studio-ui-renderer STATIC
+        src/ui-renderer/StudioHostRenderer.cpp
+        src/ui-renderer/StudioModernUiRenderer.cpp
+        src/ui-renderer/StudioUiShaderSource.cpp)
+    target_include_directories(cna-studio-ui-renderer PUBLIC include)
+    target_link_libraries(cna-studio-ui-renderer PUBLIC cna-studio-ui PRIVATE CNA)
+    target_compile_definitions(cna-studio-ui-renderer PUBLIC CNA_STUDIO_HAS_CNA=1)
+
+    # The module that links CNA for everything else: the scene viewport, the platform layer that
+    # fills UiInputState from CNA's public input API, and the window hosts.
+    set(_cna_studio_viewport_sources
+        src/viewport/CnaStudioViewport.cpp
+        src/viewport/CnaStudioAudio.cpp
+        src/viewport/CnaPlayerHost.cpp
+        src/viewport/CnaModelPass.cpp
+        src/viewport/CnaSceneRenderer.cpp
+        src/viewport/CnaUiPlatform.cpp
+        src/viewport/CnaCapabilityBridge.cpp
+        src/viewport/CnaStudioShellHost.cpp)
+
+    add_library(cna-studio-viewport STATIC ${_cna_studio_viewport_sources})
+    # cna-studio-player is here for the player's window host: it draws a PlayerHost's scene, and
+    # PlayerHost is the CNA-free half that owns it. The dependency runs one way only -- the player
+    # module knows nothing about the viewport -- so this adds no cycle.
+    # cna-studio-ui-core is PUBLIC because the native shell host draws a StudioShell: the shell is
+    # the UI, and the host is only the window it lives in.
+    target_link_libraries(cna-studio-viewport
+        PUBLIC cna-studio-scene cna-studio-assets cna-studio-ui cna-studio-ui-core
+               cna-studio-shell-panels cna-studio-context cna-studio-project cna-studio-player
+               cna-studio-ui-renderer
+        PRIVATE CNA)
+    target_compile_definitions(cna-studio-viewport PUBLIC CNA_STUDIO_HAS_CNA=1)
+endif()
+
+# cna-studio-shell-panels -- the panels ported onto the Studio UI.
+#
+# Above both the widget layer and the document model, because that is what a panel is: the seam
+# where the two are put together. cna-studio-ui-core knows nothing about scenes and cna-studio-scene
+# knows nothing about widgets, and keeping it that way is what lets each be tested without the
+# other. Every panel ported in Phase 7 belongs here.
+add_library(cna-studio-shell-panels STATIC
+    src/shell-panels/StudioBuildService.cpp
+    src/shell-panels/StudioPlayService.cpp
+    src/shell-panels/StudioComparisonService.cpp
+    src/shell-panels/StudioPreferencesService.cpp
+    src/shell-panels/StudioOutlinerPanel.cpp
+    src/shell-panels/StudioDetailsPanel.cpp
+    src/shell-panels/StudioShellActions.cpp
+    src/shell-panels/StudioContentBrowser.cpp
+    src/shell-panels/StudioBuildPanel.cpp
+    src/shell-panels/StudioComparisonPanel.cpp
+    src/shell-panels/StudioDiagnosticsPanel.cpp
+    src/shell-panels/StudioHistoryPanel.cpp
+    src/shell-panels/StudioLayersPanel.cpp
+    src/shell-panels/StudioPluginMenus.cpp
+    src/shell-panels/StudioPreferencesPanel.cpp
+    src/shell-panels/StudioProblemsPanel.cpp
+    src/shell-panels/StudioProjectHubPanel.cpp
+    src/shell-panels/StudioShellPanels.cpp
+    src/shell-panels/StudioShortcutEditor.cpp
+    src/shell-panels/StudioViewportPanel.cpp)
+target_link_libraries(cna-studio-shell-panels PUBLIC cna-studio-ui-core cna-studio-context
+                                                     cna-studio-project
+                                                     cna-studio-runtime-bridge)
+
+# ---------------------------------------------------------------------------------------------
+# Application
+# ---------------------------------------------------------------------------------------------
+
+add_executable(cna-studio
+    src/app/Main.cpp
+    src/app/StudioOptions.cpp)
+target_link_libraries(cna-studio PRIVATE
+    cna-studio-ui-core
+    cna-studio-context
+    cna-studio-shell-panels
+    cna-studio-plugins
+    cna-studio-runtime-bridge)
+
+# Required for plugins to load at all (ED-411), not an optimisation. A plugin must not link the
+# editor's static libraries -- it would get its own copy of every registry, and the component it
+# registered would go into a ComponentRegistry the editor has never heard of. So a plugin leaves
+# those symbols undefined and the *host* resolves them at load time, which needs the host to have
+# exported them. Without this a perfectly good plugin fails with "undefined symbol" naming a
+# function the editor plainly contains.
+set_target_properties(cna-studio PROPERTIES ENABLE_EXPORTS ON)
+
+if(CNA_STUDIO_WITH_CNA)
+    target_link_libraries(cna-studio PRIVATE cna-studio-viewport)
+endif()
+
+# ---------------------------------------------------------------------------------------------
+# scene-loader-demo
+#
+# What a shipped game does with a scene the editor produced (plan.md ED-250). It is also the
+# loader's integration test: it opens a real device, loads examples/HelloSprites, checks the world
+# transforms against what the editor's own code produces, and draws a frame.
+#
+# Only built with CNA, because that is the only configuration in which a game exists at all.
+# ---------------------------------------------------------------------------------------------
+
+if(CNA_STUDIO_WITH_CNA)
+    add_executable(scene-loader-demo examples/SceneLoaderDemo/Main.cpp)
+
+    # The loader is header-only and needs exactly what its documentation claims: CNA's public API
+    # and cna-studio-core. If this ever needs more, the claim has stopped being true.
+    target_link_libraries(scene-loader-demo PRIVATE cna-studio-core CNA)
+endif()
+
+# ---------------------------------------------------------------------------------------------
+# cna-player
+#
+# Built once per graphics backend in a real installation -- cna-player-easygl,
+# cna-player-software, and so on -- because CNA fixes its backend at compile time. The editor
+# discovers which builds exist and launches the one matching the backend the user asked to
+# preview. Built here without CNA, it still speaks the whole protocol; that configuration is what
+# the editor's own bridge tests run against.
+# ---------------------------------------------------------------------------------------------
+
+add_executable(cna-player src/player/Main.cpp)
+target_link_libraries(cna-player PRIVATE cna-studio-player)
+
+if(CNA_STUDIO_WITH_CNA)
+    target_link_libraries(cna-player PRIVATE cna-studio-viewport)
+    # The binary is named for its backend so that discovery can tell the builds apart on disk.
+    # CNA_GRAPHICS_RENDERER, not the CNA_GRAPHICS_BACKEND this used to read: current CNA separates
+    # the renderer axis from the platform axis and renamed the variable with it. Reading the old
+    # name produced an EMPTY suffix, so the player built as "cna-player-" and player discovery --
+    # which matches on the "cna-player-<renderer>" shape -- silently found nothing. Play mode
+    # reported no installed builds on a tree that had just built one.
+    string(TOLOWER "${CNA_GRAPHICS_RENDERER}" _cna_studio_player_suffix)
+    if(NOT _cna_studio_player_suffix)
+        message(FATAL_ERROR
+            "cna-studio: CNA_GRAPHICS_RENDERER is empty, so the player binary would be named "
+            "'cna-player-' and discovery would never find it. Configure CNA with a renderer, e.g. "
+            "-DCNA_GRAPHICS_RENDERER=SOFTWARE.")
+    endif()
+    set_target_properties(cna-player PROPERTIES OUTPUT_NAME "cna-player-${_cna_studio_player_suffix}")
+endif()
+
+# ---------------------------------------------------------------------------------------------
+# Extra per-backend players
+#
+# One nested build of this same source tree per requested backend, each producing one
+# cna-player-<backend> beside the editor. A nested build rather than more targets in this one,
+# because CNA_GRAPHICS_RENDERER is a *cache* variable of CNA's build: there is exactly one value per
+# build tree, and no arrangement of targets here can change that.
+#
+# Each child is told to build nothing but the player -- no ImGui, no tests, and an empty
+# CNA_STUDIO_PLAYER_BACKENDS so it cannot spawn children of its own.
+# ---------------------------------------------------------------------------------------------
+
+if(CNA_STUDIO_WITH_CNA AND CNA_STUDIO_PLAYER_BACKENDS)
+    include(ExternalProject)
+
+    add_custom_target(cna-player-backends ALL)
+
+    foreach(_cna_studio_extra_backend IN LISTS CNA_STUDIO_PLAYER_BACKENDS)
+        string(TOUPPER "${_cna_studio_extra_backend}" _cna_studio_extra_upper)
+        string(TOLOWER "${_cna_studio_extra_backend}" _cna_studio_extra_lower)
+
+        # This build tree already produces one. Building it twice would be minutes spent to
+        # overwrite a binary with itself.
+        if(_cna_studio_extra_upper STREQUAL "${CNA_GRAPHICS_RENDERER}")
+            message(STATUS "cna-studio: skipping player backend ${_cna_studio_extra_upper}; "
+                           "this build tree already produces it")
+            continue()
+        endif()
+
+        ExternalProject_Add(cna-player-${_cna_studio_extra_lower}
+            SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}"
+            BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/players/${_cna_studio_extra_lower}"
+            DOWNLOAD_COMMAND ""
+            UPDATE_COMMAND ""
+            CMAKE_ARGS
+                -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+                -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
+                -DCNA_STUDIO_WITH_CNA=ON
+                -DCNA_STUDIO_CNA_ROOT=${CNA_STUDIO_CNA_ROOT}
+                -DCNA_GRAPHICS_RENDERER=${_cna_studio_extra_upper}
+                -DCNA_STUDIO_BUILD_TESTS=OFF
+                -DCNA_STUDIO_PLAYER_BACKENDS=
+            BUILD_COMMAND ${CMAKE_COMMAND} --build <BINARY_DIR> --target cna-player
+            INSTALL_COMMAND ${CMAKE_COMMAND} -E copy
+                <BINARY_DIR>/cna-player-${_cna_studio_extra_lower}
+                $<TARGET_FILE_DIR:cna-studio>
+            BUILD_ALWAYS TRUE
+            USES_TERMINAL_BUILD TRUE)
+
+        # Beside the editor, because that is where discovery looks: the set of backends play mode
+        # offers is the set of player binaries installed next to it.
+        add_dependencies(cna-player-${_cna_studio_extra_lower} cna-studio)
+        add_dependencies(cna-player-backends cna-player-${_cna_studio_extra_lower})
+    endforeach()
+endif()
+
+# ---------------------------------------------------------------------------------------------
+# Tests
+# ---------------------------------------------------------------------------------------------
+
+if(CNA_STUDIO_BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
+endif()
+
+message(STATUS "cna-studio ${PROJECT_VERSION}")
+message(STATUS "  CNA viewport : ${CNA_STUDIO_WITH_CNA}")
+message(STATUS "  tests        : ${CNA_STUDIO_BUILD_TESTS}")
+message(STATUS "  extra players: ${CNA_STUDIO_PLAYER_BACKENDS}")

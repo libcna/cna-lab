@@ -1,0 +1,485 @@
+# Phase 33 — Documentation, templates and CI
+
+> **ARCHIVED — historical record. This file authorises no work.** It belongs to the
+> [archived programme roadmap](../docs/ROADMAP-ARCHIVE.md), whose scope was retired on 2026-09-22
+> by [ADR-001](../docs/ADR-001-SCOPE-REDUCTION.md). **A ⬜ below means *not built*. It no longer
+> means *planned*.** The one authoritative active roadmap is [`plan.md`](../plan.md).
+>
+> **Disposition of this phase:** Four rows are now part of `CORE-09` and `CORE-10`. The rest are [conditional](../docs/ROADMAP-BACKLOG.md) or [out of scope](../docs/ROADMAP-OUT-OF-SCOPE.md).
+>
+> Ids in this phase are `STUDIO-33001` … `STUDIO-33999` and are never reused. Every id here still resolves, so a commit, test or code comment that cites
+> one keeps its meaning.
+
+**Purpose.** Real developer documentation, and the test infrastructure that keeps all of it true.
+
+**Exit criteria.** A new contributor can build, test and extend Studio from the documentation alone.
+
+**Progress:** 14 of 24 complete `███████░░░░░`
+
+| Id | Task | Status | Depends on |
+|----|------|:------:|------------|
+| `STUDIO-33001` | Getting-started documentation | ⬜ | `STUDIO-08011` |
+| `STUDIO-33002` | User guide for the core authoring workflow | ⬜ | `STUDIO-12011` |
+| `STUDIO-33003` | Architecture documentation kept current | 🔄 | `STUDIO-02001` |
+| `STUDIO-33004` | Plugin SDK documentation | ⬜ | `STUDIO-28011` |
+| `STUDIO-33005` | Public API documentation coverage | ⬜ | — |
+| `STUDIO-33010` | Graphical CI with a real CNA build and a display | 🔄 | `STUDIO-33023` |
+| `STUDIO-33022` | CI runs the sanitizer configuration | ✅ | — |
+| `STUDIO-33023` | CI runs the CNA-backed configuration on a GPU-free renderer | ✅ | `STUDIO-02060` |
+| `STUDIO-33024` | CI keeps the graphical captures as artifacts | ✅ | `STUDIO-33023` |
+| `STUDIO-33011` | Screenshot and golden-image test infrastructure | ✅ | `STUDIO-04013` |
+| `STUDIO-33025` | The software rasterizer keeps its textures between frames | ✅ | `STUDIO-33011` |
+| `STUDIO-33012` | Canonical visual test scenes | ⬜ | `STUDIO-33011` |
+| `STUDIO-33013` | Visual tests at multiple resolutions | ✅ | `STUDIO-33012` |
+| `STUDIO-33014` | Visual tests at multiple DPI scales | ✅ | `STUDIO-33013`, `STUDIO-03028` |
+| `STUDIO-33015` | Visual regressions surface as CI artifacts | ⬜ | `STUDIO-33011` |
+| `STUDIO-33016` | Compressing PNG encoder for visual-test artifacts | ✅ | `STUDIO-33011` |
+| `STUDIO-33017` | The equality assertion copies its operands rather than binding references | ✅ | — |
+| `STUDIO-33018` | The roadmap's own arithmetic is checked by the test suite | ✅ | — |
+| `STUDIO-33019` | The handoff's own arithmetic is checked against the same phase files | ✅ | `STUDIO-33018` |
+| `STUDIO-33020` | Headless test seams maintained for every core subsystem | ⬜ | — |
+| `STUDIO-33021` | CI matrix: Linux, Windows, macOS as infrastructure allows | ⬜ | — |
+| `STUDIO-33026` | A test waiting on a worker counts completions, not frames | ✅ | `STUDIO-30001` |
+| `STUDIO-33027` | The benchmark's budget gate is an absolute-time assertion | ✅ | `STUDIO-04028` |
+| `STUDIO-33028` | The roadmap's phase status markers are checked against its phase files | ✅ | `STUDIO-33018` |
+
+## Acceptance and verification
+
+Tasks whose completion condition is not obvious from the title.
+
+### `STUDIO-33027` — The benchmark's budget gate is an absolute-time assertion
+
+**Found while validating `STUDIO-33026`**, and measured rather than assumed. `--ui-benchmark` exits
+non-zero when a scenario's *median frame time in microseconds* exceeds a fixed budget. One scenario,
+`content-grid-100k`, sits close enough to its 8333 µs budget to cross it at random: the same
+binary — unchanged, its mtime twelve minutes older than the commit it was built for — read 7635,
+7893, 8009, 8262 and 8599 µs across five runs. Two of those fail the gate and three pass.
+
+**This is the thing the rest of the suite is written to avoid.** A wall-clock assertion on a shared
+machine fails for reasons that have nothing to do with the code, which is why every other gate here
+counts work done instead. The benchmark already *reports* the machine-independent number — the
+`xbase` column, the cost as a multiple of the idle shell measured in the same process on the same
+machine — and then judges against absolute microseconds anyway. The column was added precisely
+because absolute figures are not comparable between runs, and the gate did not follow it.
+
+**What to change is a real decision, not a rename.** Judging on `xbase` cancels the machine but
+makes the budget a ratio somebody has to pick per scenario. Judging on the *minimum* rather than the
+median is the other candidate and looks better than it sounds: the minimum is the run least
+interrupted by anything else, and it is far steadier here — `content-grid-100k` reports a minimum
+within 5 µs of 1032 across all five runs while its median swings by nearly a thousand. That gap is
+itself worth understanding before choosing, because a median eight times the minimum is not machine
+noise; it says the scenario is doing something expensive on most frames and not all, and whichever
+statistic the gate uses should be chosen knowing what that is.
+
+**Raising the budget is the one option ruled out.** A gate moved until it stops failing is a gate
+that has been switched off with extra steps.
+
+**Not urgent, and worth saying so.** The scenario is within a few percent of a budget that was set
+deliberately; nothing has regressed. What is broken is the gate's ability to tell a regression from
+a busy afternoon, which matters most on the day something really does regress.
+
+**Seen again while validating `STUDIO-19003`**, which is worth recording because it is the case
+this row predicts. The same scenario read 8470.6 µs and failed the gate on one run and passed on
+the next from the same binary, with every other scenario inside its budget both times — and the
+change being validated adds a widget to the property grid and touches nothing the content grid
+draws. Within the 7635–8599 µs spread measured above. Two readings a minute apart, one red and one
+green, is the whole of the problem in one line.
+
+**And it is not one scenario.** `STUDIO-19006`'s validation put `outliner-20000-all-selected` over
+the same budget, and five runs of that one binary read 8752, 8433, 8213, 7979 and 7755 µs — two
+red and three green, straddling 8333 exactly as `content-grid-100k` does. The row named one
+scenario because one was all that had been seen; at least two sit inside their own run-to-run
+spread of the budget, and the same is presumably true of any scenario that ever approaches it.
+
+**That run also produced the best evidence so far that the gate measures the machine.** The
+benchmark prints counted columns beside the timings — widgets described, vertices produced, draw
+calls, bytes handed over — and for this scenario every one of them was **identical** before and
+after the change: `21.0  12887.0  1.0  20.0  6373.2  332.4  19.17x`, byte for byte. The work done
+did not move at all. What moved was wall-clock, and it moved on *every* scenario in the run by two
+to five percent, including ones the change cannot reach. A gate reading a number that is identical
+across a change, and failing because of one that is not, is measuring the wrong number — which is
+what this row says and what these figures now show rather than argue.
+
+**Seen again while validating `STUDIO-20004`, on the same scenario and with the same signature.**
+`outliner-20000-all-selected` read 8373.7 µs against 8333 on the first run, then 8541.9, 8123.7 and
+8388.1 across three more runs of that one binary — two red, one green, one red. The counted columns
+were `21.0  12911.0  1.0  20.0  6385.1  333.0  19.17x` on *every* run and on the run before the
+change as well, byte for byte; only wall-clock moved, from 7615 µs before to 8124–8542 µs after, on
+a scenario the change cannot reach at all (it alters the scene model batch's lighting, and the
+outliner scenario builds no model batch). Recorded rather than re-argued: three occurrences now,
+two scenarios, and the same evidence each time.
+
+**And a fourth, during `STUDIO-20006`, where the cause is known rather than inferred.** Both
+outliner scenarios went over together — `outliner-20000-deep` at 8613.0 µs and
+`outliner-20000-all-selected` at 8708.4 — on a run that overlapped a `-j4` compile started in the
+same container. The counted columns were again identical to the last green run
+(`21.0  12287.0  1.0  20.0  6076.4  316.9  19.18x` and
+`21.0  12911.0  1.0  20.0  6385.1  333.0  19.17x`), and the benchmark reports a *median frame
+time*, so a compile taking four cores for the duration is exactly the interference the median is
+least able to reject.
+
+**Confirmed by re-running it on an idle machine, which is what makes this occurrence the useful
+one.** The same binary, nothing else running: `outliner-20000-deep` read 7271.8 µs and
+`outliner-20000-all-selected` 7639.5, both comfortably inside 8333, with the counted columns
+unchanged from the red run to the digit. The whole difference between failing and passing was the
+compile, and the code was identical on both sides.
+
+That makes the case rather than weakening it. The previous three occurrences left open whether
+something slow was happening on most frames; this one names the competing workload, removes it, and
+watches the gate change its mind. **The procedural lesson is separate and smaller: run the
+benchmark on its own.** It has been added to the validation notes, and it is a workaround for the
+gate rather than a fix for it — a measurement that is only valid when nothing else is running is a
+measurement CI cannot trust either.
+
+---
+
+**Done — and the answer was not the one this row expected.** The row left the choice open between
+`xbase` and the minimum and said the median/minimum gap had to be understood first. Both halves
+turned out to matter, and both were settled by measuring.
+
+**First, what the gap was.** Dumping every per-frame sample rather than the two order statistics
+showed the expensive frames were not scattered: for every content and thumbnail scenario they began
+at **frame 30 exactly**, which at 1/60 s a frame is t = 0.5 s — the `AssetWatcher` interval. The
+benchmark's `fillAssets` built its records through `AssetDatabase::add()`, the one path that does
+not stamp them, so the watcher's first poll handed all hundred thousand to the reload path as
+*restored* files and the remaining ninety frames measured a mass re-import. **The fixture's own
+defect was 92 % of what the gate had been reading.** Stamped as `scan()` stamps what it walks,
+`content-grid-100k` goes from a 7 774 µs median to **598 µs**, `content-list-100k` from 7 335 to
+187, `content-scrolling-100k` from 6 345 to 249. The windowing those rows defend had been working
+all along; the row that "sits close enough to its 8333 µs budget to cross it at random" was never
+within 7 000 µs of it.
+
+**Second, which statistic.** One binary, measured twice — idle, then against four busy-loops on a
+four-core machine, the same interference as occurrence four. Counted columns identical across the
+pair, so everything that moved was the machine. Over the sixteen non-baseline scenarios:
+
+| statistic | mean drift | worst drift | scenarios pushed over budget |
+|-----------|-----------|-------------|------------------------------|
+| minimum   | **2.3 %** | **7.1 %**   | **none**                     |
+| median    | 10.6 %    | 26.1 %      | two                          |
+| `xbase`   | 35.3 %    | 47.8 %      | — (not a gate)               |
+
+**`xbase` is the worst of the three, which is the opposite of what this row assumed** and of what
+the code claimed in a comment. Dividing by the idle shell cancels a machine uniformly slower by a
+factor; contention is not that. It adds a roughly constant cost per frame, and the baseline is the
+smallest number in the table — the busy-loops moved the baseline frame 63 % and a 7 800 µs scenario
+11 %, so every ratio fell by about a third. The correction is larger than the error it corrects. The
+column stays in the report because the shape of a profile is worth seeing; it is not what the gate
+reads. The comment that called it "the part of a measurement that survives a change of machine" has
+been replaced with the measurement that says it is the part that survives least.
+
+**So: the gate reads `us(min)`.** `studioUiFrameTimesExceedBudget` in `StudioUiBenchmark.hpp` — in
+the library rather than in `Main.cpp`, because a gate whose logic lives in an executable is a gate
+the suite cannot reach, and that is the same fault in a different place. Three tests cover it, each
+verified by deliberate breakage: reading the median instead fails
+`TheBudgetGateJudgesTheCheapestFrameAndNotTheMedian` by name, and taking the largest sample as the
+minimum fails `TheFrameTimeStatisticsAreThreeSamplesThatWereActuallyTaken`.
+
+**The budget was not raised, and three of them were lowered.** With the fixture fixed, the three
+`-100k` content rows read 542, 165 and 184 µs against a stress ceiling of 8333 — a gate that could
+not fail. They now carry the ordinary interactive budget of 4167, leaving about sevenfold headroom.
+Tightening is the opposite of the option this row ruled out, and it is what the measurement earned.
+
+**Acceptance, run.** Under the four busy-loops that made the old gate exit 3, the new gate **exits
+0**, and the minima are within half a percent of their idle values (`content-grid-100k` 542.2 idle
+against 542.1 loaded; `outliner-20000-all-selected` 6343.6 against 6369.9). The procedural
+workaround — run the benchmark on its own — is no longer load-bearing, though it remains good
+practice.
+
+**What this costs, said rather than implied.** The minimum cannot see a regression that happens on
+some frames and not all. Neither could the median: three dear frames in a hundred and twenty move
+neither statistic. The blind spot is therefore not new, but it is now named, and `us(max)` is
+reported beside the other two so a stall is at least visible. It immediately showed one —
+half-second watcher polls at a hundred thousand assets, recorded as `STUDIO-30031`. For the two
+thumbnail rows the minimum is a frame in which no thumbnail work happened (322 µs against a 2 949 µs
+median); what guards those is counted rather than timed — the generated/shared/cancelled totals the
+report already prints, and `ThumbnailCacheTests` — and `Main.cpp` now says so where the scenarios
+are defined.
+
+### `STUDIO-33026` — A test waiting on a worker counts completions, not frames
+
+**Found while doing `STUDIO-10003`**: `ThumbnailCacheTests`'
+`ThumbnailsAreAskedForOnlyForWhatTheBrowserIsShowing` failed once, at the
+`panels.thumbnails().find(shown) != nullptr` line, on a run whose build tree was mid-compile and
+whose cores were all busy.
+
+**Why that is a defect and not bad luck.** The loop counted twelve *frames* and then asserted that a
+thumbnail existed. But the thumbnail is produced on a worker thread, and a frame is not a unit of
+that worker's progress — so the test counted on the consumer's side of an asynchronous boundary and
+asserted on the producer's. On an idle machine twelve frames is far more than enough; on a machine
+whose cores are all taken, the worker need not have been scheduled at all. That is the "counted, not
+timed" rule broken in the way that is hardest to see: the number in the loop *is* a count, and it is
+a count of the wrong thing.
+
+**The sweep turned out to be one test, which is worth recording.** Ten tests in the suite loop over
+a fixed frame count, and nine of them are deterministic: they drive the watcher with explicit deltas,
+or count filesystem probes and file opens across synchronous frames, where a frame really is the
+unit of work. Only this one crossed a thread. The task was filed expecting a sweep and the answer
+was a single case — which is the opposite of the usual surprise and is why the count is written down
+rather than left implied.
+
+**An unresolved observation, recorded during `STUDIO-31003` rather than explained.**
+`AThumbnailIsMadeOffTheFrameAndArrivesOnTheDrain` -- a *different* test in the same file -- failed
+twice while a four-configuration matrix was compiling beside it, at `thumbnail != nullptr` with a
+generated count of zero, and passed on every re-run in isolation in both `build-werror` and
+`build-cna`.
+
+**It is not this row's defect, and that is worth stating because the resemblance is close enough to
+mislead.** That row was about a test counting *frames* on the consumer's side of a thread boundary.
+This one crosses no boundary at all: it runs the job system in `StudioJobMode::Immediate`, where
+`waitForIdle` works the queue inline on the calling thread and nothing is scheduled. There is no
+race to lose.
+
+What is left is I/O. The case writes a PNG into the system temp directory and reads it back to
+decode it, and both failures happened while four build trees totalling about eleven gigabytes were
+being written concurrently on a disk at 83%. That is a hypothesis, not a diagnosis -- it has not
+been reproduced deliberately, and the failure has not been instrumented to say whether the write,
+the read or the decode is the one that gave up. Written down so the next occurrence starts from
+here rather than from "it is flaky", which is not a root cause.
+
+**The fix drives until the cache says so.** The loop now runs until `find(shown)` answers, bounded at
+two hundred iterations, with `waitForIdle` *inside* it so the worker is given its chance on every
+pass. That is what makes the bound a bound rather than a race: the only thing the iteration count has
+to survive is the number of pump-and-drain round trips the pipeline needs, which is fixed. Failing
+reports what the cache was still waiting for — pending and failed counts — instead of an assertion
+that says only that a pointer was null.
+
+**The unidentified intermittent is *not* closed by this.** A TSan run during `STUDIO-10006` and
+another during `STUDIO-10015` each reported one failure out of about 1520 cases, and neither name was
+captured; twenty-six TSan runs since, across several loops, have all been clean. Fixing the one test
+of this shape does not prove it was the cause, and this entry does not claim it. If it recurs, the
+next step is to capture the failing run's output rather than to assume the pattern — the runs are
+saved now, which is what was missing both times.
+
+
+### `STUDIO-33013` — Visual tests at multiple resolutions
+
+**Acceptance.** The shell is rasterised at 1280x720, 1600x900, 1920x1080, 2560x1440 and 3440x1440 —
+including an ultrawide, where a layout that only ever divided a 16:9 area shows its assumptions
+
+### `STUDIO-33014` — Visual tests at multiple DPI scales
+
+**Acceptance.** 125% and 175% as well as 150% and 200%. The odd scales are the ones that matter:
+they are what Windows laptops actually ship on, and they are where a layout that happened to round
+cleanly at the even ones comes apart
+
+### `STUDIO-33017` — The equality assertion copies its operands rather than binding references
+
+**Acceptance.** `CNA_STUDIO_EXPECT_EQ` copies what it is given. Binding `const auto&` to a subobject
+reached *through* a temporary — `evaluation.unmetRequired().front().subject`, say — extends
+nothing's lifetime: the container dies at the end of the full expression and the reference dangles.
+That reads as a perfectly ordinary assertion, passes under a normal build, and is only ever found
+by a sanitizer. This session found exactly that, in a new test, under ASan; the prototype's
+inherited code had the same class of defect in a recovery test. Copying costs nothing a test will
+notice and removes the whole category
+
+### `STUDIO-33010` — Graphical CI with a real CNA build and a display
+
+**Acceptance.** Unblocks the screenshot tests and the real-device smoke tests
+
+### `STUDIO-33011` — Screenshot and golden-image test infrastructure
+
+**Acceptance.** Tolerant image comparison, because two renderers are never bit-identical and exact equality would make the tests useless
+
+### `STUDIO-33012` — Canonical visual test scenes
+
+**Acceptance.** Project Hub, empty Studio, full scene, selected entity, Inspector, Content Browser, menus, modal, Build dialog, Play state, errors and warnings
+
+### `STUDIO-33013` — Visual tests at multiple resolutions
+
+**Acceptance.** 1280x720, 1600x900, 1920x1080, 2560x1440 and an ultrawide
+
+### `STUDIO-33016` — Compressing PNG encoder for visual-test artifacts
+
+**Acceptance.** The current encoder uses stored (uncompressed) deflate, which is correct, tiny and reviewable but produces roughly 8 MB for a 1920x1080 capture. Six captures per run is enough artifact traffic to be worth a real deflate once the visual suite grows
+
+**Verification.** Encoded output still decodes in a standard viewer, and is an order of magnitude smaller
+
+**Done, and by more than the promise.** A 1920x1080 shell capture went from 8.3 MB to 93 KB —
+eighty-nine to one, not ten. The CNA-backed job's whole artifact set, twenty-nine captures through
+the real renderer, went from about 85 MB to 2.2 MB. Two things got it there and the order matters: **adaptive scanline
+filtering** first, chosen per row by the standard residual heuristic, because a screenshot's rows
+are mostly identical to the row above and `Up` turns them into zeros; then **LZ77 with fixed
+Huffman**, which turns each run of zeros into one length/distance pair.
+
+**Fixed Huffman rather than dynamic.** The tables are in RFC 1951 instead of in the file, so there
+is no tree to build, serialise and get wrong, and for this input the gain is almost entirely in the
+matching anyway. The cost is that incompressible noise comes out slightly *larger* than it went in,
+which is correct behaviour and is pinned by a test — because the failure it could otherwise hide is
+a stream that quietly truncates once compression stops helping.
+
+**Verified by decoding it.** `tests/StudioPngTests.cpp` contains an inflate for exactly what the
+encoder emits, and the tests decode what was written and compare it to the pixels that went in.
+Writing a compressor without a decompressor to check it against is how a subtly wrong bitstream
+ships: an encoder cannot tell that it has packed a Huffman code the wrong way round, because every
+bit it wrote is a bit it meant to write. The chunk CRCs are recomputed the way a reader does — over
+the type and the payload, not the length — which is the detail an encoder gets wrong and its own
+reader then agrees with. A real capture was also round-tripped through an independent zlib, which
+is the check an in-house decoder cannot be.
+
+### `STUDIO-33020` — Headless test seams maintained for every core subsystem
+
+**Acceptance.** Document model, undo, asset database, serialization, migration, project model, UI layout and state, command system, player protocol and build planning all testable with no GPU
+
+### `STUDIO-33021` — CI matrix: Linux, Windows, macOS as infrastructure allows
+
+**Acceptance.** Linux development is never blocked waiting for macOS or Windows infrastructure
+
+### `STUDIO-33018` — The roadmap's own arithmetic is checked by the test suite
+
+**Acceptance.** Three guards, run with every build: each phase file's `**Progress:** N of M` header
+matches its own table; `plan.md`'s phase table and headline total match the files they summarise;
+and no task id appears twice or in the wrong phase's file
+
+**Why.** The roadmap is only worth reading if its status is true, and the failure mode is drift
+rather than dishonesty -- a tick goes in, the two summary numbers above it keep the value they had,
+and nobody adds up a column of thirty-six rows by hand. The guard found one on the commit that
+introduced it: phase 5 had nine ✅ rows and said eight, in both places
+
+**What it deliberately does not check.** Whether a ✅ is *deserved*. That is a judgement no test can
+make, and a test that pretended to make it would be worse than no test
+
+**Verification.** `EveryPhaseFileAgreesWithItsOwnProgressHeader`,
+`TheMasterPlanTableAgreesWithEveryPhaseFile`, `NoTaskIdIsUsedTwiceAcrossTheWholePlan`. Each was
+confirmed to fail on a deliberately introduced drift, not merely to pass
+
+### `STUDIO-33022` — CI runs the sanitizer configuration
+
+**Acceptance.** ASan and UBSan, Debug, on every push, with `halt_on_error` set — a run that reports
+undefined behaviour and then prints "all tests passed" is a run somebody will believe
+
+**Why it earns a job of its own.** Not belt and braces: a dangling reference to a subobject of a
+temporary passed Debug, passed Release with warnings as errors, and was caught only here
+(`STUDIO-33017`). Nothing else in the matrix would have found it
+
+### `STUDIO-33023` — CI runs the CNA-backed configuration on a GPU-free renderer
+
+**Acceptance.** A job that checks out CNA and sharp-runtime, builds SDL3 from CNA's vendored
+submodule, builds Studio against real CNA, and runs the whole CTest suite on `SOFTWARE` with SDL's
+dummy video driver — the window hosts, the native shell, and the standalone export test included.
+No renderer that needs a GPU, because this runner has none and a failure caused by that would look
+like a failure in Studio
+
+**On the slow case.** The standalone export builds CNA a second time and takes minutes. It stays in,
+because it is the concrete form of "CNA Studio produces CNA games, not CNA Studio games", and an
+invariant excluded from CI for being slow is an invariant that rots
+
+**On skipping honestly.** The sibling checkouts can be unavailable — a fork, or a token without
+access to them. The job then reports, as a workflow warning and in the run summary, that the CNA
+configuration went *unexercised*, rather than failing on every push for a reason unrelated to the
+change. A job that quietly passes by doing nothing would be worse than one that is not there
+
+**Verification.** Every command in the job was run locally, in the configuration it specifies,
+before it was written down — including the two CNA options a consumer must set that nothing in CNA
+mentions (CNA gap G-09) and the Draco default that wants a submodule this build has no use for
+
+### `STUDIO-33024` — CI keeps the graphical captures as artifacts
+
+**Acceptance.** Every PNG the CNA-backed job produces is uploaded, on failure as well as success.
+The graphical cases assert on counts, which says a frame was drawn and not what was in it; the
+captures are what a person looks at when a change to the shell needs reviewing
+
+### `STUDIO-33010` — Graphical CI with a real CNA build and a display
+
+**Acceptance.** The CNA-backed job extended to a renderer that needs a real graphics context, on a
+runner that has one — the cases already labelled `needs-display`
+
+**What holds today.** `STUDIO-33023` covers the CNA seam, the window hosts and the native shell on
+`SOFTWARE`, which needs no display at all. What it cannot cover is anything a GPU does differently:
+`STUDIO-29005`'s renderer matrix, and the `needs-display` cases that exist and are excluded.
+
+**What is actually blocking it**, established by trying rather than by reasoning. The display half
+is done: `CNA_STUDIO_TEST_DISPLAY` exists, Xvfb works, and configuring against a renderer that
+needs a context makes fourteen `needs-display` ctests appear and run. What does not exist is such a
+renderer. `SOFTWARE` and `HEADLESS` need no display; `SDL_RENDERER` needs one and cannot host
+Studio at all — the capability contract refuses it for having no 3D pipeline and no depth buffer;
+`SDL_GPU` and `VULKAN` configure but need a Vulkan ICD a bare runner does not have; and every
+OpenGL family needs `easy-gl` and `meta-gl` sibling checkouts that CNA does not vendor. So the job
+needs those two checkouts, Mesa's software GL and Xvfb — a shopping list, recorded as `G-10` in
+`docs/CNA-GAPS.md`, rather than a change to this repository.
+
+**Worth keeping from the attempt.** `SDL_RENDERER` builds a complete Studio and Studio refuses to
+start on it, naming `ThreeDimensionalPipeline` and `DepthStencilBuffer` and saying what each is
+for. That is `STUDIO-02021`'s capability contract exercised against a real inadequate renderer for
+the first time rather than a synthetic capability set, and it behaved as designed
+
+### `STUDIO-33025` — The software rasterizer keeps its textures between frames
+
+**Acceptance.** `UiTextureTable` holds what has been uploaded, and `rasterizeUiDrawData` takes one,
+the way a real renderer keeps an upload rather than re-reading a request every frame
+
+**What it fixes.** A `UiDrawData` carries a texture *request* only on the frame the texture changed.
+The font atlas is rasterised once, so from frame two onwards the draw data names an atlas it does
+not carry — and a rasterizer that rebuilt its table per frame had no font. Every glyph drew as a
+solid rectangle. Text came out as a row of blocks in every multi-frame capture, which is every
+`--shell-preview` since the flag existed
+
+**Why nothing caught it.** The golden images render a single frame, where the request is present;
+the real CNA renderer keeps its uploads, so the window was always right. The two paths that could
+have disagreed never compared. Found by looking at a screenshot of something else
+
+**Verification.** `TheSecondFrameOfAStaticShellLooksExactlyLikeTheFirst` — a shell nobody touched
+must look the same on its second frame as its first — and it asserts the *shape* of the failure too:
+without the table strictly more of the image is covered, because a filled box covers more than the
+glyph inside it. Plus `ATextureTableKeepsWhatItIsGivenAndForgetsWhatIsDestroyed`
+
+### `STUDIO-33019` — The handoff's own arithmetic is checked against the same phase files
+
+**Acceptance.** `HANDOFF.md`'s headline task count and every per-phase count it claims are checked
+against the phase files, and the test fails naming the phase that disagrees.
+
+**Why it needed to exist.** The handoff is what somebody reads first, and a count in it that is one
+session stale is worse than no count at all: it is a number they will quote. `plan.md`'s arithmetic
+has been checked since `STUDIO-33018`; the handoff was not, and drifted by nineteen tasks and a
+hundred and fifty-eight test cases before anybody noticed — which is precisely the failure
+`STUDIO-33018` was written to prevent in the other file.
+
+**Only the numbers.** The prose is a judgement about what was built and no test can hold it to
+anything. "159 of 486" is a fact, and facts are checkable; it also refuses a handoff that mentions no
+phase at all, which would otherwise pass every check by saying nothing.
+
+**Verification.** `TheHandoffsOwnArithmeticMatchesThePhaseFiles`, checked by changing a count in the
+handoff and watching it name the phase
+
+### `STUDIO-33028` — The roadmap's phase status markers are checked against its phase files
+
+**Acceptance.** `plan.md`'s phase table cannot say a phase is finished when it is not, or unstarted
+when it is done, and the test fails naming the phase that disagrees.
+
+**Every other cell in that row was derived and checked; the status was typed.** `STUDIO-33018`
+checks each row's task count and complete count against the file it links to, and `STUDIO-33019`
+checks `HANDOFF.md` against the same source. Neither reads the status column, and neither does the
+script that recomputes the rest of the row — so it was the one cell in the table that drifted as
+tasks were ticked. By the time anybody looked, **seven of thirty-six rows disagreed with the counts
+printed two cells to their right**: phases 9, 12, 13, 14 and 19 were complete and marked not
+started, phase 11 was complete and marked in progress, and phase 10 was twelve of fifteen and
+marked not started.
+
+That is the same failure `STUDIO-33018` was written for, one column across — and the more expensive
+one, because the counts are read as arithmetic and the status is read as a claim. A reader skimming
+the table for what is left to do would have skipped five finished phases and found three unfinished
+tasks in phase 10 they had been told were not begun.
+
+**The rule was not invented here; it was read off the rows that were right.** Twenty-nine of the
+thirty-six already agreed with it, which is the evidence that this is what the column always meant:
+
+- **✅** when every task is complete or superseded. A superseded task is work later work made moot,
+  so it leaves nothing to do — which is what `STUDIO-07001`'s retirement established when that
+  status was added, and why phase 7 is correctly ✅ at forty-five of forty-six.
+- **⬜** when no task is complete and none is in progress. A deferred or blocked task does not start
+  a phase: it is work that is still there and still not begun, which is why phases 15, 25 and 27
+  stay ⬜ despite each holding one.
+- **🔄** otherwise, including a phase with everything done but one thing blocked — phase 5, at
+  fourteen of fifteen with the fifteenth blocked. The blocker is why it is not finished, not a
+  reason to call it finished.
+
+**Verification.** `EveryPhasesStatusMarkerAgreesWithItsOwnTaskList` in
+`tests/ArchitectureGuardTests.cpp`, with the same `rowsChecked >= 30` positive control the
+neighbouring guards carry — a scan that matched no rows would agree with everything. Checked by
+causing it: written before the seven rows were corrected, it failed naming all seven and nothing
+else.
+
+**What this row is not.** The *phase file's* own `**Progress:**` header carries a bar and a count
+and no status marker, so there is nothing there to check. And no test can hold the phase table's
+prose — the phase name, the id range, the purpose — to anything; this checks the one cell in it
+that is a fact about the file beside it.

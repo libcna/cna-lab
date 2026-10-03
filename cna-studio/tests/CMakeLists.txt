@@ -1,0 +1,1110 @@
+# SPDX-License-Identifier: MS-PL
+#
+# One binary rather than one per module: the suite is fast, and a single binary keeps
+# `ctest --output-on-failure` output readable. Individual suites are registered separately so a
+# failure names the area rather than just "CnaStudioTests".
+
+add_executable(cna-studio-tests
+    TestMain.cpp
+    CoreTests.cpp
+    NumberTextTests.cpp
+    SceneTests.cpp
+    CommandTests.cpp
+    ProjectAndAssetTests.cpp
+    ModelImportTests.cpp
+    StudioOptionsTests.cpp
+    PluginHostTests.cpp
+    UiDrawDataTests.cpp
+    UiCoreTests.cpp
+    StudioShellTests.cpp
+    StudioFrameTests.cpp
+    StudioShellInteractionTests.cpp
+    StudioDockTests.cpp
+    StudioHostCapabilityTests.cpp
+    StudioFileWriteTests.cpp
+    PartialFileTests.cpp
+    DeterministicOutputTests.cpp
+    UndoStabilityTests.cpp
+    StudioFontTests.cpp
+    StudioHighDpiTests.cpp
+    StudioTargetProfileTests.cpp
+    ProjectExportTests.cpp
+    StudioLanguageAdapterTests.cpp
+    StudioProjectHubTests.cpp
+    BuildDiagnosticTests.cpp
+    StudioSelectionOverlayTests.cpp
+    StudioExternalEditorTests.cpp
+    StudioWorkspaceStoreTests.cpp
+    StudioLogPanelTests.cpp
+    StudioOutlinerPanelTests.cpp
+    StudioTextEditTests.cpp
+    StudioDetailsPanelTests.cpp
+    StudioAudioPreviewTests.cpp
+    StudioSpritePreviewTests.cpp
+    StudioEnvironmentMapEditorTests.cpp
+    StudioMaterialEditorTests.cpp
+    StudioPrefabSectionTests.cpp
+    StudioShellActionTests.cpp
+    StudioContentBrowserTests.cpp
+    AssetDependencyTests.cpp
+    StudioJobTests.cpp
+    AssetImporterTests.cpp
+    AudioImportTests.cpp
+    FontImportTests.cpp
+    ImportJobTests.cpp
+    EnvironmentMapTests.cpp
+    TextureImportTests.cpp
+    DerivedDataTests.cpp
+    ImageDecodeTests.cpp
+    Sha256Tests.cpp
+    ThumbnailCacheTests.cpp
+    ThirdPartyProvenanceTests.cpp
+    StudioVirtualisationTests.cpp
+    StudioLargeProjectTests.cpp
+    StudioDialogTests.cpp
+    StudioDockDragTests.cpp
+    StudioEmptyStateTests.cpp
+    StudioMigrationInventoryTests.cpp
+    StudioNotificationTests.cpp
+    StudioPlayerInputTests.cpp
+    StudioPluginMenuTests.cpp
+    StudioPngTests.cpp
+    StudioPreferencesTests.cpp
+    StudioQuitTests.cpp
+    StudioRecoveryTests.cpp
+    StudioSceneSettingsTests.cpp
+    StudioRenameTests.cpp
+    StudioShortcutEditorTests.cpp
+    StudioAssetReloadTests.cpp
+    StudioStartupDocumentTests.cpp
+    StudioStatusBarTests.cpp
+    StudioSavedLayoutTests.cpp
+    StudioFloatingPanelTests.cpp
+    StudioTilemapToolTests.cpp
+    StudioTooltipTests.cpp
+    StudioViewport3DTests.cpp
+    StudioSubmenuTests.cpp
+    StudioContextMenuTests.cpp
+    StudioDropdownTests.cpp
+    StudioDragDropTests.cpp
+    StudioBuildPanelTests.cpp
+    StudioProblemsPanelTests.cpp
+    StudioHistoryPanelTests.cpp
+    StudioLayersPanelTests.cpp
+    StudioCapabilityParityTests.cpp
+    StudioComparisonPanelTests.cpp
+    StudioPlayModeTests.cpp
+    StudioDiagnosticsPanelTests.cpp
+    StudioVisualQualityTests.cpp
+    StudioViewportPanelTests.cpp
+    StudioNumericFieldTests.cpp
+    StudioNativeParityTests.cpp
+    ArchitectureGuardTests.cpp
+    ServiceBoundaryGuardTests.cpp
+    StudioUiBenchmarkTests.cpp
+    StudioInteractionTests.cpp
+    PlayerTests.cpp
+    ViewportTests.cpp)
+
+# A *real* shared library for ED-411's loading tests. Nothing about dlopen, symbol resolution,
+# cross-runtime allocation or unload order can be checked against a test double -- a double would
+# exercise the host's bookkeeping and none of the things that actually break.
+#
+# It links **none** of the editor's libraries, and that is the important part rather than a way
+# around a linker error. A plugin that statically linked cna-studio-core would get its own copy of
+# every registry and every global in it, so the component it registered would go into a
+# ComponentRegistry the editor has never heard of -- and the failure would look like "initialize()
+# ran and nothing happened". Instead it includes the headers and leaves the symbols undefined, and
+# the host resolves them at load time from its own exported symbols. That is what ENABLE_EXPORTS on
+# the test executable is for, and it is the same arrangement a real plugin has to use.
+add_library(cna-studio-test-plugin MODULE plugin/TestPlugin.cpp)
+target_link_libraries(cna-studio-test-plugin PRIVATE cna-studio-settings)
+target_link_options(cna-studio-test-plugin PRIVATE "LINKER:--allow-shlib-undefined")
+set_target_properties(cna-studio-tests PROPERTIES ENABLE_EXPORTS ON)
+set_target_properties(cna-studio-test-plugin PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/plugins/testplugin"
+    PREFIX "")
+
+# The manifest beside it, written at configure time so the test has a directory to discover.
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/plugins/testplugin/plugin.json"
+"{\n"
+"  \"id\": \"org.openeggbert.testplugin\",\n"
+"  \"name\": \"Test Plugin\",\n"
+"  \"version\": \"1.0.0\",\n"
+"  \"editorApiVersion\": 1,\n"
+"  \"library\": \"cna-studio-test-plugin${CMAKE_SHARED_MODULE_SUFFIX}\"\n"
+"}\n")
+
+add_dependencies(cna-studio-tests cna-studio-test-plugin)
+target_compile_definitions(cna-studio-tests PRIVATE
+    CNA_STUDIO_TEST_PLUGIN_DIR="${CMAKE_CURRENT_BINARY_DIR}/plugins")
+
+# The architecture guard tests scan the source tree, so they must be told where it is rather than
+# guessing from the test binary's location -- a guess that silently finds nothing would make every
+# guard pass vacuously.
+target_compile_definitions(cna-studio-tests PRIVATE
+    CNA_STUDIO_SOURCE_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/..")
+
+target_include_directories(cna-studio-tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+target_link_libraries(cna-studio-tests PRIVATE
+    cna-studio-ui-core
+    cna-studio-shell-panels
+    cna-studio-context
+    cna-studio-plugins
+    cna-studio-runtime-bridge
+    cna-studio-player)
+
+# PlayerTests spawns the real cna-player binary, so it must exist before the suite runs -- and
+# the suite must know where it landed. A generator expression over the real target is exact;
+# guessing from the test binary's own directory would silently turn the end-to-end bridge test
+# into a no-op that always passes.
+add_dependencies(cna-studio-tests cna-player)
+target_compile_definitions(cna-studio-tests PRIVATE
+    CNA_STUDIO_TEST_PLAYER_DIR="$<TARGET_FILE_DIR:cna-player>")
+
+# StudioOptions has no library of its own (STUDIO-07048 moved it out precisely so it would not
+# need one), so the test binary compiles it directly rather than linking the cna-studio executable.
+target_sources(cna-studio-tests PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/../src/app/StudioOptions.cpp")
+
+# The one module that links CNA. Linked into the tests so the seam itself -- the key map, the
+# capability bridge -- has unit coverage rather than only being exercised through the window smoke
+# tests, where a wrong mapping shows up as a shortcut that quietly does nothing.
+if(CNA_STUDIO_WITH_CNA)
+    target_link_libraries(cna-studio-tests PRIVATE cna-studio-viewport cna-studio-ui-renderer)
+    # The shader package's text is checkable anywhere; only the behaviour needs a device. So the
+    # source lives with the renderer module and its test is added only where that module exists.
+    target_sources(cna-studio-tests PRIVATE StudioUiRendererTests.cpp)
+endif()
+
+# The renderer/operating-system gate transcription (STUDIO-29007) can only be *checked* against CNA
+# when there is a CNA checkout to read. Told where it is rather than left to guess: a guard that
+# silently found nothing would pass vacuously, which is the failure mode these tests exist to avoid.
+if(CNA_STUDIO_WITH_CNA AND EXISTS "${CNA_STUDIO_CNA_ROOT}/cmake/RendererSelection.cmake")
+    target_compile_definitions(cna-studio-tests PRIVATE
+        CNA_STUDIO_TEST_CNA_ROOT="${CNA_STUDIO_CNA_ROOT}")
+endif()
+
+add_test(NAME CnaStudioTests COMMAND cna-studio-tests)
+# 120s stopped being enough the moment the suite's own growth met ASan's overhead -- 1424 cases
+# ran clean at 130s under it, over the old ceiling for no reason a hang would produce. Loosened
+# rather than left to flake on the next few tasks that add their own tests.
+#
+# And loosened again for the same reason, at 1800 cases: the sanitizer leg measured 313s on the
+# development host -- clean, every case passing -- against a 300s ceiling. A timeout that trips on
+# a suite that passed is a red leg that says nothing, and it trips first on the slowest machine
+# rather than on the one with the defect. The point of this number is to catch a *hang*, which is
+# unbounded and which 900s separates from slowness just as well as 300s did when the suite was a
+# quarter of the size.
+set_tests_properties(CnaStudioTests PROPERTIES TIMEOUT 900)
+
+# A smoke test over the real binary: parses arguments, opens nothing, draws one headless frame.
+# This is what catches a linker or start-up regression that the unit tests cannot see.
+add_test(NAME CnaStudioHeadlessSmoke COMMAND cna-studio --headless)
+set_tests_properties(CnaStudioHeadlessSmoke PROPERTIES TIMEOUT 60)
+
+# The same run through the 3D viewport (ED-400). A separate case rather than a flag on the one
+# above, because the two share no drawing at all: one composes sprites, the other builds a
+# wireframe and projects it. A crash in the second would be invisible from the first.
+add_test(NAME CnaStudioHeadlessSmoke3D
+    COMMAND cna-studio --headless --view=3d
+        --project=${CMAKE_CURRENT_SOURCE_DIR}/../examples/HelloSprites/HelloSprites.cnaproject)
+set_tests_properties(CnaStudioHeadlessSmoke3D PROPERTIES TIMEOUT 60)
+
+# A bad --view is an error rather than a silent 2D start: the flag exists to be set from a script
+# that cannot see the window it asked for, and a typo there must not pass quietly.
+add_test(NAME CnaStudioRejectsUnknownView COMMAND cna-studio --view=isometric)
+set_tests_properties(CnaStudioRejectsUnknownView PROPERTIES WILL_FAIL TRUE)
+
+# The same rule for --orbit, and for the same reason: it exists to make a 3D screenshot
+# reproducible, so a run that quietly kept the default angle would produce a picture that looks
+# fine and shows the wrong thing.
+add_test(NAME CnaStudioRejectsMalformedOrbit COMMAND cna-studio --view=3d --orbit=35)
+set_tests_properties(CnaStudioRejectsMalformedOrbit PROPERTIES WILL_FAIL TRUE)
+
+# And the flag working, headless, over a project with a model in it -- which is also the smoke
+# test for ED-405's mesh path: the wireframe builder walks a real imported glTF here rather than
+# the bounding box it drew before.
+add_test(NAME CnaStudioHeadlessSmoke3DOrbited
+    COMMAND cna-studio --headless --view=3d --orbit=35,25
+        --project=${CMAKE_CURRENT_SOURCE_DIR}/../examples/HelloSprites/HelloSprites.cnaproject)
+set_tests_properties(CnaStudioHeadlessSmoke3DOrbited PROPERTIES TIMEOUT 60)
+
+# The native Studio shell, rendered end to end through the real binary and written as a PNG.
+#
+# Headless on purpose: the shell's geometry is CNA-free and is rasterised on the CPU, so this runs
+# on a build machine with no GPU and no display. The assertion is the image -- a run that merely
+# exited cleanly cannot tell a working shell from one that drew nothing.
+add_test(NAME CnaStudioShellPreview
+    COMMAND cna-studio --shell-preview=${CMAKE_CURRENT_BINARY_DIR}/shell-preview.png
+                       --shell-size=1280x720)
+set_tests_properties(CnaStudioShellPreview PROPERTIES TIMEOUT 60)
+
+add_test(NAME CnaStudioShellPreviewLightTheme
+    COMMAND cna-studio --shell-preview=${CMAKE_CURRENT_BINARY_DIR}/shell-preview-light.png
+                       --shell-size=1280x720 --shell-theme=light)
+set_tests_properties(CnaStudioShellPreviewLightTheme PROPERTIES TIMEOUT 60)
+
+# Every DPI scale Studio supports, through the real binary. 125% and 175% are included because they
+# are where a layout that happened to round cleanly at 150% and 200% falls apart, and they are the
+# scales a Windows laptop actually ships on.
+# STUDIO-35080 -- the visual regression matrix. Five resolutions in both themes, with the project
+# open so the panels hold real content, and a distinct-colour floor on every one.
+#
+# The floor is what makes these tests rather than captures. A shell frame at any of these sizes has
+# well over a thousand distinct colours, because antialiased text alone spreads at every glyph edge;
+# a frame that rendered to nothing has one. Before STUDIO-35080 the preview could write a perfectly
+# valid PNG of an empty frame and exit zero -- the same defect STUDIO-04015 closed for the windowed
+# capture, one harness down, and worse there because this is the harness that runs on every commit.
+#
+# 2560x1440 is in the list although no runner has such a display: the preview needs none, and the
+# size a layout breaks at is usually the one nobody photographed.
+foreach(_size "1280x720" "1600x900" "1920x1080" "2560x1440" "3840x2160")
+    foreach(_theme "dark" "light")
+        add_test(NAME CnaStudioVisualMatrix_${_size}_${_theme}
+            COMMAND cna-studio
+                --shell-preview=${CMAKE_CURRENT_BINARY_DIR}/matrix-${_size}-${_theme}.png
+                --shell-size=${_size} --shell-theme=${_theme}
+                --screenshot-min-colors=256
+                --project=${CMAKE_CURRENT_SOURCE_DIR}/../examples/HelloSprites/HelloSprites.cnaproject
+                --select=Player)
+        set_tests_properties(CnaStudioVisualMatrix_${_size}_${_theme} PROPERTIES TIMEOUT 120)
+    endforeach()
+endforeach()
+
+# The scenarios, at one size, because what each is about is the *state* rather than the resolution:
+# a menu open, a context menu, a modal, the Content Browser's grid, the Details panel's Transform
+# section, the Build panel. Each carries the same colour floor.
+add_test(NAME CnaStudioVisualScenarioContentGrid
+    COMMAND cna-studio --shell-preview=${CMAKE_CURRENT_BINARY_DIR}/scenario-content-grid.png
+                       --shell-size=1600x900 --panel=content --screenshot-min-colors=256
+                       --project=${CMAKE_CURRENT_SOURCE_DIR}/../examples/HelloSprites/HelloSprites.cnaproject)
+set_tests_properties(CnaStudioVisualScenarioContentGrid PROPERTIES TIMEOUT 120)
+
+add_test(NAME CnaStudioVisualScenarioDetailsTransform
+    COMMAND cna-studio --shell-preview=${CMAKE_CURRENT_BINARY_DIR}/scenario-details.png
+                       --shell-size=1600x900 --panel=details --select=Player
+                       --screenshot-min-colors=256
+                       --project=${CMAKE_CURRENT_SOURCE_DIR}/../examples/HelloSprites/HelloSprites.cnaproject)
+set_tests_properties(CnaStudioVisualScenarioDetailsTransform PROPERTIES TIMEOUT 120)
+
+# `plan.md` CORE-07 -- a resize case in the visual suite.
+#
+# The whole shell at two sizes with everything else held equal, and the pair required to differ.
+# What that rules out is a shell that lays itself out once and scales: two identical PNGs from two
+# window sizes would mean the second frame is the first one stretched, which is the artefact the
+# row is named for.
+#
+# The pixel-level half -- that the resized frame is byte-identical to one never resized -- is
+# `AResizeFillsTheNewWindowRatherThanStretchingTheOldFrame`, where a rasteriser can compare two
+# frames instead of a person comparing two files.
+add_test(NAME CnaStudioVisualScenarioResizeSmall
+    COMMAND cna-studio --shell-preview=${CMAKE_CURRENT_BINARY_DIR}/scenario-resize-small.png
+                       --shell-size=1024x640 --screenshot-min-colors=256
+                       --project=${CMAKE_CURRENT_SOURCE_DIR}/../examples/HelloSprites/HelloSprites.cnaproject)
+set_tests_properties(CnaStudioVisualScenarioResizeSmall PROPERTIES TIMEOUT 120)
+
+add_test(NAME CnaStudioVisualScenarioResizeLarge
+    COMMAND cna-studio --shell-preview=${CMAKE_CURRENT_BINARY_DIR}/scenario-resize-large.png
+                       --shell-size=1920x1080 --screenshot-min-colors=256
+                       --project=${CMAKE_CURRENT_SOURCE_DIR}/../examples/HelloSprites/HelloSprites.cnaproject)
+set_tests_properties(CnaStudioVisualScenarioResizeLarge PROPERTIES TIMEOUT 120)
+
+add_test(NAME CnaStudioAResizeChangesWhatIsOnScreen
+    COMMAND ${CMAKE_COMMAND}
+        -DFIRST=${CMAKE_CURRENT_BINARY_DIR}/scenario-resize-small.png
+        -DSECOND=${CMAKE_CURRENT_BINARY_DIR}/scenario-resize-large.png
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/../cmake/FilesDifferTest.cmake)
+set_tests_properties(CnaStudioAResizeChangesWhatIsOnScreen PROPERTIES
+    DEPENDS "CnaStudioVisualScenarioResizeSmall;CnaStudioVisualScenarioResizeLarge" TIMEOUT 60)
+
+# `plan.md` CORE-04 -- the property grid at two panel widths.
+#
+# Two, because the label column is sized from its labels within bounds now, and the bounds are the
+# only interesting thing about it: at one width the content decides, and at the other a bound does.
+# A single capture would cover neither case knowingly.
+#
+# The shell width is what moves the Details panel's width, so these are the whole shell at a narrow
+# and a wide size, with an entity selected so the grid has rows in it.
+add_test(NAME CnaStudioVisualScenarioDetailsNarrow
+    COMMAND cna-studio --shell-preview=${CMAKE_CURRENT_BINARY_DIR}/scenario-details-narrow.png
+                       --shell-size=1280x720 --panel=details --select=Player
+                       --screenshot-min-colors=256
+                       --project=${CMAKE_CURRENT_SOURCE_DIR}/../examples/HelloSprites/HelloSprites.cnaproject)
+set_tests_properties(CnaStudioVisualScenarioDetailsNarrow PROPERTIES TIMEOUT 120)
+
+add_test(NAME CnaStudioVisualScenarioDetailsWide
+    COMMAND cna-studio --shell-preview=${CMAKE_CURRENT_BINARY_DIR}/scenario-details-wide.png
+                       --shell-size=2560x1440 --panel=details --select=Player
+                       --screenshot-min-colors=256
+                       --project=${CMAKE_CURRENT_SOURCE_DIR}/../examples/HelloSprites/HelloSprites.cnaproject)
+set_tests_properties(CnaStudioVisualScenarioDetailsWide PROPERTIES TIMEOUT 120)
+
+# `plan.md` CORE-03 -- the selected and unselected states of the whole shell, captured.
+#
+# Both carry the colour floor, so a frame that rendered to nothing fails rather than passing as a
+# valid PNG of an empty window. What they are *for* is the pair: the shell with a selection and the
+# shell without one are two different pictures, and a change that lost the selection entirely would
+# have to make them the same.
+#
+# Said plainly, because the boundary matters: these run on the dependency-free build, where the
+# viewport has no CNA renderer behind it, so what they cover is the *shell's* selected state -- the
+# Details panel filling, the Outliner's row marking, the status bar. The viewport marks themselves
+# are geometry, and they are covered by `StudioSelectionOverlayTests.cpp`, which checks where every
+# one of them goes rather than that some pixel changed.
+add_test(NAME CnaStudioVisualScenarioSelected
+    COMMAND cna-studio --shell-preview=${CMAKE_CURRENT_BINARY_DIR}/scenario-selected.png
+                       --shell-size=1600x900 --select=Player --screenshot-min-colors=256
+                       --project=${CMAKE_CURRENT_SOURCE_DIR}/../examples/HelloSprites/HelloSprites.cnaproject)
+set_tests_properties(CnaStudioVisualScenarioSelected PROPERTIES TIMEOUT 120)
+
+add_test(NAME CnaStudioVisualScenarioUnselected
+    COMMAND cna-studio --shell-preview=${CMAKE_CURRENT_BINARY_DIR}/scenario-unselected.png
+                       --shell-size=1600x900 --screenshot-min-colors=256
+                       --project=${CMAKE_CURRENT_SOURCE_DIR}/../examples/HelloSprites/HelloSprites.cnaproject)
+set_tests_properties(CnaStudioVisualScenarioUnselected PROPERTIES TIMEOUT 120)
+
+# And the two are different pictures. Ordered after both, because it reads what they wrote.
+add_test(NAME CnaStudioSelectionChangesWhatIsOnScreen
+    COMMAND ${CMAKE_COMMAND}
+        -DFIRST=${CMAKE_CURRENT_BINARY_DIR}/scenario-selected.png
+        -DSECOND=${CMAKE_CURRENT_BINARY_DIR}/scenario-unselected.png
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/../cmake/FilesDifferTest.cmake)
+set_tests_properties(CnaStudioSelectionChangesWhatIsOnScreen PROPERTIES
+    DEPENDS "CnaStudioVisualScenarioSelected;CnaStudioVisualScenarioUnselected" TIMEOUT 60)
+
+# The scrub affordance reaches a real capture (STUDIO-07055). A numeric field that scrubs and looks
+# exactly like a plain text box is one whose best feature nobody finds, and the cursor is the only
+# affordance available -- the field has to go on looking like the field it also is.
+#
+# This point is inside the Position row's X field at this size. The assertion is the *cursor*, which
+# the preview reports because a captured PNG cannot show one: a screenshot of a hovered field and a
+# screenshot of an ignored one are the same picture.
+add_test(NAME CnaStudioNumericFieldOffersTheScrubCursor
+    COMMAND cna-studio --shell-preview=${CMAKE_CURRENT_BINARY_DIR}/scenario-scrub-cursor.png
+                       --shell-size=1600x900 --panel=details --select=Player
+                       --shell-pointer=1440,202 --screenshot-min-colors=256
+                       --project=${CMAKE_CURRENT_SOURCE_DIR}/../examples/HelloSprites/HelloSprites.cnaproject)
+set_tests_properties(CnaStudioNumericFieldOffersTheScrubCursor PROPERTIES
+    PASS_REGULAR_EXPRESSION "cursor ResizeHorizontal" TIMEOUT 120)
+
+add_test(NAME CnaStudioVisualScenarioContextMenu
+    COMMAND cna-studio --shell-preview=${CMAKE_CURRENT_BINARY_DIR}/scenario-context.png
+                       # 1280x720 and this exact point, because a context menu needs the pointer
+                       # over something that offers one: the Content Browser's tab, which is where
+                       # it is at this size and is somewhere else at any other. The scenario is
+                       # about the popup rather than the resolution, and a scenario that silently
+                       # photographed no popup would be the more expensive mistake.
+                       --shell-size=1280x720 --shell-pointer=133,533 --shell-right-click
+                       --screenshot-min-colors=256
+                       --project=${CMAKE_CURRENT_SOURCE_DIR}/../examples/HelloSprites/HelloSprites.cnaproject)
+set_tests_properties(CnaStudioVisualScenarioContextMenu PROPERTIES TIMEOUT 120)
+
+add_test(NAME CnaStudioVisualScenarioOpenMenu
+    COMMAND cna-studio --shell-preview=${CMAKE_CURRENT_BINARY_DIR}/scenario-menu.png
+                       --shell-size=1600x900 --shell-open-menu=File --shell-pointer=40,90
+                       --screenshot-min-colors=256
+                       --project=${CMAKE_CURRENT_SOURCE_DIR}/../examples/HelloSprites/HelloSprites.cnaproject)
+set_tests_properties(CnaStudioVisualScenarioOpenMenu PROPERTIES TIMEOUT 120)
+
+foreach(_scale "125" "150" "175" "200")
+    add_test(NAME CnaStudioShellPreviewHiDpi${_scale}
+        COMMAND cna-studio --shell-preview=${CMAKE_CURRENT_BINARY_DIR}/shell-preview-${_scale}.png
+                           --shell-size=1600x900 --shell-scale=${_scale}e-2)
+    set_tests_properties(CnaStudioShellPreviewHiDpi${_scale} PROPERTIES TIMEOUT 60)
+endforeach()
+
+# The interactive states. A shell captured only at rest leaves every hover, pressed, highlight and
+# popup token untested by any image -- and those are exactly the tokens a theme gets wrong.
+add_test(NAME CnaStudioShellPreviewOpenMenu
+    COMMAND cna-studio --shell-preview=${CMAKE_CURRENT_BINARY_DIR}/shell-menu.png
+                       --shell-size=1280x720 --shell-open-menu=File --shell-pointer=40,90)
+set_tests_properties(CnaStudioShellPreviewOpenMenu PROPERTIES TIMEOUT 60)
+
+add_test(NAME CnaStudioShellPreviewPressedToolbar
+    COMMAND cna-studio --shell-preview=${CMAKE_CURRENT_BINARY_DIR}/shell-pressed.png
+                       --shell-size=1280x720 --shell-pointer=20,40 --shell-mouse-down)
+set_tests_properties(CnaStudioShellPreviewPressedToolbar PROPERTIES TIMEOUT 60)
+
+# A menu title that does not exist is an error naming the ones that do, rather than a picture of a
+# closed menu that looks exactly like a working run.
+# The drop preview, which is the one interaction state a single input snapshot cannot express: a
+# drag needs a press in one place and a pointer in another.
+add_test(NAME CnaStudioShellPreviewDockDrag
+    COMMAND cna-studio --shell-preview=${CMAKE_CURRENT_BINARY_DIR}/shell-preview-drag.png
+                       --shell-size=1280x720 --shell-drag=layers
+                       --shell-pointer=1000,400 --shell-mouse-down)
+set_tests_properties(CnaStudioShellPreviewDockDrag PROPERTIES TIMEOUT 60)
+
+# The ported panels with real content in them. Until the preview could bind them, every screenshot
+# in this suite showed five empty rectangles where the panels are -- so nothing visual covered the
+# panels at all, which is most of what a user looks at.
+add_test(NAME CnaStudioShellPreviewPortedPanels
+    COMMAND cna-studio --shell-preview=${CMAKE_CURRENT_BINARY_DIR}/shell-panels.png
+                       --shell-size=1400x900
+                       --project=${CMAKE_SOURCE_DIR}/examples/HelloSprites/HelloSprites.cnaproject)
+set_tests_properties(CnaStudioShellPreviewPortedPanels PROPERTIES TIMEOUT 60)
+
+# The Details panel with something selected, which is where every property editor actually shows:
+# an asset picker, a colour swatch, an integer rectangle and an enumeration drop-down.
+add_test(NAME CnaStudioShellPreviewDetailsPanel
+    COMMAND cna-studio --shell-preview=${CMAKE_CURRENT_BINARY_DIR}/shell-details.png
+                       --shell-size=1400x900 --select=Player
+                       --project=${CMAKE_SOURCE_DIR}/examples/HelloSprites/HelloSprites.cnaproject)
+set_tests_properties(CnaStudioShellPreviewDetailsPanel PROPERTIES TIMEOUT 60)
+
+add_test(NAME CnaStudioRejectsSelectingAnEntityThatIsNotThere
+    COMMAND cna-studio --shell-preview=never.png --select=Nonexistent
+                       --project=${CMAKE_SOURCE_DIR}/examples/HelloSprites/HelloSprites.cnaproject)
+set_tests_properties(CnaStudioRejectsSelectingAnEntityThatIsNotThere PROPERTIES WILL_FAIL TRUE)
+
+# The Layers panel, which is the one view of a scene ordered by draw order rather than by hierarchy.
+add_test(NAME CnaStudioShellPreviewLayersPanel
+    COMMAND cna-studio --shell-preview=${CMAKE_CURRENT_BINARY_DIR}/shell-layers.png
+                       --shell-size=1400x900 --panel=layers
+                       --project=${CMAKE_SOURCE_DIR}/examples/HelloSprites/HelloSprites.cnaproject)
+set_tests_properties(CnaStudioShellPreviewLayersPanel PROPERTIES TIMEOUT 60)
+
+# The Diagnostics panel, whose whole value is what it says -- and which on a CNA-free build has to
+# say "unknown" rather than leaving cells blank.
+add_test(NAME CnaStudioShellPreviewDiagnosticsPanel
+    COMMAND cna-studio --shell-preview=${CMAKE_CURRENT_BINARY_DIR}/shell-diagnostics.png
+                       --shell-size=1400x900 --panel=diagnostics
+                       --project=${CMAKE_SOURCE_DIR}/examples/HelloSprites/HelloSprites.cnaproject)
+set_tests_properties(CnaStudioShellPreviewDiagnosticsPanel PROPERTIES TIMEOUT 60)
+
+# The History panel, which is a third tab beside Details and therefore only capturable by raising
+# it -- and whose one row on a freshly opened project is itself the thing worth photographing.
+add_test(NAME CnaStudioShellPreviewHistoryPanel
+    COMMAND cna-studio --shell-preview=${CMAKE_CURRENT_BINARY_DIR}/shell-history.png
+                       --shell-size=1400x900 --panel=history
+                       --project=${CMAKE_SOURCE_DIR}/examples/HelloSprites/HelloSprites.cnaproject)
+set_tests_properties(CnaStudioShellPreviewHistoryPanel PROPERTIES TIMEOUT 60)
+
+# The Problems panel, whose good state is emptiness -- so the capture is of a panel that says so
+# rather than of a blank rectangle.
+add_test(NAME CnaStudioShellPreviewProblemsPanel
+    COMMAND cna-studio --shell-preview=${CMAKE_CURRENT_BINARY_DIR}/shell-problems.png
+                       --shell-size=1400x900 --panel=problems
+                       --project=${CMAKE_SOURCE_DIR}/examples/HelloSprites/HelloSprites.cnaproject)
+set_tests_properties(CnaStudioShellPreviewProblemsPanel PROPERTIES TIMEOUT 60)
+
+# The Build panel, which shares a tab bar and is therefore only capturable by raising it.
+add_test(NAME CnaStudioShellPreviewBuildPanel
+    COMMAND cna-studio --shell-preview=${CMAKE_CURRENT_BINARY_DIR}/shell-build.png
+                       --shell-size=1400x900 --panel=build
+                       --project=${CMAKE_SOURCE_DIR}/examples/HelloSprites/HelloSprites.cnaproject)
+set_tests_properties(CnaStudioShellPreviewBuildPanel PROPERTIES TIMEOUT 60)
+
+add_test(NAME CnaStudioRejectsRaisingAPanelThatIsNotOpen
+    COMMAND cna-studio --shell-preview=never.png --panel=nosuchpanel)
+set_tests_properties(CnaStudioRejectsRaisingAPanelThatIsNotOpen PROPERTIES WILL_FAIL TRUE)
+
+add_test(NAME CnaStudioPreviewRejectsAProjectItCannotOpen
+    COMMAND cna-studio --shell-preview=never.png --project=/definitely/not/here/Missing.cnaproject)
+set_tests_properties(CnaStudioPreviewRejectsAProjectItCannotOpen PROPERTIES WILL_FAIL TRUE)
+
+# A context menu on a panel tab, which is the shell's own first user of the mechanism.
+add_test(NAME CnaStudioShellPreviewContextMenu
+    COMMAND cna-studio --shell-preview=${CMAKE_CURRENT_BINARY_DIR}/shell-context.png
+                       --shell-size=1280x720 --shell-pointer=133,533 --shell-right-click)
+set_tests_properties(CnaStudioShellPreviewContextMenu PROPERTIES TIMEOUT 60)
+
+# And right-clicking something that offers none is an error rather than a capture of the shell at
+# rest passing for a capture of a context menu.
+add_test(NAME CnaStudioRejectsAContextMenuThatNeverOpens
+    COMMAND cna-studio --shell-preview=${CMAKE_CURRENT_BINARY_DIR}/no-context.png
+                       --shell-size=1280x720 --shell-pointer=640,300 --shell-right-click)
+set_tests_properties(CnaStudioRejectsAContextMenuThatNeverOpens PROPERTIES
+    WILL_FAIL TRUE TIMEOUT 60)
+
+# A submenu open beside its parent, which is the one menu state a top-level capture cannot reach.
+add_test(NAME CnaStudioShellPreviewSubmenu
+    COMMAND cna-studio --shell-preview=${CMAKE_CURRENT_BINARY_DIR}/shell-submenu.png
+                       --shell-size=1280x720 "--shell-open-menu=Window>Panels"
+                       --shell-pointer=1000,110)
+set_tests_properties(CnaStudioShellPreviewSubmenu PROPERTIES TIMEOUT 60)
+
+add_test(NAME CnaStudioRejectsUnknownShellSubmenu
+    COMMAND cna-studio --shell-preview=never.png "--shell-open-menu=Window>Nonexistent")
+set_tests_properties(CnaStudioRejectsUnknownShellSubmenu PROPERTIES WILL_FAIL TRUE)
+
+# The icon toolbar is only as discoverable as its tooltips, so the tooltip is captured rather than
+# assumed: the run fails outright if resting the pointer on a toolbar button produces none.
+add_test(NAME CnaStudioShellPreviewTooltip
+    COMMAND cna-studio --shell-preview=${CMAKE_CURRENT_BINARY_DIR}/shell-tooltip.png
+                       --shell-size=1280x720 --shell-pointer=20,40 --shell-tooltip)
+set_tests_properties(CnaStudioShellPreviewTooltip PROPERTIES TIMEOUT 60)
+
+# And resting somewhere that offers none is an error rather than a picture of the shell at rest
+# passing for a picture of a tooltip.
+add_test(NAME CnaStudioRejectsATooltipThatNeverAppears
+    COMMAND cna-studio --shell-preview=${CMAKE_CURRENT_BINARY_DIR}/no-tooltip.png
+                       --shell-size=1280x720 --shell-pointer=640,400 --shell-tooltip)
+set_tests_properties(CnaStudioRejectsATooltipThatNeverAppears PROPERTIES WILL_FAIL TRUE TIMEOUT 60)
+
+# Dragging to a point too close to the tab starts nothing, and a capture of a drag that never
+# began would be a picture of the shell at rest passing for a picture of a drag.
+add_test(NAME CnaStudioRejectsADragThatStartsNothing
+    COMMAND cna-studio --shell-preview=${CMAKE_CURRENT_BINARY_DIR}/never-dragged.png
+                       --shell-size=1280x720 --shell-drag=layers --shell-mouse-down)
+set_tests_properties(CnaStudioRejectsADragThatStartsNothing PROPERTIES WILL_FAIL TRUE TIMEOUT 60)
+
+add_test(NAME CnaStudioRejectsDraggingAPanelThatIsNotOpen
+    COMMAND cna-studio --shell-preview=${CMAKE_CURRENT_BINARY_DIR}/never-dragged2.png
+                       --shell-size=1280x720 --shell-drag=nosuchpanel
+                       --shell-pointer=1000,400 --shell-mouse-down)
+set_tests_properties(CnaStudioRejectsDraggingAPanelThatIsNotOpen PROPERTIES
+    WILL_FAIL TRUE TIMEOUT 60)
+
+add_test(NAME CnaStudioRejectsUnknownShellMenu
+    COMMAND cna-studio --shell-preview=never.png --shell-open-menu=Nonexistent)
+set_tests_properties(CnaStudioRejectsUnknownShellMenu PROPERTIES WILL_FAIL TRUE)
+
+add_test(NAME CnaStudioRejectsMalformedShellPointer
+    COMMAND cna-studio --shell-preview=never.png --shell-pointer=40)
+set_tests_properties(CnaStudioRejectsMalformedShellPointer PROPERTIES WILL_FAIL TRUE)
+
+# A malformed size or theme is an error rather than a silent default, for the same reason --view is:
+# these flags exist to be set from a script that cannot see the picture it asked for.
+add_test(NAME CnaStudioRejectsMalformedShellSize
+    COMMAND cna-studio --shell-preview=never.png --shell-size=1280)
+set_tests_properties(CnaStudioRejectsMalformedShellSize PROPERTIES WILL_FAIL TRUE)
+
+add_test(NAME CnaStudioRejectsUnknownShellTheme
+    COMMAND cna-studio --shell-preview=never.png --shell-theme=neon)
+set_tests_properties(CnaStudioRejectsUnknownShellTheme PROPERTIES WILL_FAIL TRUE)
+
+# The host capability contract, printed from the real binary. Capability-driven eligibility is an
+# architectural invariant (docs/ARCHITECTURE.md §4), and a contract nobody can read is one nobody
+# will notice has quietly grown a renderer name in it.
+add_test(NAME CnaStudioHostCapabilityContract COMMAND cna-studio --host-capabilities)
+# Both names in one property, because a second set_tests_properties on the same test *replaces*
+# this one rather than adding to it -- which is how a check quietly stops checking what it says.
+set_tests_properties(CnaStudioHostCapabilityContract PROPERTIES
+    PASS_REGULAR_EXPRESSION "ThreeDimensionalPipeline.*ShaderEffectSourceExecution"
+    TIMEOUT 60)
+
+add_test(NAME CnaStudioRejectsUnknownUiRenderer
+    COMMAND cna-studio --ui-renderer=vulkan --host-capabilities)
+set_tests_properties(CnaStudioRejectsUnknownUiRenderer PROPERTIES WILL_FAIL TRUE)
+
+add_test(NAME CnaStudioHelp COMMAND cna-studio --help)
+add_test(NAME CnaStudioListBackends COMMAND cna-studio --list-backends)
+
+# --graphics must fail: CNA fixes its backend at compile time, so silently accepting the flag
+# would teach a mental model the framework does not support.
+add_test(NAME CnaStudioRejectsGraphicsFlag COMMAND cna-studio --graphics=vulkan)
+set_tests_properties(CnaStudioRejectsGraphicsFlag PROPERTIES WILL_FAIL TRUE)
+
+add_test(NAME CnaPlayerHelp COMMAND cna-player --help)
+
+if(CNA_STUDIO_WITH_CNA)
+    # How many compile jobs the standalone export test gives the exported project's own build. It
+    # builds CNA from source, so the default is generous; lower it on a machine where a second
+    # full-throttle build alongside this one would thrash.
+    set(CNA_STUDIO_EXPORT_TEST_JOBS "8" CACHE STRING
+        "Parallel jobs for the standalone export test's build of the exported project")
+
+    # Where the ctests that need a real graphics context find one. Declared here rather than
+    # inside one of the blocks below because more than one of them needs it.
+    set(CNA_STUDIO_TEST_DISPLAY ":0" CACHE STRING
+        "DISPLAY used by cna-studio ctests that need a real graphics context")
+
+    # How a windowed case gets a surface, decided once.
+    #
+    # SOFTWARE and HEADLESS rasterise on the CPU and are happy with SDL's dummy video driver, which
+    # needs no display at all. Every other renderer needs a real one: SDL's dummy driver has no GL,
+    # no Vulkan and no surface, and a case that asks for `dummy` on OPENGL4 does not fall back --
+    # it throws "OpenGL support is either not configured in SDL or not available in current SDL
+    # video driver (dummy)" and the run aborts.
+    #
+    # Spelled out in one variable because it was spelled out in eleven places, and the eleventh was
+    # the one that had not been updated: CnaStudioNativeShellDoesNotModifyTheProject asked for the
+    # dummy driver unconditionally and failed the moment a renderer that needs a display existed.
+    if(CNA_GRAPHICS_RENDERER STREQUAL "SOFTWARE" OR CNA_GRAPHICS_RENDERER STREQUAL "HEADLESS"
+       OR CNA_GRAPHICS_RENDERER STREQUAL "STUB")
+        set(CNA_STUDIO_TEST_SURFACE "SDL_VIDEODRIVER=dummy")
+    else()
+        set(CNA_STUDIO_TEST_SURFACE "DISPLAY=${CNA_STUDIO_TEST_DISPLAY}")
+    endif()
+
+    # Whether this renderer meets the modern UI host profile at all (STUDIO-02070), and can
+    # therefore open a real Studio session -- window, screenshot, a project actually loaded. The
+    # same three renderers `CNA_STUDIO_TEST_SURFACE` names, and for the same underlying reason --
+    # they rasterise on the CPU and have no shader path -- but a different question:
+    # `CNA_STUDIO_TEST_SURFACE` is about how a window gets a surface once one opens, this is about
+    # whether `cna-studio --ui=studio` opens one at all. `STUDIO-02074` retired the classic UI
+    # renderer these three used to fall back to, so on any of them Studio now refuses to start
+    # rather than degrading to it -- which is what the `else()` branch below proves instead.
+    if(CNA_GRAPHICS_RENDERER STREQUAL "SOFTWARE" OR CNA_GRAPHICS_RENDERER STREQUAL "HEADLESS"
+       OR CNA_GRAPHICS_RENDERER STREQUAL "STUB")
+        set(CNA_STUDIO_HOST_MEETS_MODERN_PROFILE OFF)
+    else()
+        set(CNA_STUDIO_HOST_MEETS_MODERN_PROFILE ON)
+    endif()
+
+    # The invariant the whole product rests on, checked by doing it: export the example project
+    # into an empty directory, configure it with nothing but CMake and a CNA checkout, compile it,
+    # and run it. Studio is not consulted after the export, so this needs no host session and runs
+    # on every renderer, modern-capable or not.
+    #
+    # An expensive test -- it builds CNA -- and it earns its cost. Every failure of this invariant
+    # found so far has been one that reading the exported tree could not have caught: CNA's video
+    # option is tri-state, so the boolean ON Studio passed made an exported game require FFmpeg;
+    # and CNA builds its own tests and examples by default from a subdirectory, so the configure
+    # failed before a line of the game compiled. Both looked correct on paper.
+    #
+    # Labelled, so a developer iterating on the UI can exclude it with -LE slow and CI cannot.
+    add_test(NAME CnaStudioStandaloneExport
+        COMMAND "${CMAKE_COMMAND}"
+            "-DSTUDIO=$<TARGET_FILE:cna-studio>"
+            "-DPROJECT_FILE=${CMAKE_CURRENT_SOURCE_DIR}/../examples/HelloSprites/HelloSprites.cnaproject"
+            "-DCNA_ROOT=${CNA_STUDIO_CNA_ROOT}"
+            "-DWORK_DIR=${CMAKE_CURRENT_BINARY_DIR}/standalone-export"
+            "-DRENDERER=${CNA_GRAPHICS_RENDERER}"
+            "-DJOBS=${CNA_STUDIO_EXPORT_TEST_JOBS}"
+            "-DGENERATOR=${CMAKE_GENERATOR}"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/../cmake/StandaloneExportTest.cmake")
+    set_tests_properties(CnaStudioStandaloneExport PROPERTIES
+        LABELS "slow"
+        TIMEOUT 5400)
+    set_property(TEST CnaStudioStandaloneExport
+                 APPEND PROPERTY RESOURCE_LOCK cna-studio-heavy-build)
+
+    if(CNA_GRAPHICS_RENDERER STREQUAL "SOFTWARE" OR CNA_GRAPHICS_RENDERER STREQUAL "HEADLESS")
+        set_tests_properties(CnaStudioStandaloneExport PROPERTIES
+            ENVIRONMENT "SDL_VIDEODRIVER=dummy")
+    else()
+        set_property(TEST CnaStudioStandaloneExport APPEND PROPERTY LABELS "needs-display")
+        set_tests_properties(CnaStudioStandaloneExport PROPERTIES
+            ENVIRONMENT "DISPLAY=${CNA_STUDIO_TEST_DISPLAY}")
+    endif()
+
+    # `plan.md` CORE-10 -- the whole Core workflow, once, in order.
+    #
+    # Its own executable because it compiles CNA. The unit suite runs in a minute and a half and a
+    # case that took five would make it something people stop running; this one holds the same
+    # resource lock as the template builds, for the same reason they hold it.
+    #
+    # What it adds that nothing else has is the *sequence*. Every one of the eleven steps has
+    # thorough cases of its own and the walk had none, which is how a product passes its whole
+    # suite and cannot be used.
+    add_executable(cna-studio-core-e2e CoreWorkflowE2E.cpp)
+    target_link_libraries(cna-studio-core-e2e PRIVATE
+        cna-studio-context
+        cna-studio-project
+        cna-studio-scene
+        cna-studio-assets
+        cna-studio-player
+        cna-studio-core
+        cna-studio-settings)
+    add_dependencies(cna-studio-core-e2e cna-player)
+
+    # Fewer jobs than the export tests use, and deliberately conservative. This one compiles CNA
+    # *and* is the case a maintainer runs on whatever machine they have; a build killed for memory
+    # reports as a failure with no diagnostic in it, which would send them looking at Studio.
+    set(CNA_STUDIO_CORE_WORKFLOW_JOBS "2" CACHE STRING
+        "Parallel compile jobs for the Core workflow end-to-end test")
+
+    add_test(NAME CnaStudioCoreWorkflow
+        COMMAND cna-studio-core-e2e
+            "--cna-root=${CNA_STUDIO_CNA_ROOT}"
+            "--work-dir=${CMAKE_CURRENT_BINARY_DIR}/core-workflow"
+            "--player-dir=$<TARGET_FILE_DIR:cna-player>"
+            "--renderer=$<LOWER_CASE:${CNA_GRAPHICS_RENDERER}>"
+            "--jobs=${CNA_STUDIO_CORE_WORKFLOW_JOBS}")
+    set_tests_properties(CnaStudioCoreWorkflow PROPERTIES
+        LABELS "slow"
+        TIMEOUT 5400
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy")
+    set_property(TEST CnaStudioCoreWorkflow
+                 APPEND PROPERTY RESOURCE_LOCK cna-studio-heavy-build)
+
+    # Every template, created and built (plan.md STUDIO-08011). One CTest case per template
+    # directory, discovered by globbing `templates/` rather than by a list here -- STUDIO-08005's
+    # acceptance is that adding a template does not require changing Studio, and a list of test
+    # names in this file would be exactly the change it forbids.
+    #
+    # `CONFIGURE_DEPENDS` so a template added without re-running CMake by hand still gets a case.
+    # The glob is over manifests rather than directories: a directory without one is not a template,
+    # and the catalogue skips it for the same reason.
+    file(GLOB _templateManifests CONFIGURE_DEPENDS
+         "${CMAKE_CURRENT_SOURCE_DIR}/../templates/*/template.json")
+    foreach(_manifest IN LISTS _templateManifests)
+        get_filename_component(_templateDirectory "${_manifest}" DIRECTORY)
+        get_filename_component(_templateId "${_templateDirectory}" NAME)
+
+        add_test(NAME CnaStudioTemplateBuilds_${_templateId}
+            COMMAND "${CMAKE_COMMAND}"
+                "-DSTUDIO=$<TARGET_FILE:cna-studio>"
+                "-DTEMPLATE=${_templateId}"
+                "-DCNA_ROOT=${CNA_STUDIO_CNA_ROOT}"
+                "-DWORK_DIR=${CMAKE_CURRENT_BINARY_DIR}/template-build/${_templateId}"
+                "-DRENDERER=${CNA_GRAPHICS_RENDERER}"
+                "-DJOBS=${CNA_STUDIO_EXPORT_TEST_JOBS}"
+                "-DGENERATOR=${CMAKE_GENERATOR}"
+                -P "${CMAKE_CURRENT_SOURCE_DIR}/../cmake/TemplateBuildTest.cmake")
+
+        set_tests_properties(CnaStudioTemplateBuilds_${_templateId} PROPERTIES
+            LABELS "slow"
+            TIMEOUT 5400)
+
+        if(CNA_GRAPHICS_RENDERER STREQUAL "SOFTWARE" OR CNA_GRAPHICS_RENDERER STREQUAL "HEADLESS")
+            set_tests_properties(CnaStudioTemplateBuilds_${_templateId} PROPERTIES
+                ENVIRONMENT "SDL_VIDEODRIVER=dummy")
+        else()
+            set_property(TEST CnaStudioTemplateBuilds_${_templateId}
+                         APPEND PROPERTY LABELS "needs-display")
+            set_tests_properties(CnaStudioTemplateBuilds_${_templateId} PROPERTIES
+                ENVIRONMENT "DISPLAY=${CNA_STUDIO_TEST_DISPLAY}")
+        endif()
+
+        # They all build CNA into their own tree, so running four at once on a small machine is how
+        # a CI job runs out of memory. Serialised against each other and against the export test,
+        # which is the same kind of work.
+        set_property(TEST CnaStudioTemplateBuilds_${_templateId}
+                     APPEND PROPERTY RESOURCE_LOCK cna-studio-heavy-build)
+    endforeach()
+
+    if(CNA_STUDIO_HOST_MEETS_MODERN_PROFILE)
+    # The native Studio shell in a real window, through a real CNA renderer -- the whole strangler
+    # seam end to end: StudioShell describes, CnaUiPlatform fills UiInputState from CNA's input,
+    # StudioModernUiRenderer draws UiDrawData through CNA's graphics API, and the back buffer comes
+    # back as a PNG. Nothing below CTest can assert this; the headless preview renders the same
+    # draw list through Studio's own software rasterizer, which would pass just as happily if
+    # CNA's side of the seam were broken.
+    #
+    # Two assertions, not one, because each misses what the other catches. The draw-call count
+    # separates a shell that submitted geometry from one that built its widget tree and submitted
+    # nothing -- that one would open a window, clear it to the theme background, write a perfectly
+    # valid screenshot of an empty frame and exit zero. And `--screenshot-min-colors` separates a
+    # frame that *drew* from one that submitted geometry which rendered to nothing: a wrong blend
+    # state, a clip rectangle that excludes the window, a vertex colour with no alpha, or a
+    # renderer quietly dropping the calls all report every draw call and produce a blank picture.
+    #
+    # Sixteen because a blank frame has one colour, or two where something was cleared to another
+    # shade, and a real shell frame has over a thousand -- antialiased text alone spreads at every
+    # glyph edge. Nothing is gained by tuning a threshold with that much room either side.
+    add_test(NAME CnaStudioNativeShellWindowSmoke
+        COMMAND cna-studio --ui=studio --workspace=none
+            --frames=20
+            --screenshot=${CMAKE_CURRENT_BINARY_DIR}/native-shell-smoke.png
+            --screenshot-min-colors=16)
+    set_tests_properties(CnaStudioNativeShellWindowSmoke PROPERTIES
+        PASS_REGULAR_EXPRESSION "native shell on .+, [0-9]+ frames, [0-9]+x[0-9]+ display, [1-9][0-9]* draw calls, [1-9][0-9]* triangles")
+
+    # The light theme through the same path. It is not a redundant run: the theme decides every
+    # colour the renderer uploads, and a vertex-colour or blend-state mistake that happens to be
+    # invisible on a dark background is exactly the kind of thing one theme catches and the other
+    # does not.
+    add_test(NAME CnaStudioNativeShellWindowSmokeLightTheme
+        COMMAND cna-studio --ui=studio --shell-theme=light --workspace=none
+            --frames=20
+            --screenshot=${CMAKE_CURRENT_BINARY_DIR}/native-shell-smoke-light.png
+            --screenshot-min-colors=16)
+    set_tests_properties(CnaStudioNativeShellWindowSmokeLightTheme PROPERTIES
+        PASS_REGULAR_EXPRESSION "native shell on .+, [0-9]+ frames, [0-9]+x[0-9]+ display, [1-9][0-9]* draw calls, [1-9][0-9]* triangles")
+
+    # At 2x, where the atlas, the layout and the input mapping all change together. The unit tests
+    # cover High-DPI geometry, but only a real device proves the scaled texture actually uploads.
+    add_test(NAME CnaStudioNativeShellWindowSmokeHiDpi
+        COMMAND cna-studio --ui=studio --shell-scale=2 --workspace=none
+            --frames=20
+            --screenshot=${CMAKE_CURRENT_BINARY_DIR}/native-shell-smoke-2x.png
+            --screenshot-min-colors=16)
+    set_tests_properties(CnaStudioNativeShellWindowSmokeHiDpi PROPERTIES
+        PASS_REGULAR_EXPRESSION "native shell on .+, [0-9]+ frames, [0-9]+x[0-9]+ display, [1-9][0-9]* draw calls, [1-9][0-9]* triangles")
+
+    # The scene itself, composited into the native shell's viewport (STUDIO-04012). The assertion
+    # is the words "compositing the scene", not the screenshot: a viewport drawing its placeholder
+    # grid and one drawing the scene produce the same draw-call count and the same valid picture.
+    add_test(NAME CnaStudioNativeShellCompositesTheScene
+        COMMAND cna-studio --ui=studio --workspace=none --frames=20
+            --project=${CMAKE_SOURCE_DIR}/examples/HelloSprites/HelloSprites.cnaproject
+            --screenshot=${CMAKE_CURRENT_BINARY_DIR}/native-shell-viewport.png
+            --screenshot-min-colors=16)
+    set_tests_properties(CnaStudioNativeShellCompositesTheScene PROPERTIES
+        PASS_REGULAR_EXPRESSION "viewport compositing the scene")
+
+    # And with the viewport docked away, where it must say so rather than leaving last frame's
+    # picture up: a stale viewport is worse than an empty one, because it looks live.
+    add_test(NAME CnaStudioNativeShellSaysWhenTheViewportIsNotShowing
+        COMMAND cna-studio --ui=studio --workspace=none --frames=20 --panel=output
+            --project=${CMAKE_SOURCE_DIR}/examples/HelloSprites/HelloSprites.cnaproject)
+    set_tests_properties(CnaStudioNativeShellSaysWhenTheViewportIsNotShowing PROPERTIES
+        PASS_REGULAR_EXPRESSION "viewport (compositing the scene|showing the placeholder)")
+
+    # Every renderer that reaches this point needs a real display: `CNA_STUDIO_HOST_MEETS_MODERN_PROFILE`
+    # already excludes SOFTWARE, HEADLESS and STUB, the only renderers SDL's dummy driver serves.
+    set_tests_properties(CnaStudioNativeShellWindowSmoke
+                         CnaStudioNativeShellWindowSmokeLightTheme
+                         CnaStudioNativeShellWindowSmokeHiDpi
+                         CnaStudioNativeShellCompositesTheScene
+                         CnaStudioNativeShellSaysWhenTheViewportIsNotShowing
+        PROPERTIES ENVIRONMENT "DISPLAY=${CNA_STUDIO_TEST_DISPLAY}"
+                   LABELS "needs-display" TIMEOUT 180)
+
+    # The first ported panel, drawn on a real device (STUDIO-07005). Raised to the front, because
+    # a panel sharing a tab strip with three others cannot be photographed otherwise -- and the
+    # capture is the assertion: the ported panel draws considerably more geometry than the empty
+    # surface it replaced, so a content function that silently stopped running would show up here
+    # as a triangle count that fell back to the unported one.
+    add_test(NAME CnaStudioNativeShellOutputLog
+        COMMAND cna-studio --ui=studio --workspace=none --panel=output
+            --frames=20
+            --screenshot=${CMAKE_CURRENT_BINARY_DIR}/native-shell-output-log.png
+            --screenshot-min-colors=16)
+    set_tests_properties(CnaStudioNativeShellOutputLog PROPERTIES
+        PASS_REGULAR_EXPRESSION "output log showing [1-9][0-9]* of [1-9][0-9]* messages"
+        ENVIRONMENT "DISPLAY=${CNA_STUDIO_TEST_DISPLAY}" LABELS "needs-display" TIMEOUT 180)
+
+    # The native shell with a real editor behind it. The assertion is the status bar: a row count
+    # says the Output Log drew something, and only this says the StudioContext opened the project
+    # the shell was given and the shell is showing what it opened.
+    add_test(NAME CnaStudioNativeShellWithAProject
+        COMMAND cna-studio --ui=studio --workspace=none --panel=output
+            --project=${CMAKE_CURRENT_SOURCE_DIR}/../examples/HelloSprites/HelloSprites.cnaproject
+            --frames=20
+            --screenshot=${CMAKE_CURRENT_BINARY_DIR}/native-shell-project.png
+            --screenshot-min-colors=16)
+    # Three assertions in one line, each of which only the whole stack can satisfy: the context
+    # opened the project (the status bar), the World Outliner is reading the scene it opened (five
+    # entities, which is what Level01 holds), and the Output Log is reading the editor's own
+    # messages rather than a demonstration of them.
+    set_tests_properties(CnaStudioNativeShellWithAProject PROPERTIES
+        PASS_REGULAR_EXPRESSION "status 'HelloSprites.*Level01'.*outliner showing [1-9][0-9]* of 5 entities.*output log showing [1-9][0-9]* of [1-9][0-9]* messages"
+        ENVIRONMENT "DISPLAY=${CNA_STUDIO_TEST_DISPLAY}" LABELS "needs-display" TIMEOUT 180)
+
+    # The same run with something selected, so the Details panel has an entity to inspect. Four
+    # ported panels' worth of state in one line, none of which any one of them could produce alone:
+    # the context opened the project, the outliner read its scene, the selection reached the
+    # inspector, and the inspector found the components on it.
+    add_test(NAME CnaStudioNativeShellDetails
+        COMMAND cna-studio --ui=studio --workspace=none --select=Player
+            --project=${CMAKE_CURRENT_SOURCE_DIR}/../examples/HelloSprites/HelloSprites.cnaproject
+            --frames=20
+            --screenshot=${CMAKE_CURRENT_BINARY_DIR}/native-shell-details.png
+            --screenshot-min-colors=16)
+    set_tests_properties(CnaStudioNativeShellDetails PROPERTIES
+        PASS_REGULAR_EXPRESSION "outliner showing [1-9][0-9]* of 5 entities.*details showing [1-9][0-9]* rows"
+        ENVIRONMENT "DISPLAY=${CNA_STUDIO_TEST_DISPLAY}" LABELS "needs-display" TIMEOUT 180)
+
+    # The project's plugins, on the UI that is the default (STUDIO-07052). `PluginHost::discover`
+    # and `loadAll` were called by the prototype and by nothing else, so this shell loaded none --
+    # and `bindStudioPluginMenus` drew the commands they had registered faithfully, which meant an
+    # empty Plugins menu that looks exactly like a machine with no plugins installed.
+    #
+    # The same plugin the unit tests load, from the same directory. Three numbers in one line and
+    # each fails differently: discovered without active is a plugin that would not start, active
+    # without menu rows is a plugin whose commands never reached the registry, and no line at all
+    # is a shell that never looked.
+    add_test(NAME CnaStudioNativeShellLoadsPlugins
+        COMMAND cna-studio --ui=studio --workspace=none
+            --plugins=${CMAKE_CURRENT_BINARY_DIR}/plugins
+            --project=${CMAKE_CURRENT_SOURCE_DIR}/../examples/HelloSprites/HelloSprites.cnaproject
+            --frames=20)
+    set_tests_properties(CnaStudioNativeShellLoadsPlugins PROPERTIES
+        PASS_REGULAR_EXPRESSION "plugins [1-9][0-9]* of [1-9][0-9]* active giving [1-9][0-9]* menu rows"
+        ENVIRONMENT "DISPLAY=${CNA_STUDIO_TEST_DISPLAY}" LABELS "needs-display" TIMEOUT 180)
+
+    # `--scene` overriding the project's startup scene, on the UI that is the default
+    # (STUDIO-07053). The flag was parsed and documented from the beginning and reached the Dear
+    # ImGui prototype alone, so this shell ignored it in silence -- and ignoring it produces
+    # exactly what not passing it produces, which is why no test noticed.
+    #
+    # Level02 rather than a second copy of Level01: the assertion is that the shell is showing the
+    # scene that was *asked for*, and two scenes with the same contents cannot tell that from the
+    # shell showing the one it would have opened anyway. Two entities against Level01's five, so
+    # the World Outliner has to agree with the status bar for this to pass.
+    add_test(NAME CnaStudioNativeShellSceneOverride
+        COMMAND cna-studio --ui=studio --workspace=none
+            --project=${CMAKE_CURRENT_SOURCE_DIR}/../examples/HelloSprites/HelloSprites.cnaproject
+            --scene=${CMAKE_CURRENT_SOURCE_DIR}/../examples/HelloSprites/Scenes/Level02.cnascene
+            --frames=20
+            --screenshot=${CMAKE_CURRENT_BINARY_DIR}/native-shell-scene.png
+            --screenshot-min-colors=16)
+    set_tests_properties(CnaStudioNativeShellSceneOverride PROPERTIES
+        PASS_REGULAR_EXPRESSION "status 'HelloSprites.*Level02'.*outliner showing 2 of 2 entities"
+        ENVIRONMENT "DISPLAY=${CNA_STUDIO_TEST_DISPLAY}" LABELS "needs-display" TIMEOUT 180)
+
+    # Opening a project through the native shell must not rewrite it, for the same reason the
+    # headless path must not: a sidecar rewritten on every open fills a repository with diffs
+    # nobody made.
+    add_test(NAME CnaStudioNativeShellDoesNotModifyTheProject
+        COMMAND "${CMAKE_COMMAND}"
+            "-DSTUDIO=$<TARGET_FILE:cna-studio>"
+            "-DEXAMPLES=${CMAKE_CURRENT_SOURCE_DIR}/../examples"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/../cmake/NativeShellProjectTest.cmake")
+    set_tests_properties(CnaStudioNativeShellDoesNotModifyTheProject PROPERTIES
+        ENVIRONMENT "${CNA_STUDIO_TEST_SURFACE}" TIMEOUT 180)
+
+    # The workspace layout survives a real process exit. Two processes rather than one, because
+    # that is the thing being tested: a unit test proves the store round-trips in memory, and only
+    # a second process proves Studio writes on the way out and reads on the way in. The failure it
+    # catches -- a shell that saves nothing and silently starts fresh every time -- is invisible to
+    # any test that never exits.
+    add_test(NAME CnaStudioWorkspacePersistence
+        COMMAND "${CMAKE_COMMAND}"
+            "-DSTUDIO=$<TARGET_FILE:cna-studio>"
+            "-DWORK_DIR=${CMAKE_CURRENT_BINARY_DIR}/workspace-persistence"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/../cmake/WorkspacePersistenceTest.cmake")
+    set_tests_properties(CnaStudioWorkspacePersistence PROPERTIES
+        ENVIRONMENT "DISPLAY=${CNA_STUDIO_TEST_DISPLAY}" LABELS "needs-display" TIMEOUT 300)
+
+    # The default, with no --ui at all: `STUDIO-06015` made that the native shell, and a switch
+    # nothing asserts is a switch a later change can undo without anybody noticing. The status line
+    # is what tells the two apart -- the native shell reports what it is drawing on and how many
+    # panels it filled, and the legacy editor reports neither.
+    add_test(NAME CnaStudioDefaultsToTheNativeShell
+        COMMAND cna-studio --workspace=none
+            --project=${CMAKE_CURRENT_SOURCE_DIR}/../examples/HelloSprites/HelloSprites.cnaproject
+            --frames=20
+            --screenshot=${CMAKE_CURRENT_BINARY_DIR}/default-shell.png
+            --screenshot-min-colors=16)
+    set_property(TEST CnaStudioDefaultsToTheNativeShell APPEND PROPERTY LABELS "needs-display")
+    set_tests_properties(CnaStudioDefaultsToTheNativeShell PROPERTIES
+        PASS_REGULAR_EXPRESSION "native shell on .+, [0-9]+ frames"
+        ENVIRONMENT "DISPLAY=${CNA_STUDIO_TEST_DISPLAY}" TIMEOUT 180)
+
+    # The native shell has no headless mode: without a frame limit it runs until the window is
+    # closed. A screenshot asked for on those terms can never be taken, so the run has to be
+    # rejected before the window opens -- if it were not, this test would hang instead of failing.
+    add_test(NAME CnaStudioNativeShellScreenshotNeedsFrameLimit
+        COMMAND cna-studio --ui=studio --workspace=none
+            --screenshot=${CMAKE_CURRENT_BINARY_DIR}/native-shell-never-written.png)
+    set_tests_properties(CnaStudioNativeShellScreenshotNeedsFrameLimit PROPERTIES
+        WILL_FAIL TRUE ENVIRONMENT "DISPLAY=${CNA_STUDIO_TEST_DISPLAY}" LABELS "needs-display" TIMEOUT 60)
+    else()
+    # STUDIO-02074: this renderer cannot meet the modern UI host profile, and the classic one it
+    # used to fall back to is retired, so `--ui=studio` must refuse rather than open anything.
+    # `--host-capabilities` alone proves it without spending a build's worth of frames on it: the
+    # live evaluation runs and prints the same diagnostic a real session would refuse on.
+    add_test(NAME CnaStudioNativeShellRefusesAHostThatCannotMeetTheModernProfile
+        COMMAND cna-studio --host-capabilities)
+    set_tests_properties(CnaStudioNativeShellRefusesAHostThatCannotMeetTheModernProfile PROPERTIES
+        PASS_REGULAR_EXPRESSION "does not meet the modern UI renderer.s profile.*ShaderEffects"
+        ENVIRONMENT "${CNA_STUDIO_TEST_SURFACE}" TIMEOUT 60)
+
+    # And the same thing asked for as a session rather than as a query, so the refusal is proven on
+    # the path a user actually takes -- `--ui=studio` alone, with nothing telling it to stop short.
+    add_test(NAME CnaStudioNativeShellRefusesToOpenAWindowHere
+        COMMAND cna-studio --ui=studio --workspace=none)
+    set_tests_properties(CnaStudioNativeShellRefusesToOpenAWindowHere PROPERTIES
+        WILL_FAIL TRUE ENVIRONMENT "${CNA_STUDIO_TEST_SURFACE}" TIMEOUT 60)
+    endif()
+
+    # And the fallback still reachable by name, which is the other half of "default" meaning
+    # anything: a flag that no longer worked would make this a removal rather than a switch. Never
+    # opens a window -- --headless routes it to the same headless rendering --headless itself
+    # uses -- so it runs regardless of whether this renderer meets the modern profile.
+    add_test(NAME CnaStudioFallsBackToImGuiWhenAsked
+        COMMAND cna-studio --ui=imgui --headless
+            --project=${CMAKE_CURRENT_SOURCE_DIR}/../examples/HelloSprites/HelloSprites.cnaproject)
+    set_tests_properties(CnaStudioFallsBackToImGuiWhenAsked PROPERTIES TIMEOUT 60)
+endif()
+
+if(NOT CNA_STUDIO_WITH_CNA)
+    # Without CNA there is no window and no graphics device, so --ui=studio has nothing to run in.
+    # Failing with that explanation is the contract; silently falling back to the ImGui editor
+    # would give a user who asked for the native shell a different program without saying so.
+    add_test(NAME CnaStudioNativeShellNeedsCna COMMAND cna-studio --ui=studio)
+    set_tests_properties(CnaStudioNativeShellNeedsCna PROPERTIES WILL_FAIL TRUE TIMEOUT 60)
+endif()
+
+if(CNA_STUDIO_WITH_CNA)
+    # The scene loader, exercised the way a shipped game would use it: a real device, the real
+    # example project, and a check that the world transforms match what the editor's own code
+    # produces. A loader that parsed correctly but composed a child's transform differently would
+    # put a game's sprites somewhere other than where the editor drew them, and nothing short of
+    # comparing two screenshots would show it.
+    add_test(NAME CnaSceneLoaderDemo
+        COMMAND scene-loader-demo
+            --scene=${CMAKE_CURRENT_SOURCE_DIR}/../examples/HelloSprites/Scenes/Level01.cnascene
+            --assets=${CMAKE_CURRENT_SOURCE_DIR}/../examples/HelloSprites
+            --verbose)
+
+    if(CNA_GRAPHICS_RENDERER STREQUAL "SOFTWARE" OR CNA_GRAPHICS_RENDERER STREQUAL "HEADLESS")
+        set_tests_properties(CnaSceneLoaderDemo PROPERTIES
+            ENVIRONMENT "SDL_VIDEODRIVER=dummy"
+            TIMEOUT 180)
+    else()
+        set_tests_properties(CnaSceneLoaderDemo PROPERTIES
+            ENVIRONMENT "DISPLAY=${CNA_STUDIO_TEST_DISPLAY}"
+            LABELS "needs-display"
+            TIMEOUT 180)
+    endif()
+
+    # The player, doing the thing it exists to do: open a window, draw the example scene through
+    # its own camera, and write a PNG of it. Until this existed the player ran the protocol and
+    # drew nothing, which is a state no exit code could tell apart from a working one -- so the
+    # assertion is the capture: the process exits non-zero when no file was written.
+    add_test(NAME CnaPlayerWindowSmoke
+        COMMAND cna-player
+            --project=${CMAKE_CURRENT_SOURCE_DIR}/../examples/HelloSprites/HelloSprites.cnaproject
+            --frames=20
+            --screenshot=${CMAKE_CURRENT_BINARY_DIR}/player-smoke.png
+            --screenshot-min-colors=16)
+
+    if(CNA_GRAPHICS_RENDERER STREQUAL "SOFTWARE" OR CNA_GRAPHICS_RENDERER STREQUAL "HEADLESS")
+        set_tests_properties(CnaPlayerWindowSmoke PROPERTIES
+            ENVIRONMENT "SDL_VIDEODRIVER=dummy"
+            TIMEOUT 180)
+    else()
+        set_tests_properties(CnaPlayerWindowSmoke PROPERTIES
+            ENVIRONMENT "DISPLAY=${CNA_STUDIO_TEST_DISPLAY}"
+            LABELS "needs-display"
+            TIMEOUT 180)
+    endif()
+
+    # STUDIO-04025 used to run `CnaStudioUiRenderBackendsAgree` here: the same frame drawn through
+    # both UI render backends, compared byte for byte. STUDIO-02074 retired the second backend
+    # (`--ui-renderer=compat` is a no-op now, and a host that cannot run the modern one refuses to
+    # start rather than falling back to it), so there is no longer a second route for this host to
+    # agree with itself on -- the comparison this test existed to make is no longer one that can be
+    # asked. `cmake/UiRendererAbTest.cmake` is deleted with it.
+
+    # The grid plane actually reaches the 3D view (STUDIO-07056). Proof that a stored preference is
+    # read, not just written: a preference that is stored, loaded, given a menu row and read by
+    # nothing produces two identical captures while every unit test around it passes -- which is
+    # `STUDIO-11015` exactly, three viewport preferences written to disk and read by nobody.
+    #
+    # Needs the same gate the deleted A/B test above it used (STUDIO-02074): a renderer that cannot
+    # meet the modern UI profile no longer opens the 3D view at all, so there is no "does the
+    # setting reach the view" left to check here -- `--ui=studio` refuses before a single frame is
+    # drawn.
+    if(CNA_STUDIO_HOST_MEETS_MODERN_PROFILE)
+        add_test(NAME CnaStudioGridPlaneChangesTheView
+            COMMAND ${CMAKE_COMMAND}
+                -DCNA_STUDIO_EXE=$<TARGET_FILE:cna-studio>
+                -DCNA_STUDIO_PROJECT=${CMAKE_CURRENT_SOURCE_DIR}/../examples/HelloSprites/HelloSprites.cnaproject
+                -DCNA_STUDIO_OUT_DIR=${CMAKE_CURRENT_BINARY_DIR}
+                -DCNA_STUDIO_SIZE=1280x720
+                -DCNA_STUDIO_NEEDS_DISPLAY=ON
+                -P ${CMAKE_CURRENT_SOURCE_DIR}/../cmake/GridPlaneTest.cmake)
+        set_tests_properties(CnaStudioGridPlaneChangesTheView PROPERTIES
+            ENVIRONMENT "DISPLAY=${CNA_STUDIO_TEST_DISPLAY}"
+            LABELS "needs-display" TIMEOUT 300)
+    endif()
+
+    # --screenshot without --frames has no final frame to capture, and silently writing nothing
+    # would make the smoke test above pass for the wrong reason.
+    add_test(NAME CnaStudioScreenshotNeedsFrameLimit
+        COMMAND cna-studio
+            --project=${CMAKE_CURRENT_SOURCE_DIR}/../examples/HelloSprites/HelloSprites.cnaproject
+            --screenshot=${CMAKE_CURRENT_BINARY_DIR}/never-written.png
+            --headless)
+    set_tests_properties(CnaStudioScreenshotNeedsFrameLimit PROPERTIES TIMEOUT 60)
+endif()
+
+# Comparing backends means decoding the captures, and decoding needs a graphics device. A run that
+# went ahead headless would report that every capture was unreadable, which is a confusing way to
+# say "wrong configuration".
+add_test(NAME CnaStudioComparisonNeedsADevice
+    COMMAND cna-studio --compare-backends --headless)
+set_tests_properties(CnaStudioComparisonNeedsADevice PROPERTIES WILL_FAIL TRUE TIMEOUT 60)
+
+# cna-player requires a project: launching one without is a mistake worth failing on, not
+# something to paper over with a default.
+add_test(NAME CnaPlayerRequiresAProject COMMAND cna-player)
+set_tests_properties(CnaPlayerRequiresAProject PROPERTIES WILL_FAIL TRUE)

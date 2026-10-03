@@ -1,0 +1,1782 @@
+// SPDX-License-Identifier: MS-PL
+/**
+ * @file StudioContentBrowserTests.cpp
+ * @brief The Content Browser: folders derived from paths, and missing sources shown as missing.
+ *
+ * `plan.md` STUDIO-07008.
+ *
+ * The two things worth checking are the two this panel could get wrong without looking wrong. The
+ * folder tree is *derived* from project-relative paths rather than read from disk, so an ordering
+ * or nesting mistake produces a tree that renders perfectly and describes a project nobody has. And
+ * an asset whose source file has gone is still a tracked asset — dropping it from the list would
+ * turn "you moved a folder" into "your scene is broken and nothing said why".
+ */
+
+#include "TestHarness.hpp"
+
+#include "CNA/Studio/Assets/AssetDatabase.hpp"
+#include "CNA/Studio/Assets/AssetReimport.hpp"
+#include "CNA/Studio/Assets/AssetShortcuts.hpp"
+#include "CNA/Studio/Project/StudioReveal.hpp"
+#include "CNA/Studio/Assets/AssetWatcher.hpp"
+#include "CNA/Studio/ShellPanels/StudioShellActions.hpp"
+#include "CNA/Studio/ShellPanels/StudioShellPanels.hpp"
+#include "CNA/Studio/Ui/StudioLog.hpp"
+#include "CNA/Studio/ShellPanels/StudioContentBrowser.hpp"
+#include "CNA/Studio/StudioContext.hpp"
+#include "CNA/Studio/UiCore/StudioActionRegistry.hpp"
+#include "CNA/Studio/UiCore/StudioShell.hpp"
+
+#include <filesystem>
+#include <fstream>
+#include <memory>
+#include <string>
+
+using namespace CNA::Studio;
+
+namespace
+{
+    UiInputState at(float x, float y, bool leftDown = false)
+    {
+        UiInputState input;
+        input.displayWidth = 1280.0f;
+        input.displayHeight = 720.0f;
+        input.mouseX = x;
+        input.mouseY = y;
+        input.mouseInWindow = true;
+        input.setMouseDown(UiMouseButton::Left, leftDown);
+        return input;
+    }
+
+    /** @brief A temporary project root with real files in it, removed on the way out. */
+    class ScopedProject
+    {
+    public:
+        explicit ScopedProject(const std::string& name)
+        {
+            path_ = std::filesystem::temp_directory_path()
+                  / ("cna-studio-content-" + name + "-" + std::to_string(counter()++));
+            std::error_code code;
+            std::filesystem::remove_all(path_, code);
+            std::filesystem::create_directories(path_, code);
+        }
+
+        ~ScopedProject()
+        {
+            std::error_code code;
+            std::filesystem::remove_all(path_, code);
+        }
+
+        ScopedProject(const ScopedProject&) = delete;
+        ScopedProject& operator=(const ScopedProject&) = delete;
+
+        [[nodiscard]] std::string root() const { return path_.generic_string(); }
+
+        /** @brief Creates an empty file at @p relative, parent directories included. */
+        void write(const std::string& relative) const
+        {
+            const std::filesystem::path file = path_ / relative;
+            std::error_code code;
+            std::filesystem::create_directories(file.parent_path(), code);
+            std::ofstream stream{file, std::ios::binary};
+            stream << "x";
+        }
+
+    private:
+        static int& counter() { static int value = 0; return value; }
+        std::filesystem::path path_;
+    };
+
+    /** @brief Adds a tracked asset at @p path and returns its id. */
+    Uuid track(AssetDatabase& assets, const std::string& path, AssetType type)
+    {
+        AssetRecord record;
+        record.id = Uuid::generate();
+        record.sourcePath = path;
+        record.type = type;
+        const Uuid id = record.id;
+        CNA_STUDIO_EXPECT(assets.add(std::move(record)));
+        return id;
+    }
+
+    const StudioTreeRow* rowNamed(const std::vector<StudioTreeRow>& rows, std::string_view label)
+    {
+        for (const StudioTreeRow& row : rows)
+        {
+            if (row.label == label) { return &row; }
+        }
+        return nullptr;
+    }
+
+    /** @brief The index of the row labelled @p label, or -1. */
+    int indexOf(const std::vector<StudioTreeRow>& rows, std::string_view label)
+    {
+        for (std::size_t i = 0; i < rows.size(); ++i)
+        {
+            if (rows[i].label == label) { return static_cast<int>(i); }
+        }
+        return -1;
+    }
+}
+
+CNA_STUDIO_TEST(FilesSortWithinTheirFolderSoARescanDoesNotShuffleThem)
+{
+    // Was asserted on the list's whole-project tree until STUDIO-09002 made the list a second
+    // presentation of one folder. The ordering matters for the same reason it always did: the
+    // database's own order is insertion order, and a browser whose files moved about as the
+    // project was rescanned would be unusable.
+    StudioContext context;
+    AssetDatabase& assets = context.getAssets();
+
+    track(assets, "Assets/Textures/player.png", AssetType::Texture2D);
+    track(assets, "Assets/Textures/enemy.png", AssetType::Texture2D);
+    track(assets, "Assets/Textures/boss.png", AssetType::Texture2D);
+
+    const std::vector<StudioContentCard> cards =
+        studioContentCards(assets, "Assets/Textures", Uuid{});
+
+    CNA_STUDIO_EXPECT_EQ(cards.size(), std::size_t{3});
+    CNA_STUDIO_EXPECT_EQ(cards[0].label, std::string{"boss.png"});
+    CNA_STUDIO_EXPECT_EQ(cards[1].label, std::string{"enemy.png"});
+    CNA_STUDIO_EXPECT_EQ(cards[2].label, std::string{"player.png"});
+}
+
+CNA_STUDIO_TEST(AnAssetWhoseFileHasGoneIsListedAndMarked)
+{
+    // Dropping it would turn "you moved a folder" into "your scene is broken and nothing said
+    // why". A scene references the asset by id, and the record is what makes the problem fixable.
+    StudioContext context;
+    AssetDatabase& assets = context.getAssets();
+
+    const Uuid gone = track(assets, "Assets/Textures/player.png", AssetType::Texture2D);
+
+    // There is no such file: the database is not pointed at a real project root, so every record
+    // is missing. That is the condition under test, and it is what a moved folder looks like.
+    CNA_STUDIO_EXPECT(assets.isMissing(gone));
+
+    const std::vector<StudioContentCard> cards =
+        studioContentCards(assets, "Assets/Textures", Uuid{});
+    CNA_STUDIO_EXPECT_EQ(cards.size(), std::size_t{1});
+    CNA_STUDIO_EXPECT(cards.front().missing);
+    CNA_STUDIO_EXPECT_EQ(cards.front().detail, std::string{"missing"});
+}
+
+CNA_STUDIO_TEST(AFileShowsItsTypeAndAFolderShowsHowMuchIsInIt)
+{
+    // Against files that really exist, because a missing asset shows "missing" in place of its
+    // type -- which is the right answer and the wrong thing to be asserting here.
+    const ScopedProject project{"types"};
+
+    StudioContext context;
+    AssetDatabase& assets = context.getAssets();
+    assets.setProjectRoot(project.root());
+    project.write("Assets/Models/crate.gltf");
+    project.write("Assets/Models/barrel.gltf");
+
+    track(assets, "Assets/Models/crate.gltf", AssetType::Model);
+    track(assets, "Assets/Models/barrel.gltf", AssetType::Model);
+
+    // The type, not the extension: an importer decides what a file *is*, and two extensions can
+    // map to one type.
+    const std::vector<StudioContentCard> cards =
+        studioContentCards(assets, "Assets/Models", Uuid{});
+    CNA_STUDIO_EXPECT_EQ(cards.size(), std::size_t{2});
+    CNA_STUDIO_EXPECT_EQ(cards.front().detail, std::string{toString(AssetType::Model)});
+
+    // And the count beside the folder, which the navigation pane carries now.
+    const StudioTreeState state;
+    const std::vector<StudioTreeRow> folders = studioContentFolderRows(assets, {}, state);
+    CNA_STUDIO_EXPECT_EQ(rowNamed(folders, "Models")->detail, std::string{"2"});
+}
+
+CNA_STUDIO_TEST(ClickingAFileSelectsItAndClickingAFolderDoesNot)
+{
+    // A folder's row id is its path and a file's is a UUID, so the parse is what tells them apart.
+    // Selecting a folder as though it were an asset would put a nil id where the inspector expects
+    // a real one.
+    StudioContext context;
+    AssetDatabase& assets = context.getAssets();
+    const Uuid file = track(assets, "Assets/player.png", AssetType::Texture2D);
+
+    // The list view, because what this case is about is the tree: a click landing on the file row
+    // rather than on the folder above it. The grid has its own cases below.
+    StudioContentBrowserState state;
+    state.view = StudioContentView::List;
+    auto shell = std::make_unique<StudioShell>(StudioTheme::dark());
+    shell->resetLayout();
+    shell->renderFrame(at(-1.0f, -1.0f));
+    CNA_STUDIO_EXPECT(shell->activatePanel("content"));
+
+    UiRect bounds;
+    CNA_STUDIO_EXPECT(shell->setPanelContent("content",
+        [&](StudioFrame& frame, const UiRect& area) {
+            (void)studioContentBrowser(frame, area, context, state);
+            if (frame.isDrawPass()) { bounds = area; }
+        }));
+    shell->renderFrame(at(-1.0f, -1.0f));
+    CNA_STUDIO_EXPECT(!bounds.isEmpty());
+
+    // The first row is the "Assets" folder; the file is below it. Sweeping rather than assuming a
+    // row height, so a metric change cannot turn this into a test that clicks empty space.
+    bool selectedTheFile = false;
+    for (float y = bounds.top() + 2.0f; y < bounds.top() + 120.0f && !selectedTheFile; y += 3.0f)
+    {
+        const float x = bounds.centerX();
+        shell->renderFrame(at(x, y, false));
+        shell->renderFrame(at(x, y, true));
+        shell->renderFrame(at(x, y, false));
+        selectedTheFile = context.getSelectedAsset() == file;
+    }
+
+    CNA_STUDIO_EXPECT(selectedTheFile);
+}
+
+CNA_STUDIO_TEST(AProjectWithNoAssetsSaysSoRatherThanShowingNothing)
+{
+    StudioContext context;
+    StudioContentBrowserState state;
+
+    auto shell = std::make_unique<StudioShell>(StudioTheme::dark());
+    shell->resetLayout();
+    shell->renderFrame(at(-1.0f, -1.0f));
+    CNA_STUDIO_EXPECT(shell->activatePanel("content"));
+
+    StudioContentBrowserResult result;
+    CNA_STUDIO_EXPECT(shell->setPanelContent("content",
+        [&](StudioFrame& frame, const UiRect& area) {
+            const StudioContentBrowserResult pass =
+                studioContentBrowser(frame, area, context, state);
+            if (frame.isDrawPass()) { result = pass; }
+        }));
+    shell->renderFrame(at(-1.0f, -1.0f));
+
+    CNA_STUDIO_EXPECT_EQ(result.rowsTotal, std::size_t{0});
+    CNA_STUDIO_EXPECT_EQ(result.missingCount, std::size_t{0});
+    CNA_STUDIO_EXPECT_EQ(shell->frame().phaseViolations(), std::size_t{0});
+}
+
+// ------------------------------------------------------------------------------------------------
+// The grid (STUDIO-35040)
+//
+// Two things fail separately here and a screenshot cannot tell them apart: deciding *what a folder
+// holds*, which is arithmetic over a database, and deciding *where a card goes*, which is layout.
+// studioContentCards is the first, and is tested with no frame at all.
+// ------------------------------------------------------------------------------------------------
+
+CNA_STUDIO_TEST(TheGridShowsOneFoldersImmediateContentsAndNotTheWholeProject)
+{
+    // The difference between the grid and the tree beside it. A grid of every asset under a folder
+    // is a wall, and the folder a user is *in* is the unit they think in.
+    StudioContext context;
+    AssetDatabase& assets = context.getAssets();
+    track(assets, "Assets/Textures/player.png", AssetType::Texture2D);
+    track(assets, "Assets/Textures/enemy.png", AssetType::Texture2D);
+    track(assets, "Assets/Models/crate.gltf", AssetType::Model);
+    track(assets, "Assets/Models/detail/bolt.gltf", AssetType::Model);
+
+    // At the root: one folder, no files.
+    const std::vector<StudioContentCard> root = studioContentCards(assets, {}, Uuid{});
+    CNA_STUDIO_EXPECT_EQ(root.size(), std::size_t{1});
+    CNA_STUDIO_EXPECT(root.front().isFolder());
+    CNA_STUDIO_EXPECT_EQ(root.front().label, std::string{"Assets"});
+
+    // Inside Assets: two folders, no files. Not the four assets underneath them.
+    const std::vector<StudioContentCard> inside =
+        studioContentCards(assets, "Assets", Uuid{});
+    CNA_STUDIO_EXPECT_EQ(inside.size(), std::size_t{2});
+    for (const StudioContentCard& card : inside) { CNA_STUDIO_EXPECT(card.isFolder()); }
+
+    // Inside Textures: two files and no folder.
+    const std::vector<StudioContentCard> textures =
+        studioContentCards(assets, "Assets/Textures", Uuid{});
+    CNA_STUDIO_EXPECT_EQ(textures.size(), std::size_t{2});
+    for (const StudioContentCard& card : textures)
+    {
+        CNA_STUDIO_EXPECT(!card.isFolder());
+        // The kind's icon, unless the file has gone -- which it has here, because the database is
+        // not pointed at a real project root. Written as the rule rather than as the answer,
+        // because the override is deliberate and a test asserting Texture unconditionally would be
+        // a test demanding the override be removed.
+        CNA_STUDIO_EXPECT(card.icon
+                          == (card.missing ? StudioIcon::Warning : StudioIcon::Texture));
+    }
+
+    // And Models, which has both: the folder comes first. A user navigating is looking for a
+    // folder; a user browsing is looking at assets, and the first is the one interrupted by having
+    // to scan past the second.
+    const std::vector<StudioContentCard> models =
+        studioContentCards(assets, "Assets/Models", Uuid{});
+    CNA_STUDIO_EXPECT_EQ(models.size(), std::size_t{2});
+    CNA_STUDIO_EXPECT(models.front().isFolder());
+    CNA_STUDIO_EXPECT(!models.back().isFolder());
+}
+
+CNA_STUDIO_TEST(AFolderCardSaysHowMuchIsUnderIt)
+{
+    // Everything underneath, not only the immediate children: "3 items" on a folder a user has not
+    // opened is the number that tells them whether opening it is worth the click.
+    StudioContext context;
+    AssetDatabase& assets = context.getAssets();
+    track(assets, "Assets/Models/crate.gltf", AssetType::Model);
+    track(assets, "Assets/Models/detail/bolt.gltf", AssetType::Model);
+    track(assets, "Assets/Models/detail/nut.gltf", AssetType::Model);
+
+    const std::vector<StudioContentCard> cards =
+        studioContentCards(assets, "Assets", Uuid{});
+    CNA_STUDIO_EXPECT_EQ(cards.size(), std::size_t{1});
+    CNA_STUDIO_EXPECT_EQ(cards.front().detail, std::string{"3 items"});
+}
+
+CNA_STUDIO_TEST(TheBreadcrumbNamesTheRootAndEveryLevelBelowIt)
+{
+    const auto crumbs = studioContentBreadcrumb("Assets/Models/detail");
+    CNA_STUDIO_EXPECT_EQ(crumbs.size(), std::size_t{4});
+
+    // "Project" rather than "Assets", although the root usually contains a folder called Assets --
+    // which is exactly why: "Assets / Assets / Models" is a user wondering which of the two they
+    // are in.
+    CNA_STUDIO_EXPECT_EQ(crumbs[0].first, std::string{"Project"});
+    CNA_STUDIO_EXPECT(crumbs[0].second.empty());
+    CNA_STUDIO_EXPECT_EQ(crumbs[1].first, std::string{"Assets"});
+    CNA_STUDIO_EXPECT_EQ(crumbs[1].second, std::string{"Assets"});
+    CNA_STUDIO_EXPECT_EQ(crumbs[3].first, std::string{"detail"});
+    CNA_STUDIO_EXPECT_EQ(crumbs[3].second, std::string{"Assets/Models/detail"});
+
+    // The root alone is still a crumb. A breadcrumb that vanished at the top would leave nothing
+    // to say where the user is when they are where they started.
+    CNA_STUDIO_EXPECT_EQ(studioContentBreadcrumb({}).size(), std::size_t{1});
+}
+
+CNA_STUDIO_TEST(AMissingAssetsCardSaysSoInTheWarningColour)
+{
+    // The one card whose *state* matters more than its kind. A folder of two hundred textures with
+    // one missing is a folder where the missing one has to be findable without reading any of them.
+    // There is no such file: the database is not pointed at a real project root, so every record
+    // is missing. That is the condition under test, and it is what a moved folder looks like.
+    StudioContext context;
+    AssetDatabase& assets = context.getAssets();
+    track(assets, "Assets/Textures/gone.png", AssetType::Texture2D);
+
+    const std::vector<StudioContentCard> cards =
+        studioContentCards(assets, "Assets/Textures", Uuid{});
+    CNA_STUDIO_EXPECT_EQ(cards.size(), std::size_t{1});
+    CNA_STUDIO_EXPECT(cards.front().missing);
+    CNA_STUDIO_EXPECT(cards.front().icon == StudioIcon::Warning);
+    CNA_STUDIO_EXPECT(cards.front().iconRole == StudioColorRole::Warning);
+    CNA_STUDIO_EXPECT_EQ(cards.front().detail, std::string{"missing"});
+}
+
+CNA_STUDIO_TEST(BothViewsHaveANameAndTheGridIsTheDefault)
+{
+    CNA_STUDIO_EXPECT(!studioContentViewName(StudioContentView::List).empty());
+    CNA_STUDIO_EXPECT(!studioContentViewName(StudioContentView::Grid).empty());
+
+    // The default is the grid, which is what every professional content browser defaults to and
+    // for a reason about content rather than fashion: an asset is a thing with an appearance, and
+    // a browser that shows only its name is a file manager.
+    CNA_STUDIO_EXPECT(StudioContentBrowserState{}.view == StudioContentView::Grid);
+}
+
+// ------------------------------------------------------------------------------------------------
+// The folder pane (STUDIO-09001)
+// ------------------------------------------------------------------------------------------------
+
+CNA_STUDIO_TEST(TheFolderPaneShowsFoldersAndNoFilesAtAll)
+{
+    // The whole difference between this tree and the list's, and the difference that makes a
+    // folder tree worth having: a tree holding every asset in the project is a second copy of the
+    // content pane, and the reason to have a tree is to move between folders without reading them.
+    StudioContext context;
+    AssetDatabase& assets = context.getAssets();
+
+    track(assets, "Assets/Textures/player.png", AssetType::Texture2D);
+    track(assets, "Assets/Models/crate.gltf", AssetType::Model);
+    track(assets, "readme.txt", AssetType::RawData);
+
+    const StudioTreeState state;
+    const std::vector<StudioTreeRow> rows = studioContentFolderRows(assets, {}, state);
+
+    CNA_STUDIO_EXPECT(rowNamed(rows, "Project") != nullptr);
+    CNA_STUDIO_EXPECT(rowNamed(rows, "Assets") != nullptr);
+    CNA_STUDIO_EXPECT(rowNamed(rows, "Textures") != nullptr);
+    CNA_STUDIO_EXPECT(rowNamed(rows, "Models") != nullptr);
+
+    // Not one file, including the one at the project root -- which is the case an implementation
+    // that filtered on "has a slash in it" would get wrong.
+    CNA_STUDIO_EXPECT(rowNamed(rows, "player.png") == nullptr);
+    CNA_STUDIO_EXPECT(rowNamed(rows, "crate.gltf") == nullptr);
+    CNA_STUDIO_EXPECT(rowNamed(rows, "readme.txt") == nullptr);
+
+    // Parents before children, and one deeper than the list's because `Project` is above them all.
+    CNA_STUDIO_EXPECT(indexOf(rows, "Project") < indexOf(rows, "Assets"));
+    CNA_STUDIO_EXPECT(indexOf(rows, "Assets") < indexOf(rows, "Models"));
+    CNA_STUDIO_EXPECT_EQ(rowNamed(rows, "Project")->depth, 0);
+    CNA_STUDIO_EXPECT_EQ(rowNamed(rows, "Assets")->depth, 1);
+    CNA_STUDIO_EXPECT_EQ(rowNamed(rows, "Textures")->depth, 2);
+}
+
+CNA_STUDIO_TEST(TheProjectRootIsARowAndItIsWhereTheEmptyFolderPathPointsAt)
+{
+    // A tree whose only way back to the top is collapsing everything is a tree people navigate by
+    // clicking the breadcrumb instead, which makes half the pane decoration.
+    StudioContext context;
+    AssetDatabase& assets = context.getAssets();
+    track(assets, "Assets/Textures/player.png", AssetType::Texture2D);
+
+    const StudioTreeState state;
+
+    const std::vector<StudioTreeRow> atRoot = studioContentFolderRows(assets, {}, state);
+    CNA_STUDIO_EXPECT(rowNamed(atRoot, "Project")->selected);
+    CNA_STUDIO_EXPECT(!rowNamed(atRoot, "Assets")->selected);
+
+    // The id is a constant rather than the empty string: an empty id would share its expansion
+    // state with every row that had not been given one.
+    CNA_STUDIO_EXPECT_EQ(rowNamed(atRoot, "Project")->id, std::string{kStudioContentRootRowId});
+
+    const std::vector<StudioTreeRow> inTextures =
+        studioContentFolderRows(assets, "Assets/Textures", state);
+    CNA_STUDIO_EXPECT(!rowNamed(inTextures, "Project")->selected);
+    CNA_STUDIO_EXPECT(rowNamed(inTextures, "Textures")->selected);
+
+    // And a folder's id is its path, so navigating is one assignment rather than a lookup.
+    CNA_STUDIO_EXPECT_EQ(rowNamed(inTextures, "Textures")->id, std::string{"Assets/Textures"});
+}
+
+CNA_STUDIO_TEST(AFolderPaneRowCountsWhatIsDirectlyInItRatherThanEverythingUnderIt)
+{
+    // Cumulative counts would make `Assets` read as holding the whole project, which is true and
+    // useless: the number a user wants beside a folder is how much they will see when they click.
+    StudioContext context;
+    AssetDatabase& assets = context.getAssets();
+
+    track(assets, "Assets/notes.txt", AssetType::RawData);
+    track(assets, "Assets/Textures/player.png", AssetType::Texture2D);
+    track(assets, "Assets/Textures/enemy.png", AssetType::Texture2D);
+
+    const StudioTreeState state;
+    const std::vector<StudioTreeRow> rows = studioContentFolderRows(assets, {}, state);
+
+    CNA_STUDIO_EXPECT_EQ(rowNamed(rows, "Assets")->detail, std::string{"1"});
+    CNA_STUDIO_EXPECT_EQ(rowNamed(rows, "Textures")->detail, std::string{"2"});
+
+    // A folder holding only other folders shows no count rather than a zero: "0" beside a folder
+    // full of subfolders reads as empty.
+    CNA_STUDIO_EXPECT(rowNamed(rows, "Project")->detail.empty());
+}
+
+CNA_STUDIO_TEST(AFolderWithSubfoldersGetsATriangleEvenWithNoFilesOfItsOwn)
+{
+    // The one thing a tree must never do is present a leaf that turns out to have children.
+    StudioContext context;
+    AssetDatabase& assets = context.getAssets();
+    track(assets, "Assets/Textures/player.png", AssetType::Texture2D);
+
+    const StudioTreeState state;
+    const std::vector<StudioTreeRow> rows = studioContentFolderRows(assets, {}, state);
+
+    CNA_STUDIO_EXPECT(rowNamed(rows, "Assets")->hasChildren);
+    CNA_STUDIO_EXPECT(!rowNamed(rows, "Textures")->hasChildren);
+
+    // And a sibling whose name is a prefix of another's is not mistaken for its parent:
+    // `Assets2` is not inside `Assets`, however the strings sort.
+    track(assets, "Assets2/readme.txt", AssetType::RawData);
+    const std::vector<StudioTreeRow> again = studioContentFolderRows(assets, {}, state);
+    CNA_STUDIO_EXPECT(rowNamed(again, "Assets2") != nullptr);
+    CNA_STUDIO_EXPECT(!rowNamed(again, "Assets2")->hasChildren);
+}
+
+CNA_STUDIO_TEST(CollapsingInTheFolderPaneHidesDescendantsAndCollapsingTheRootHidesEverything)
+{
+    StudioContext context;
+    AssetDatabase& assets = context.getAssets();
+    track(assets, "Assets/Textures/player.png", AssetType::Texture2D);
+
+    StudioTreeState state;
+
+    // Open by default, which is what a folder tree should be: the state stores *collapsed* ids, so
+    // a user opening the Content Browser for the first time sees their folders rather than one row.
+    CNA_STUDIO_EXPECT_EQ(studioContentFolderRows(assets, {}, state).size(), std::size_t{3});
+
+    // Collapsed root: the row is still there -- it is where "go to the top" lives -- and nothing
+    // below it is.
+    state.setExpanded(std::string{kStudioContentRootRowId}, false);
+    const std::vector<StudioTreeRow> folded = studioContentFolderRows(assets, {}, state);
+    CNA_STUDIO_EXPECT_EQ(folded.size(), std::size_t{1});
+    CNA_STUDIO_EXPECT(rowNamed(folded, "Project") != nullptr);
+
+    state.setExpanded(std::string{kStudioContentRootRowId}, true);
+    state.setExpanded("Assets", false);
+    const std::vector<StudioTreeRow> partial = studioContentFolderRows(assets, {}, state);
+    CNA_STUDIO_EXPECT(rowNamed(partial, "Assets") != nullptr);
+    CNA_STUDIO_EXPECT(rowNamed(partial, "Textures") == nullptr);
+}
+
+CNA_STUDIO_TEST(TheFolderPaneIsBesideBothViewsAndClickingAFolderNavigatesThere)
+{
+    // Beside both presentations rather than inside either. Where a user is and what they are
+    // looking at are two questions, and a navigation tree that appeared in only one view would
+    // make switching views also mean switching how you move around.
+    for (const StudioContentView view : {StudioContentView::Grid, StudioContentView::List})
+    {
+        ScopedProject project{"folderpane"};
+        project.write("Assets/Textures/player.png");
+        project.write("Assets/Models/crate.gltf");
+
+        StudioContext context;
+        context.getAssets().setProjectRoot(project.root());
+        track(context.getAssets(), "Assets/Textures/player.png", AssetType::Texture2D);
+        track(context.getAssets(), "Assets/Models/crate.gltf", AssetType::Model);
+
+        StudioContentBrowserState state;
+        state.view = view;
+
+        auto shell = std::make_unique<StudioShell>(StudioTheme::dark());
+        shell->resetLayout();
+        shell->renderFrame(at(-1.0f, -1.0f));
+        CNA_STUDIO_EXPECT(shell->activatePanel("content"));
+
+        StudioContentBrowserResult drawn;
+        UiRect bounds;
+        CNA_STUDIO_EXPECT(shell->setPanelContent("content",
+            [&](StudioFrame& frame, const UiRect& area) {
+                const StudioContentBrowserResult pass =
+                    studioContentBrowser(frame, area, context, state);
+                if (frame.isDrawPass()) { drawn = pass; bounds = area; }
+            }));
+        shell->renderFrame(at(-1.0f, -1.0f));
+
+        if (drawn.folderRowsDrawn == 0)
+        {
+            CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                std::string{"the folder pane drew nothing in "}
+                + std::string{studioContentViewName(view)} + " view.");
+            continue;
+        }
+
+        // Project, Assets, Models, Textures.
+        CNA_STUDIO_EXPECT_EQ(drawn.folderRowsTotal, std::size_t{4});
+        CNA_STUDIO_EXPECT_EQ(shell->frame().phaseViolations(), std::size_t{0});
+
+        // Clicking a folder navigates there, in both views. Swept rather than assuming a row
+        // height, so a metric change cannot turn this into a test that clicks empty space.
+        bool navigated = false;
+        for (float y = bounds.top() + 2.0f; y < bounds.top() + 160.0f && !navigated; y += 3.0f)
+        {
+            const float x = bounds.left() + 40.0f;
+            shell->renderFrame(at(x, y, false));
+            shell->renderFrame(at(x, y, true));
+            shell->renderFrame(at(x, y, false));
+            navigated = state.folder == "Assets/Models" || state.folder == "Assets/Textures";
+        }
+
+        if (!navigated)
+        {
+            CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                std::string{"clicking the folder pane navigated nowhere in "}
+                + std::string{studioContentViewName(view)} + " view.");
+        }
+    }
+}
+
+// ------------------------------------------------------------------------------------------------
+// Search, filter and order (STUDIO-09005, STUDIO-09006)
+// ------------------------------------------------------------------------------------------------
+
+CNA_STUDIO_TEST(ASearchLooksAtTheWholeProjectRatherThanTheFolderYouAreIn)
+{
+    // The behaviour that makes people type a name, see nothing, and conclude an asset is gone when
+    // it is one folder over. A search scoped to the current folder is a search that answers a
+    // question nobody asked.
+    StudioContext context;
+    AssetDatabase& assets = context.getAssets();
+
+    track(assets, "Assets/Textures/player.png", AssetType::Texture2D);
+    track(assets, "Assets/Models/player.gltf", AssetType::Model);
+    track(assets, "Assets/Models/crate.gltf", AssetType::Model);
+
+    StudioContentQuery query;
+    query.search = "player";
+
+    // Standing in Textures, which holds one of the two.
+    const std::vector<StudioContentCard> found =
+        studioContentCards(assets, "Assets/Textures", Uuid{}, query);
+
+    CNA_STUDIO_EXPECT_EQ(found.size(), std::size_t{2});
+    for (const StudioContentCard& card : found)
+    {
+        CNA_STUDIO_EXPECT(!card.isFolder());
+        // Where it is, which is the whole reason a flat result list is readable: two files called
+        // `player.*` in different folders are otherwise two identical rows.
+        CNA_STUDIO_EXPECT(!card.location.empty());
+    }
+
+    // And no folders in the results. "Assets" does not match "player", and a folder that did match
+    // would be a row whose click means something different from every other row's.
+    CNA_STUDIO_EXPECT(std::none_of(found.begin(), found.end(),
+                                   [](const StudioContentCard& c) { return c.isFolder(); }));
+}
+
+CNA_STUDIO_TEST(ASearchIsCaseInsensitiveAndReadsNameTypeAndPath)
+{
+    StudioContext context;
+    AssetDatabase& assets = context.getAssets();
+
+    const Uuid texture = track(assets, "Assets/Textures/Player.png", AssetType::Texture2D);
+    track(assets, "Assets/Models/crate.gltf", AssetType::Model);
+
+    AssetRecord* record = nullptr;
+    for (const AssetRecord* each : assets.getAll())
+    {
+        if (each->id == texture) { record = const_cast<AssetRecord*>(each); }
+    }
+    CNA_STUDIO_EXPECT(record != nullptr);
+
+    // The name, whatever case it was typed in.
+    CNA_STUDIO_EXPECT(studioContentMatches(*record, "player"));
+    CNA_STUDIO_EXPECT(studioContentMatches(*record, "PLAYER"));
+
+    // The type, which is how a user finds "every texture" without knowing any of their names.
+    CNA_STUDIO_EXPECT(studioContentMatches(*record, "texture"));
+
+    // And the path, which is how they find "everything under Textures".
+    CNA_STUDIO_EXPECT(studioContentMatches(*record, "Assets/Tex"));
+
+    CNA_STUDIO_EXPECT(!studioContentMatches(*record, "crate"));
+
+    // An empty search matches everything rather than nothing: it means "not searching".
+    CNA_STUDIO_EXPECT(studioContentMatches(*record, ""));
+}
+
+CNA_STUDIO_TEST(SearchResultsPutTheNameMatchAboveThePathMatch)
+{
+    // A search over name, type *and* path matches a great deal, and the ordering is what makes the
+    // result usable. A list sorted purely by name would bury an exact hit under everything whose
+    // path happens to contain the word.
+    StudioContext context;
+    AssetDatabase& assets = context.getAssets();
+
+    track(assets, "Assets/crate/readme.txt", AssetType::RawData);   // path match only
+    track(assets, "Assets/Models/zzz-crate.gltf", AssetType::Model); // name contains
+    track(assets, "Assets/Models/crate.gltf", AssetType::Model);     // name starts with
+
+    StudioContentQuery query;
+    query.search = "crate";
+
+    const std::vector<StudioContentCard> found = studioContentCards(assets, {}, Uuid{}, query);
+    CNA_STUDIO_EXPECT_EQ(found.size(), std::size_t{3});
+
+    CNA_STUDIO_EXPECT_EQ(found[0].label, std::string{"crate.gltf"});
+    CNA_STUDIO_EXPECT_EQ(found[1].label, std::string{"zzz-crate.gltf"});
+    CNA_STUDIO_EXPECT_EQ(found[2].label, std::string{"readme.txt"});
+}
+
+CNA_STUDIO_TEST(AKindFilterHidesFilesAndNeverHidesFolders)
+{
+    // A filter that hid the folders too would leave a user filtered to textures unable to reach
+    // the folder the textures are in, which is filtering them out of their own project.
+    StudioContext context;
+    AssetDatabase& assets = context.getAssets();
+
+    track(assets, "Assets/notes.txt", AssetType::RawData);
+    track(assets, "Assets/logo.png", AssetType::Texture2D);
+    track(assets, "Assets/Models/crate.gltf", AssetType::Model);
+
+    StudioContentQuery query;
+    query.type = AssetType::Texture2D;
+
+    const std::vector<StudioContentCard> cards =
+        studioContentCards(assets, "Assets", Uuid{}, query);
+
+    CNA_STUDIO_EXPECT_EQ(cards.size(), std::size_t{2});
+    CNA_STUDIO_EXPECT(cards[0].isFolder());
+    CNA_STUDIO_EXPECT_EQ(cards[0].label, std::string{"Models"});
+    CNA_STUDIO_EXPECT_EQ(cards[1].label, std::string{"logo.png"});
+
+    // And it narrows a search too, so "every texture called player" is one question.
+    query.search = "crate";
+    CNA_STUDIO_EXPECT(studioContentCards(assets, {}, Uuid{}, query).empty());
+}
+
+CNA_STUDIO_TEST(TheFilterOffersOnlyTheKindsTheProjectActuallyHolds)
+{
+    // A filter offering ten kinds a project has none of is a filter nobody reads, and one that
+    // changes length as a project grows is one that teaches its own positions.
+    StudioContext context;
+    AssetDatabase& assets = context.getAssets();
+
+    CNA_STUDIO_EXPECT(studioContentTypesPresent(assets).empty());
+
+    track(assets, "Assets/logo.png", AssetType::Texture2D);
+    track(assets, "Assets/other.png", AssetType::Texture2D);
+    track(assets, "Assets/crate.gltf", AssetType::Model);
+
+    const std::vector<AssetType> types = studioContentTypesPresent(assets);
+    CNA_STUDIO_EXPECT_EQ(types.size(), std::size_t{2});
+
+    // Ordered by their stable names, so the dropdown's positions do not depend on which asset the
+    // database happened to see first.
+    CNA_STUDIO_EXPECT(std::string{toString(types[0])} < std::string{toString(types[1])});
+}
+
+CNA_STUDIO_TEST(SortingByKindGroupsFilesAndReversingLeavesTheFoldersWhereTheyAre)
+{
+    StudioContext context;
+    AssetDatabase& assets = context.getAssets();
+
+    track(assets, "Assets/b.png", AssetType::Texture2D);
+    track(assets, "Assets/a.gltf", AssetType::Model);
+    track(assets, "Assets/c.png", AssetType::Texture2D);
+    track(assets, "Assets/Sub/x.txt", AssetType::RawData);
+
+    StudioContentQuery query;
+    query.sort = StudioContentSort::Type;
+
+    const std::vector<StudioContentCard> byKind =
+        studioContentCards(assets, "Assets", Uuid{}, query);
+
+    // Folder first, then Model before Texture2D by stable name, then names within a kind.
+    CNA_STUDIO_EXPECT_EQ(byKind.size(), std::size_t{4});
+    CNA_STUDIO_EXPECT(byKind[0].isFolder());
+    CNA_STUDIO_EXPECT_EQ(byKind[1].label, std::string{"a.gltf"});
+    CNA_STUDIO_EXPECT_EQ(byKind[2].label, std::string{"b.png"});
+    CNA_STUDIO_EXPECT_EQ(byKind[3].label, std::string{"c.png"});
+
+    query.sort = StudioContentSort::Name;
+    query.descending = true;
+    const std::vector<StudioContentCard> reversed =
+        studioContentCards(assets, "Assets", Uuid{}, query);
+
+    // The files reverse; the folder does not move. Folders are navigation, and navigation that
+    // reorders itself is navigation people stop trusting.
+    CNA_STUDIO_EXPECT(reversed[0].isFolder());
+    CNA_STUDIO_EXPECT_EQ(reversed[1].label, std::string{"c.png"});
+    CNA_STUDIO_EXPECT_EQ(reversed[3].label, std::string{"a.gltf"});
+}
+
+CNA_STUDIO_TEST(ANarrowedBrowserSaysNothingMatchesRatherThanThatTheFolderIsEmpty)
+{
+    // Different problems with different fixes: an empty folder is a place, and a filter that hides
+    // everything is a control the user can turn off. Saying the first when the second is true
+    // sends them looking in the wrong place.
+    StudioContext context;
+    AssetDatabase& assets = context.getAssets();
+    track(assets, "Assets/logo.png", AssetType::Texture2D);
+
+    StudioContentQuery query;
+    CNA_STUDIO_EXPECT(!query.isNarrowed());
+
+    query.search = "nothing-like-this";
+    CNA_STUDIO_EXPECT(query.isNarrowed());
+    CNA_STUDIO_EXPECT(studioContentCards(assets, {}, Uuid{}, query).empty());
+
+    query.search.clear();
+    query.type = AssetType::Model;
+    CNA_STUDIO_EXPECT(query.isNarrowed());
+}
+
+CNA_STUDIO_TEST(BothSortOrdersHaveAName)
+{
+    // Stored in preferences and printed in tests, so a rename would be a silent format change.
+    CNA_STUDIO_EXPECT_EQ(studioContentSortName(StudioContentSort::Name), std::string_view{"name"});
+    CNA_STUDIO_EXPECT_EQ(studioContentSortName(StudioContentSort::Type), std::string_view{"type"});
+}
+
+// ------------------------------------------------------------------------------------------------
+// Rename, move, duplicate and delete (STUDIO-09009)
+// ------------------------------------------------------------------------------------------------
+
+namespace
+{
+    /** @brief An input snapshot with the *secondary* button in a given state. */
+    UiInputState rightAt(float x, float y, bool down)
+    {
+        UiInputState input = at(x, y);
+        input.setMouseDown(UiMouseButton::Right, down);
+        return input;
+    }
+
+    /** @brief Whether any row of @p items is labelled @p label and enabled. */
+    bool offersEnabled(const std::vector<StudioContextMenuItem>& items, std::string_view label)
+    {
+        for (const StudioContextMenuItem& item : items)
+        {
+            if (item.label == label) { return item.enabled; }
+        }
+        return false;
+    }
+
+    /** @brief Whether any row of @p items is labelled @p label at all. */
+    bool offers(const std::vector<StudioContextMenuItem>& items, std::string_view label)
+    {
+        for (const StudioContextMenuItem& item : items)
+        {
+            if (item.label == label) { return true; }
+        }
+        return false;
+    }
+}
+
+CNA_STUDIO_TEST(TheMenuOffersOnlyWhatTheThingUnderThePointerCanActuallyDo)
+{
+    ScopedProject project{"menurows"};
+    project.write("Assets/Textures/player.png");
+
+    StudioContext context;
+    AssetDatabase& assets = context.getAssets();
+    assets.setProjectRoot(project.root());
+    const Uuid present = track(assets, "Assets/Textures/player.png", AssetType::Texture2D);
+    const Uuid gone = track(assets, "Assets/Textures/deleted.png", AssetType::Texture2D);
+
+    const std::vector<StudioContextMenuItem> asset = studioContentMenuItems(assets, present, {});
+    CNA_STUDIO_EXPECT(offersEnabled(asset, "Rename"));
+    CNA_STUDIO_EXPECT(offersEnabled(asset, "Duplicate"));
+    CNA_STUDIO_EXPECT(offersEnabled(asset, "Delete"));
+
+    // A missing source can still be renamed -- that is metadata, and the record is what is being
+    // renamed -- but there is nothing to copy and nothing to delete. Greyed rather than absent: a
+    // menu that changes length depending on the file's state is one where the user aims at Delete
+    // and hits Duplicate.
+    const std::vector<StudioContextMenuItem> missing = studioContentMenuItems(assets, gone, {});
+    CNA_STUDIO_EXPECT_EQ(missing.size(), asset.size());
+    CNA_STUDIO_EXPECT(offersEnabled(missing, "Rename"));
+    CNA_STUDIO_EXPECT(!offersEnabled(missing, "Duplicate"));
+    CNA_STUDIO_EXPECT(!offersEnabled(missing, "Delete"));
+
+    // A folder offers rename and nothing else: duplicating one is copying every file under it,
+    // which is a job rather than an edit, and an undoable folder delete would hold every byte in
+    // it in the undo stack.
+    const std::vector<StudioContextMenuItem> folder =
+        studioContentMenuItems(assets, Uuid{}, "Assets/Textures");
+    CNA_STUDIO_EXPECT(offersEnabled(folder, "Rename"));
+    CNA_STUDIO_EXPECT(!offers(folder, "Duplicate"));
+    CNA_STUDIO_EXPECT(!offers(folder, "Delete"));
+
+    // A folder *can* be shown in the file manager, on every platform: `xdg-open` on a directory is
+    // exactly the supported case (STUDIO-09011).
+    CNA_STUDIO_EXPECT(offersEnabled(folder, "Show in Folder"));
+
+    // Empty space has nothing to offer, and an empty menu is not drawn at all rather than shown as
+    // a rectangle the user has to click away.
+    CNA_STUDIO_EXPECT(studioContentMenuItems(assets, Uuid{}, {}).empty());
+}
+
+CNA_STUDIO_TEST(RenamingThroughTheBrowserKeepsTheIdAndIsOneUndo)
+{
+    ScopedProject project{"browserrename"};
+    project.write("Assets/Textures/old.png");
+
+    StudioContext context;
+    context.getAssets().setProjectRoot(project.root());
+    CNA_STUDIO_EXPECT(context.getAssets().scan("Assets").succeeded);
+
+    const Uuid id = context.getAssets().findByPath("Assets/Textures/old.png")->id;
+
+    const StudioContentOperation renamed = studioContentRename(context, id, {}, "new.png");
+    CNA_STUDIO_EXPECT(renamed.applied);
+    CNA_STUDIO_EXPECT_EQ(context.getAssets().find(id)->sourcePath,
+                         std::string{"Assets/Textures/new.png"});
+
+    // Through the history like every other document change, so Ctrl+Z puts the name back.
+    CNA_STUDIO_EXPECT_EQ(context.getHistory().getCount(), std::size_t{1});
+    CNA_STUDIO_EXPECT(context.getHistory().undo());
+    CNA_STUDIO_EXPECT_EQ(context.getAssets().find(id)->sourcePath,
+                         std::string{"Assets/Textures/old.png"});
+}
+
+CNA_STUDIO_TEST(ARefusedRenameChangesNothingAndSaysWhy)
+{
+    ScopedProject project{"renamerefused"};
+    project.write("Assets/a.png");
+    project.write("Assets/b.png");
+
+    StudioContext context;
+    context.getAssets().setProjectRoot(project.root());
+    CNA_STUDIO_EXPECT(context.getAssets().scan("Assets").succeeded);
+
+    const Uuid id = context.getAssets().findByPath("Assets/a.png")->id;
+
+    for (const std::string_view name : {"", "Sub/a.png", "a<b.png", "trailing.", "b.png"})
+    {
+        const StudioContentOperation refused =
+            studioContentRename(context, id, {}, std::string{name});
+        CNA_STUDIO_EXPECT(!refused.applied);
+
+        // A refusal with no explanation is a browser that looks like it has stopped responding.
+        CNA_STUDIO_EXPECT(!refused.message.empty());
+    }
+
+    // Nothing was renamed on the way through any of those, and nothing is on the undo stack.
+    CNA_STUDIO_EXPECT_EQ(context.getAssets().find(id)->sourcePath, std::string{"Assets/a.png"});
+    CNA_STUDIO_EXPECT_EQ(context.getHistory().getCount(), std::size_t{0});
+}
+
+CNA_STUDIO_TEST(DroppingAnAssetOnAFolderMovesItThereAndKeepsItsId)
+{
+    ScopedProject project{"browsermove"};
+    project.write("Assets/player.png");
+    project.write("Assets/Characters/other.png");
+
+    StudioContext context;
+    context.getAssets().setProjectRoot(project.root());
+    CNA_STUDIO_EXPECT(context.getAssets().scan("Assets").succeeded);
+
+    const Uuid id = context.getAssets().findByPath("Assets/player.png")->id;
+
+    const StudioContentOperation moved =
+        studioContentMoveInto(context, id, "Assets/Characters");
+    CNA_STUDIO_EXPECT(moved.applied);
+    CNA_STUDIO_EXPECT_EQ(context.getAssets().find(id)->sourcePath,
+                         std::string{"Assets/Characters/player.png"});
+
+    // Back to the project root, which is the empty path rather than a special case.
+    const StudioContentOperation back = studioContentMoveInto(context, id, {});
+    CNA_STUDIO_EXPECT(back.applied);
+    CNA_STUDIO_EXPECT_EQ(context.getAssets().find(id)->sourcePath, std::string{"player.png"});
+
+    // Dropping a file into the folder it is already in is a change of mind, not a failure: it is
+    // refused without a message, so the console does not fill up with them.
+    const StudioContentOperation again = studioContentMoveInto(context, id, {});
+    CNA_STUDIO_EXPECT(!again.applied);
+}
+
+CNA_STUDIO_TEST(DuplicatingSelectsTheCopyAndDeletingClearsTheInspector)
+{
+    ScopedProject project{"browserduplicate"};
+    project.write("Assets/Crate.png");
+
+    StudioContext context;
+    context.getAssets().setProjectRoot(project.root());
+    CNA_STUDIO_EXPECT(context.getAssets().scan("Assets").succeeded);
+
+    const Uuid original = context.getAssets().findByPath("Assets/Crate.png")->id;
+    context.selectAsset(original);
+
+    const StudioContentOperation copied = studioContentDuplicate(context, original);
+    CNA_STUDIO_EXPECT(copied.applied);
+
+    // The copy is selected, so the next thing the user does happens to it. A duplicate that left
+    // the original selected is one people edit by mistake, invisibly.
+    const Uuid selected = context.getSelectedAsset();
+    CNA_STUDIO_EXPECT(selected.isValid());
+    CNA_STUDIO_EXPECT(selected != original);
+    CNA_STUDIO_EXPECT_EQ(context.getAssets().find(selected)->sourcePath,
+                         std::string{"Assets/Crate 2.png"});
+
+    // Deleting what the inspector is showing clears it: a panel still describing a file that no
+    // longer exists is the panel telling the user the delete did not work.
+    const StudioContentOperation deleted = studioContentDelete(context, selected);
+    CNA_STUDIO_EXPECT(deleted.applied);
+    CNA_STUDIO_EXPECT(!context.getSelectedAsset().isValid());
+    CNA_STUDIO_EXPECT(context.getAssets().find(selected) == nullptr);
+
+    // And undo brings it back, under the id every scene would still be referencing.
+    CNA_STUDIO_EXPECT(context.getHistory().undo());
+    CNA_STUDIO_EXPECT(context.getAssets().find(selected) != nullptr);
+}
+
+CNA_STUDIO_TEST(RenamingAFolderThroughTheBrowserMovesEverythingUnderIt)
+{
+    ScopedProject project{"browserfolderrename"};
+    project.write("Assets/Textures/a.png");
+    project.write("Assets/Textures/Deep/b.png");
+
+    StudioContext context;
+    context.getAssets().setProjectRoot(project.root());
+    CNA_STUDIO_EXPECT(context.getAssets().scan("Assets").succeeded);
+
+    const Uuid deep = context.getAssets().findByPath("Assets/Textures/Deep/b.png")->id;
+
+    const StudioContentOperation renamed =
+        studioContentRename(context, Uuid{}, "Assets/Textures", "Art");
+    CNA_STUDIO_EXPECT(renamed.applied);
+    CNA_STUDIO_EXPECT_EQ(context.getAssets().find(deep)->sourcePath,
+                         std::string{"Assets/Art/Deep/b.png"});
+
+    // One entry, so the folder comes back on one Ctrl+Z rather than on one press per file in it.
+    CNA_STUDIO_EXPECT_EQ(context.getHistory().getCount(), std::size_t{1});
+    CNA_STUDIO_EXPECT(context.getHistory().undo());
+    CNA_STUDIO_EXPECT_EQ(context.getAssets().find(deep)->sourcePath,
+                         std::string{"Assets/Textures/Deep/b.png"});
+}
+
+CNA_STUDIO_TEST(NoWidgetInTheBrowserIsGivenTheSameIdentityTwice)
+{
+    // Two widgets sharing an id are one widget answering for both, and the symptom is a control
+    // that responds to a press somewhere else. `WidgetIdStack` has detected this since
+    // `STUDIO-03003`; what was missing was anybody asking the Content Browser.
+    //
+    // It had been failing all along, once per draggable row and once per draggable card, because a
+    // row asked for its own id a second time where the drag needed it. The id is the same either
+    // way -- it is derived from the scope and the key -- but the *second* request is what the
+    // detector counts, and a genuine collision in the same panel would have been invisible in the
+    // noise. Found by the hundred-thousand-asset case in `StudioLargeProjectTests`, which is the
+    // first test to have asked.
+    for (const StudioContentView view : {StudioContentView::Grid, StudioContentView::List})
+    {
+        ScopedProject project{"identity"};
+
+        // Folders and files together, because they take different paths through both views: a file
+        // is a drag source and a folder is a drop target.
+        project.write("Assets/Textures/one.png");
+        project.write("Assets/Textures/two.png");
+        project.write("Assets/Sounds/three.wav");
+
+        StudioContext context;
+        context.getAssets().setProjectRoot(project.root());
+        CNA_STUDIO_EXPECT(context.getAssets().scan("Assets").succeeded);
+
+        StudioContentBrowserState state;
+        state.view = view;
+        state.folder = "Assets";
+
+        // The folder pane shown, so its tree is described in the same frame as the listing. Two
+        // trees in one panel is exactly the case a scope is supposed to keep apart.
+        state.folderPaneWidth = 220.0f;
+
+        auto shell = std::make_unique<StudioShell>(StudioTheme::dark());
+        shell->resetLayout();
+        shell->renderFrame(at(-1.0f, -1.0f));
+        CNA_STUDIO_EXPECT(shell->activatePanel("content"));
+
+        CNA_STUDIO_EXPECT(shell->setPanelContent("content",
+            [&](StudioFrame& frame, const UiRect& area) {
+                studioContentBrowser(frame, area, context, state);
+            }));
+
+        // Once with the pointer away, once over the listing: a hover adds widgets -- the row
+        // toggle, the tooltip -- that a frame nobody is pointing at never describes.
+        shell->renderFrame(at(-1.0f, -1.0f));
+        CNA_STUDIO_EXPECT_EQ(shell->frame().ids().collisionCount(), std::size_t{0});
+
+        shell->renderFrame(at(640.0f, 400.0f));
+        CNA_STUDIO_EXPECT_EQ(shell->frame().ids().collisionCount(), std::size_t{0});
+        CNA_STUDIO_EXPECT_EQ(shell->frame().phaseViolations(), std::size_t{0});
+    }
+}
+
+CNA_STUDIO_TEST(ARightClickAsksAboutTheRowUnderThePointerRatherThanTheSelection)
+{
+    // The distinction that decides which file gets deleted. A menu that acted on the selection
+    // would be right whenever the user right-clicked what they had already selected -- which is
+    // most of the time, and never when it matters.
+    for (const StudioContentView view : {StudioContentView::Grid, StudioContentView::List})
+    {
+        ScopedProject project{"rightclick"};
+        project.write("Assets/first.png");
+        project.write("Assets/second.png");
+
+        StudioContext context;
+        context.getAssets().setProjectRoot(project.root());
+        CNA_STUDIO_EXPECT(context.getAssets().scan("Assets").succeeded);
+
+        // Something else is selected, so a menu that read the selection would name the wrong file.
+        const Uuid selected = context.getAssets().findByPath("Assets/second.png")->id;
+        context.selectAsset(selected);
+
+        StudioContentBrowserState state;
+        state.view = view;
+        state.folderPaneWidth = 0.0f;
+
+        // Standing in the folder that holds the files: at the project root the browser shows only
+        // the `Assets` folder, and a right-click there would be asking about a folder.
+        state.folder = "Assets";
+
+        auto shell = std::make_unique<StudioShell>(StudioTheme::dark());
+        shell->resetLayout();
+        shell->renderFrame(at(-1.0f, -1.0f));
+        CNA_STUDIO_EXPECT(shell->activatePanel("content"));
+
+        UiRect bounds;
+        CNA_STUDIO_EXPECT(shell->setPanelContent("content",
+            [&](StudioFrame& frame, const UiRect& area) {
+                studioContentBrowser(frame, area, context, state);
+                if (frame.isDrawPass()) { bounds = area; }
+            }));
+        shell->renderFrame(at(-1.0f, -1.0f));
+
+        // Swept rather than assuming a row or card size, so a metric change cannot turn this into
+        // a test that right-clicks empty space and passes for the wrong reason.
+        bool opened = false;
+        for (float y = bounds.top() + 4.0f; y < bounds.bottom() - 4.0f && !opened; y += 6.0f)
+        {
+            const float x = bounds.left() + 30.0f;
+            shell->renderFrame(rightAt(x, y, false));
+            shell->renderFrame(rightAt(x, y, true));
+            shell->renderFrame(rightAt(x, y, false));
+            opened = state.menuAsset.isValid();
+        }
+
+        if (!opened)
+        {
+            CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                std::string{"a right-click opened no menu in "}
+                + std::string{studioContentViewName(view)} + " view.");
+            continue;
+        }
+
+        // Whatever it landed on, it is the row under the pointer -- and the selection it did not
+        // land on is untouched.
+        CNA_STUDIO_EXPECT(context.getAssets().find(state.menuAsset) != nullptr);
+        CNA_STUDIO_EXPECT_EQ(context.getSelectedAsset().toString(), selected.toString());
+        CNA_STUDIO_EXPECT_EQ(shell->frame().phaseViolations(), std::size_t{0});
+    }
+}
+
+CNA_STUDIO_TEST(TheMenusShortcutHintsAreTheShortcutsTheRegistryActuallyBinds)
+{
+    // A hint is a promise. The menu and the action registry are two places that would drift the
+    // day someone rebinds Duplicate, and the symptom -- a menu that tells the user to press a key
+    // that does something else -- is one nobody reports, because they stop trusting the hints
+    // instead.
+    StudioActionRegistry registry;
+    registerCoreStudioActions(registry);
+
+    ScopedProject project{"menushortcuts"};
+    project.write("Assets/Crate.png");
+
+    StudioContext context;
+    context.getAssets().setProjectRoot(project.root());
+    const Uuid id = track(context.getAssets(), "Assets/Crate.png", AssetType::Texture2D);
+
+    const std::vector<StudioContextMenuItem> items =
+        studioContentMenuItems(context.getAssets(), id, {});
+
+    for (const auto& [label, actionId] : {std::pair{"Rename", "studio.edit.rename"},
+                                          std::pair{"Duplicate", "studio.edit.duplicate"},
+                                          std::pair{"Delete", "studio.edit.delete"}})
+    {
+        const StudioAction* action = registry.find(actionId);
+        CNA_STUDIO_EXPECT(action != nullptr);
+        if (action == nullptr) { continue; }
+
+        bool found = false;
+        for (const StudioContextMenuItem& item : items)
+        {
+            if (item.label != label) { continue; }
+            found = true;
+            CNA_STUDIO_EXPECT_EQ(item.shortcut, describeStudioShortcut(action->shortcut));
+        }
+        CNA_STUDIO_EXPECT(found);
+    }
+}
+
+// ------------------------------------------------------------------------------------------------
+// Drawing asks the filesystem nothing (STUDIO-30012, STUDIO-30015)
+// ------------------------------------------------------------------------------------------------
+
+/**
+ * @brief Drawing the Content Browser performs no filesystem access proportional to the asset count.
+ *
+ * Asserted with a counter rather than implied by a benchmark, which is what `STUDIO-30015`'s
+ * acceptance asks for. `STUDIO-30014` measured the old behaviour: `isMissing` was a `stat` and the
+ * browser called it once per row per pass, plus a second full pass to count the missing ones —
+ * about 3 000 syscalls a frame at 1 500 assets, and 61% of the panel's frame cost.
+ */
+CNA_STUDIO_TEST(DrawingTheContentBrowserAsksTheFilesystemAboutNothing)
+{
+    ScopedProject project{"nostats"};
+
+    StudioContext context;
+    AssetDatabase& assets = context.getAssets();
+    assets.setProjectRoot(project.root());
+
+    // Enough that a per-asset syscall would be unmistakable in the count.
+    constexpr int kAssets = 400;
+    for (int i = 0; i < kAssets; ++i)
+    {
+        const std::string path = "Assets/Textures/asset" + std::to_string(i) + ".png";
+        project.write(path);
+        track(assets, path, AssetType::Texture2D);
+    }
+
+    for (const StudioContentView view : {StudioContentView::Grid, StudioContentView::List})
+    {
+        StudioContentBrowserState state;
+        state.view = view;
+        state.folder = "Assets/Textures";
+
+        auto shell = std::make_unique<StudioShell>(StudioTheme::dark());
+        shell->resetLayout();
+        shell->renderFrame(at(-1.0f, -1.0f));
+        CNA_STUDIO_EXPECT(shell->activatePanel("content"));
+
+        StudioContentBrowserResult drawn;
+        CNA_STUDIO_EXPECT(shell->setPanelContent("content",
+            [&](StudioFrame& frame, const UiRect& area) {
+                const StudioContentBrowserResult pass =
+                    studioContentBrowser(frame, area, context, state);
+                if (frame.isDrawPass()) { drawn = pass; }
+            }));
+
+        // One frame to settle whatever the shell does on its first, then the frames under test.
+        shell->renderFrame(at(-1.0f, -1.0f));
+        const std::uint64_t before = assets.getPresenceProbeCount();
+
+        for (int frame = 0; frame < 5; ++frame) { shell->renderFrame(at(-1.0f, -1.0f)); }
+
+        const std::uint64_t after = assets.getPresenceProbeCount();
+        if (after != before)
+        {
+            CnaStudioTest::reportFailure(
+                __FILE__, __LINE__,
+                std::string{"drawing five frames in "} + std::string{studioContentViewName(view)}
+                    + " view made " + std::to_string(after - before)
+                    + " filesystem presence checks; it must make none.");
+        }
+
+        // And it drew the folder, so this is not a test that passes because nothing happened.
+        CNA_STUDIO_EXPECT_EQ(drawn.rowsTotal, static_cast<std::size_t>(kAssets));
+        CNA_STUDIO_EXPECT(drawn.rowsDrawn > 0);
+        CNA_STUDIO_EXPECT_EQ(drawn.missingCount, std::size_t{0});
+    }
+}
+
+CNA_STUDIO_TEST(AnExplicitRefreshIsWhereTheFilesystemCostGoesInstead)
+{
+    // The other half of the strategy: the cost has not vanished, it has moved somewhere a user
+    // asked for it. One probe per record, and the answer changes.
+    ScopedProject project{"refreshcost"};
+    project.write("Assets/a.png");
+    project.write("Assets/b.png");
+
+    StudioContext context;
+    AssetDatabase& assets = context.getAssets();
+    assets.setProjectRoot(project.root());
+    CNA_STUDIO_EXPECT(assets.scan("Assets").succeeded);
+    CNA_STUDIO_EXPECT_EQ(assets.getMissingCount(), std::size_t{0});
+
+    const Uuid gone = assets.findByPath("Assets/a.png")->id;
+    std::filesystem::remove(std::filesystem::path{project.root()} / "Assets" / "a.png");
+
+    // Still nothing, because nobody has looked. That is the cache being a cache rather than a
+    // guess, and it is why "never notice" was not an option and "notice per frame" was the cost.
+    CNA_STUDIO_EXPECT(!assets.isMissing(gone));
+
+    const std::uint64_t before = assets.getPresenceProbeCount();
+    CNA_STUDIO_EXPECT_EQ(assets.refreshPresence(), std::size_t{1});
+    CNA_STUDIO_EXPECT_EQ(assets.getPresenceProbeCount() - before, std::uint64_t{2});
+
+    CNA_STUDIO_EXPECT(assets.isMissing(gone));
+    CNA_STUDIO_EXPECT_EQ(assets.getMissingCount(), std::size_t{1});
+
+    // A single asset can be refreshed on its own, which is one probe rather than the project.
+    const std::uint64_t beforeOne = assets.getPresenceProbeCount();
+    (void)assets.refreshPresence(gone);
+    CNA_STUDIO_EXPECT_EQ(assets.getPresenceProbeCount() - beforeOne, std::uint64_t{1});
+}
+
+CNA_STUDIO_TEST(TheWatcherIsWhatMakesAnOutsideDeletionVisible)
+{
+    // The strategy's default path: half a second, paid by a loop that was already stat-ing every
+    // tracked file. Nothing else in Studio has to remember to refresh anything.
+    ScopedProject project{"watcherpresence"};
+    project.write("Assets/a.png");
+
+    AssetDatabase assets;
+    assets.setProjectRoot(project.root());
+    CNA_STUDIO_EXPECT(assets.scan("Assets").succeeded);
+
+    const Uuid id = assets.findByPath("Assets/a.png")->id;
+    std::filesystem::remove(std::filesystem::path{project.root()} / "Assets" / "a.png");
+    CNA_STUDIO_EXPECT(!assets.isMissing(id));
+
+    AssetWatcher watcher;
+    const AssetWatchResult result = watcher.poll(assets, watcher.getInterval());
+    CNA_STUDIO_EXPECT(result.polled);
+    CNA_STUDIO_EXPECT_EQ(result.removed.size(), std::size_t{1});
+
+    CNA_STUDIO_EXPECT(assets.isMissing(id));
+    CNA_STUDIO_EXPECT_EQ(assets.getMissingCount(), std::size_t{1});
+
+    // And back again when the file returns, so a `git checkout` fixes the browser without a
+    // restart.
+    project.write("Assets/a.png");
+    const AssetWatchResult back = watcher.poll(assets, watcher.getInterval());
+    CNA_STUDIO_EXPECT(back.polled);
+    CNA_STUDIO_EXPECT(!assets.isMissing(id));
+    CNA_STUDIO_EXPECT_EQ(assets.getMissingCount(), std::size_t{0});
+}
+
+CNA_STUDIO_TEST(ThePanelsPollTheWatcherInEveryBuildRatherThanOnlyTheCnaBackedOne)
+{
+    // The watcher used to be polled by the CNA-backed host and by nothing else, which was tolerable
+    // while it only reloaded textures and is not now that it is what invalidates the presence
+    // cache: a cache whose invalidation ran in one of the two builds is a cache that is right in
+    // one of them.
+    ScopedProject project{"panelwatch"};
+    project.write("Assets/a.png");
+
+    StudioContext context;
+    context.getAssets().setProjectRoot(project.root());
+    CNA_STUDIO_EXPECT(context.getAssets().scan("Assets").succeeded);
+
+    const Uuid id = context.getAssets().findByPath("Assets/a.png")->id;
+
+    StudioLog log;
+    auto shell = std::make_unique<StudioShell>(StudioTheme::dark());
+    StudioShellPanels panels{*shell, context, log};
+
+    std::filesystem::remove(std::filesystem::path{project.root()} / "Assets" / "a.png");
+    CNA_STUDIO_EXPECT(!context.getAssets().isMissing(id));
+
+    // The first poll establishes the clock rather than firing, so a session's first frame does not
+    // poll whether or not it is due.
+    panels.poll(0.0);
+    panels.poll(5.0);
+
+    CNA_STUDIO_EXPECT(context.getAssets().isMissing(id));
+    CNA_STUDIO_EXPECT_EQ(context.getAssets().getMissingCount(), std::size_t{1});
+}
+
+// ------------------------------------------------------------------------------------------------
+// Reimport (STUDIO-09010)
+// ------------------------------------------------------------------------------------------------
+
+CNA_STUDIO_TEST(TheBrowserMarksAnOutOfDateAssetAndOffersToReimportIt)
+{
+    ScopedProject project{"reimportrow"};
+    project.write("Assets/Hero.png");
+
+    StudioContext context;
+    AssetDatabase& assets = context.getAssets();
+    assets.setProjectRoot(project.root());
+    CNA_STUDIO_EXPECT(assets.scan("Assets").succeeded);
+
+    const Uuid id = assets.findByPath("Assets/Hero.png")->id;
+    (void)studioReimportAssets(assets, {id});
+
+    // Up to date: the row says what the asset *is* and nothing else.
+    {
+        const std::vector<StudioContentCard> cards = studioContentCards(assets, "Assets", Uuid{});
+        CNA_STUDIO_EXPECT_EQ(cards.size(), std::size_t{1});
+        CNA_STUDIO_EXPECT(!cards.front().needsReimport);
+        CNA_STUDIO_EXPECT(cards.front().detail.find("out of date") == std::string::npos);
+    }
+
+    // Re-exported. The record's stamp is what a scan or a watcher poll updates.
+    {
+        const std::filesystem::path file = std::filesystem::path{project.root()} / "Assets"
+                                         / "Hero.png";
+        std::ofstream stream{file, std::ios::binary};
+        stream << "a longer set of pixels than before";
+    }
+    CNA_STUDIO_EXPECT(assets.scan("Assets").succeeded);
+
+    const std::vector<StudioContentCard> cards = studioContentCards(assets, "Assets", Uuid{});
+    CNA_STUDIO_EXPECT_EQ(cards.size(), std::size_t{1});
+    CNA_STUDIO_EXPECT(cards.front().needsReimport);
+
+    // Beside the kind rather than instead of it: what the asset is does not stop being true
+    // because its file moved on.
+    CNA_STUDIO_EXPECT(cards.front().detail.find(toString(AssetType::Texture2D))
+                      != std::string::npos);
+    CNA_STUDIO_EXPECT(cards.front().detail.find("out of date") != std::string::npos);
+
+    // The menu offers it, and taking it clears the marker without disturbing the undo stack: a
+    // reimport re-reads what is on disk rather than changing the document.
+    bool offered = false;
+    for (const StudioContextMenuItem& item : studioContentMenuItems(assets, id, {}))
+    {
+        if (item.label == "Reimport") { offered = item.enabled; }
+    }
+    CNA_STUDIO_EXPECT(offered);
+
+    const StudioContentOperation done = studioContentReimport(context, id);
+    CNA_STUDIO_EXPECT(done.applied);
+    CNA_STUDIO_EXPECT(!done.message.empty());
+    CNA_STUDIO_EXPECT_EQ(context.getHistory().getCount(), std::size_t{0});
+    CNA_STUDIO_EXPECT(!studioContentCards(assets, "Assets", Uuid{}).front().needsReimport);
+}
+
+CNA_STUDIO_TEST(AMissingAssetIsNotOfferedAReimportItCannotDo)
+{
+    ScopedProject project{"reimportmissingrow"};
+
+    StudioContext context;
+    AssetDatabase& assets = context.getAssets();
+    assets.setProjectRoot(project.root());
+    const Uuid gone = track(assets, "Assets/Hero.png", AssetType::Texture2D);
+    CNA_STUDIO_EXPECT(assets.isMissing(gone));
+
+    for (const StudioContextMenuItem& item : studioContentMenuItems(assets, gone, {}))
+    {
+        if (item.label == "Reimport") { CNA_STUDIO_EXPECT(!item.enabled); }
+    }
+
+    // And asking anyway is refused with a reason rather than silently doing nothing.
+    const StudioContentOperation refused = studioContentReimport(context, gone);
+    CNA_STUDIO_EXPECT(!refused.applied);
+    CNA_STUDIO_EXPECT(!refused.message.empty());
+}
+
+// ------------------------------------------------------------------------------------------------
+// Show in the system file manager (STUDIO-09011)
+// ------------------------------------------------------------------------------------------------
+
+CNA_STUDIO_TEST(TheRevealCommandIsBuiltCorrectlyForThisPlatform)
+{
+    // What gets run is asserted on a machine with no desktop, which is every machine these tests
+    // run on. A reveal that quoted its path wrongly would otherwise be found by a user rather than
+    // by CI -- and the Windows form in particular is a detail nobody remembers twice.
+    ScopedProject project{"revealcommand"};
+    project.write("Assets/Textures/hero.png");
+
+    const std::string file =
+        (std::filesystem::path{project.root()} / "Assets" / "Textures" / "hero.png")
+            .generic_string();
+
+    const StudioRevealCommand command = studioRevealCommand(file);
+    CNA_STUDIO_EXPECT(command.isValid());
+    CNA_STUDIO_EXPECT(command.argv.size() >= 2);
+
+#if defined(_WIN32)
+    CNA_STUDIO_EXPECT_EQ(command.argv[0], std::string{"explorer.exe"});
+
+    // The comma is part of the switch and there is no space after it: `explorer /select, C:\x`
+    // opens the user's documents folder instead of the file.
+    CNA_STUDIO_EXPECT_EQ(command.argv[1], "/select," + file);
+    CNA_STUDIO_EXPECT(command.selectsTheFile);
+#elif defined(__APPLE__)
+    CNA_STUDIO_EXPECT_EQ(command.argv[1], std::string{"-R"});
+    CNA_STUDIO_EXPECT_EQ(command.argv[2], file);
+    CNA_STUDIO_EXPECT(command.selectsTheFile);
+#else
+    CNA_STUDIO_EXPECT_EQ(command.argv[0], std::string{"xdg-open"});
+
+    // The containing *folder*, because `xdg-open` on a file opens it in whatever application claims
+    // the type -- an image viewer for a texture, which is a different action from the one asked
+    // for. And reported as not selecting the file, so a caller does not promise what the desktop
+    // will not do.
+    CNA_STUDIO_EXPECT(command.argv[1].find("hero.png") == std::string::npos);
+    CNA_STUDIO_EXPECT(command.argv[1].find("Textures") != std::string::npos);
+    CNA_STUDIO_EXPECT(!command.selectsTheFile);
+
+    // A directory is passed through as itself rather than having its parent taken.
+    const std::string folder =
+        (std::filesystem::path{project.root()} / "Assets" / "Textures").generic_string();
+    const StudioRevealCommand onFolder = studioRevealCommand(folder);
+    CNA_STUDIO_EXPECT(onFolder.isValid());
+    CNA_STUDIO_EXPECT(onFolder.argv[1].find("Textures") != std::string::npos);
+#endif
+
+    // Nothing to show is not a command.
+    CNA_STUDIO_EXPECT(!studioRevealCommand({}).isValid());
+}
+
+CNA_STUDIO_TEST(RevealingSomethingThatIsNotThereIsRefusedWithAReason)
+{
+    // Rather than launching a file manager onto a path that does not exist, which opens somewhere
+    // arbitrary and looks like the editor lost the file.
+    std::string problem;
+    CNA_STUDIO_EXPECT(!studioRevealInFileManager("/no/such/path/at/all.png", &problem));
+    CNA_STUDIO_EXPECT(!problem.empty());
+
+    CNA_STUDIO_EXPECT(!studioRevealInFileManager({}, &problem));
+    CNA_STUDIO_EXPECT(!problem.empty());
+}
+
+CNA_STUDIO_TEST(TheBrowserReportsARevealRatherThanLaunchingOne)
+{
+    // Reported rather than launched, so a test can drive the whole path without a desktop -- and so
+    // the one piece that needs a process lives with the binder that already owns the Output Log.
+    ScopedProject project{"revealrow"};
+    project.write("Assets/hero.png");
+
+    StudioContext context;
+    AssetDatabase& assets = context.getAssets();
+    assets.setProjectRoot(project.root());
+    CNA_STUDIO_EXPECT(assets.scan("Assets").succeeded);
+
+    const Uuid id = assets.findByPath("Assets/hero.png")->id;
+    CNA_STUDIO_EXPECT(offersEnabled(studioContentMenuItems(assets, id, {}), "Show in Folder"));
+
+    // A missing file has nothing to show, so the row is greyed rather than opening a folder the
+    // user will find the file absent from.
+    const Uuid gone = track(assets, "Assets/gone.png", AssetType::Texture2D);
+    CNA_STUDIO_EXPECT(!offersEnabled(studioContentMenuItems(assets, gone, {}), "Show in Folder"));
+}
+
+// ------------------------------------------------------------------------------------------------
+// Favourites and recent assets (STUDIO-09007)
+// ------------------------------------------------------------------------------------------------
+
+CNA_STUDIO_TEST(AFavouriteIsADecisionAndRecentIsASideEffect)
+{
+    // Kept apart rather than merged into one "quick access" list, because they answer different
+    // questions: a favourite stays until it is unmade, and a recent entry is pushed out by the next
+    // thing. A list that mixed them would lose a deliberate choice to a morning's browsing.
+    StudioAssetShortcuts shortcuts;
+
+    const Uuid a = Uuid::generate();
+    const Uuid b = Uuid::generate();
+    const Uuid c = Uuid::generate();
+
+    CNA_STUDIO_EXPECT(shortcuts.toggleFavourite(a));
+    CNA_STUDIO_EXPECT(shortcuts.toggleFavourite(b));
+    CNA_STUDIO_EXPECT(shortcuts.isFavourite(a));
+
+    // Appended rather than prepended: a list that reordered itself every time one was added would
+    // make the user hunt for the one they starred last week.
+    CNA_STUDIO_EXPECT_EQ(shortcuts.favourites.front().toString(), a.toString());
+
+    CNA_STUDIO_EXPECT(!shortcuts.toggleFavourite(a));
+    CNA_STUDIO_EXPECT(!shortcuts.isFavourite(a));
+    CNA_STUDIO_EXPECT_EQ(shortcuts.favourites.size(), std::size_t{1});
+
+    // Recent *is* the list that moves, and it moves to the front.
+    CNA_STUDIO_EXPECT(shortcuts.remember(a, 8));
+    CNA_STUDIO_EXPECT(shortcuts.remember(b, 8));
+    CNA_STUDIO_EXPECT(shortcuts.remember(c, 8));
+    CNA_STUDIO_EXPECT_EQ(shortcuts.recent.front().toString(), c.toString());
+
+    CNA_STUDIO_EXPECT(shortcuts.remember(a, 8));
+    CNA_STUDIO_EXPECT_EQ(shortcuts.recent.front().toString(), a.toString());
+    CNA_STUDIO_EXPECT_EQ(shortcuts.recent.size(), std::size_t{3});
+
+    // Already first, so nothing changed -- which is what stops clicking one asset rewriting the
+    // file once a frame.
+    CNA_STUDIO_EXPECT(!shortcuts.remember(a, 8));
+
+    // Bounded, oldest out first.
+    for (int i = 0; i < 10; ++i) { (void)shortcuts.remember(Uuid::generate(), 4); }
+    CNA_STUDIO_EXPECT_EQ(shortcuts.recent.size(), std::size_t{4});
+
+    // A nil id is what clearing the selection looks like, and it is not an entry.
+    CNA_STUDIO_EXPECT(!shortcuts.remember(Uuid{}, 8));
+    CNA_STUDIO_EXPECT(!shortcuts.toggleFavourite(Uuid{}));
+}
+
+CNA_STUDIO_TEST(ShortcutsSurviveARestartAndDropAssetsThatWentAway)
+{
+    ScopedProject project{"shortcutstore"};
+    project.write("Assets/a.png");
+    project.write("Assets/b.png");
+
+    AssetDatabase assets;
+    assets.setProjectRoot(project.root());
+    CNA_STUDIO_EXPECT(assets.scan("Assets").succeeded);
+
+    const Uuid a = assets.findByPath("Assets/a.png")->id;
+    const Uuid b = assets.findByPath("Assets/b.png")->id;
+    const Uuid gone = Uuid::generate();
+
+    const std::string path =
+        (std::filesystem::path{project.root()} / "shortcuts.json").generic_string();
+    const StudioAssetShortcutStore store{path};
+
+    StudioAssetShortcuts written;
+    (void)written.toggleFavourite(a);
+    (void)written.toggleFavourite(gone);
+    (void)written.remember(b, StudioAssetShortcutStore::kMaximumRecent);
+
+    std::string problem;
+    CNA_STUDIO_EXPECT(store.save(written, &problem));
+    CNA_STUDIO_EXPECT(problem.empty());
+
+    StudioAssetShortcuts read = store.load();
+    CNA_STUDIO_EXPECT_EQ(read.favourites.size(), std::size_t{2});
+    CNA_STUDIO_EXPECT_EQ(read.recent.size(), std::size_t{1});
+    CNA_STUDIO_EXPECT(read.isFavourite(a));
+
+    // Ids rather than paths, so a favourite survives the file being moved -- and pruning is what
+    // takes out the one whose asset is gone for good.
+    CNA_STUDIO_EXPECT_EQ(read.prune(assets), std::size_t{1});
+    CNA_STUDIO_EXPECT(read.isFavourite(a));
+    CNA_STUDIO_EXPECT(!read.isFavourite(gone));
+
+    // A file that is not there, and one that is not JSON, both read as empty rather than as a
+    // failure: a corrupt convenience file must not cost a project its opening.
+    CNA_STUDIO_EXPECT(StudioAssetShortcutStore{path + ".missing"}.load().isEmpty());
+    {
+        std::ofstream stream{path, std::ios::binary | std::ios::trunc};
+        stream << "{ not json";
+    }
+    CNA_STUDIO_EXPECT(store.load().isEmpty());
+
+    // Two projects with the same name in different places do not share a file.
+    const std::string one = StudioAssetShortcutStore::defaultPathFor("/a/Game/Game.cnaproject");
+    const std::string two = StudioAssetShortcutStore::defaultPathFor("/b/Game/Game.cnaproject");
+    if (!one.empty())
+    {
+        CNA_STUDIO_EXPECT(one != two);
+
+        // And the name is in there, so somebody who opens the directory can tell which is which.
+        CNA_STUDIO_EXPECT(one.find("Game") != std::string::npos);
+    }
+    CNA_STUDIO_EXPECT(StudioAssetShortcutStore::defaultPathFor({}).empty());
+}
+
+CNA_STUDIO_TEST(TheFolderPaneOffersTheTwoListsOnlyWhenTheyHaveSomethingInThem)
+{
+    // An empty "Favourites" row teaches the user that the feature does nothing, which is the one
+    // lesson a shortcut list must not teach.
+    ScopedProject project{"shortcutrows"};
+    project.write("Assets/Textures/a.png");
+
+    StudioContext context;
+    AssetDatabase& assets = context.getAssets();
+    assets.setProjectRoot(project.root());
+    CNA_STUDIO_EXPECT(assets.scan("Assets").succeeded);
+
+    const Uuid a = assets.findByPath("Assets/Textures/a.png")->id;
+
+    StudioTreeState state;
+    StudioAssetShortcuts shortcuts;
+
+    CNA_STUDIO_EXPECT(rowNamed(studioContentFolderRows(assets, {}, state, shortcuts),
+                               "Favourites") == nullptr);
+    CNA_STUDIO_EXPECT(rowNamed(studioContentFolderRows(assets, {}, state, shortcuts),
+                               "Recent") == nullptr);
+
+    (void)shortcuts.toggleFavourite(a);
+    (void)shortcuts.remember(a, 8);
+
+    const std::vector<StudioTreeRow> rows = studioContentFolderRows(assets, {}, state, shortcuts);
+
+    // Above the project, because they are where a user goes first and a pane that put them under
+    // two hundred folders would be one where nobody found them.
+    CNA_STUDIO_EXPECT(rows.size() >= 3);
+    CNA_STUDIO_EXPECT_EQ(rows[0].label, std::string{"Favourites"});
+    CNA_STUDIO_EXPECT_EQ(rows[1].label, std::string{"Recent"});
+    CNA_STUDIO_EXPECT_EQ(rows[2].label, std::string{"Project"});
+    CNA_STUDIO_EXPECT_EQ(rows[0].detail, std::string{"1"});
+
+    // Their ids cannot collide with a folder's, because a name with angle brackets in it is one
+    // the rename rules refuse.
+    CNA_STUDIO_EXPECT(studioContentIsShortcutFolder(rows[0].id));
+    CNA_STUDIO_EXPECT(studioContentIsShortcutFolder(rows[1].id));
+    CNA_STUDIO_EXPECT(!studioContentIsShortcutFolder(rows[2].id));
+
+    // And the listing is the assets themselves, in the list's own order, each saying where it is
+    // -- these came from all over the project and a name alone does not say which is which.
+    const std::vector<StudioContentCard> cards = studioContentCards(
+        assets, std::string{kStudioContentFavouritesRowId}, Uuid{}, {}, shortcuts);
+    CNA_STUDIO_EXPECT_EQ(cards.size(), std::size_t{1});
+    CNA_STUDIO_EXPECT_EQ(cards.front().assetId.toString(), a.toString());
+    CNA_STUDIO_EXPECT(cards.front().favourite);
+    CNA_STUDIO_EXPECT(!cards.front().location.empty());
+
+    // A starred asset is marked wherever it appears, so "have I already starred this" is
+    // answerable without going to look.
+    const std::vector<StudioContentCard> inFolder =
+        studioContentCards(assets, "Assets/Textures", Uuid{}, {}, shortcuts);
+    CNA_STUDIO_EXPECT_EQ(inFolder.size(), std::size_t{1});
+    CNA_STUDIO_EXPECT(inFolder.front().favourite);
+    CNA_STUDIO_EXPECT(inFolder.front().iconRole == StudioColorRole::Accent);
+}
+
+CNA_STUDIO_TEST(TheMenuStarsAnAssetAndSaysWhichWayItWillGo)
+{
+    ScopedProject project{"shortcutmenu"};
+    project.write("Assets/a.png");
+
+    AssetDatabase assets;
+    assets.setProjectRoot(project.root());
+    CNA_STUDIO_EXPECT(assets.scan("Assets").succeeded);
+
+    const Uuid a = assets.findByPath("Assets/a.png")->id;
+
+    CNA_STUDIO_EXPECT(offersEnabled(studioContentMenuItems(assets, a, {}, false),
+                                    "Add to Favourites"));
+    CNA_STUDIO_EXPECT(offersEnabled(studioContentMenuItems(assets, a, {}, true),
+                                    "Remove from Favourites"));
+
+    // Offered for a *missing* asset too, unlike everything else in the menu: a favourite is a note
+    // about the asset rather than an operation on its file, and the one a user most wants to keep
+    // hold of is the one that has gone wrong.
+    const Uuid gone = track(assets, "Assets/gone.png", AssetType::Texture2D);
+    CNA_STUDIO_EXPECT(offersEnabled(studioContentMenuItems(assets, gone, {}, false),
+                                    "Add to Favourites"));
+    CNA_STUDIO_EXPECT(!offersEnabled(studioContentMenuItems(assets, gone, {}, false), "Delete"));
+}
+
+// ------------------------------------------------------------------------------------------------
+// Creating a material (STUDIO-10007)
+// ------------------------------------------------------------------------------------------------
+
+CNA_STUDIO_TEST(NewMaterialWritesIntoTheFolderTheBrowserIsStandingIn)
+{
+    // The asset pipeline has read and tracked `.cnamaterial` since the importer landed, and until
+    // now nothing in Studio could *produce* one: a user had to write the JSON by hand. The folder
+    // is the part worth pinning. An action that always wrote to the project's asset directory
+    // would put the file somewhere the user is not looking, and they would conclude that pressing
+    // New Material did nothing.
+    ScopedProject project{"newmaterial"};
+    project.write("Assets/Materials/stone.png");
+    {
+        std::ofstream stream{std::filesystem::path{project.root()} / "Game.cnaproject",
+                             std::ios::binary};
+        stream << R"({"formatVersion":1,"name":"Materials","kind":"CnaNative"})";
+    }
+
+    StudioContext context;
+    CNA_STUDIO_EXPECT(context.openProject(
+        (std::filesystem::path{project.root()} / "Game.cnaproject").generic_string()));
+
+    StudioLog log;
+    auto shell = std::make_unique<StudioShell>(StudioTheme::dark());
+
+    // The same two bindings the editor makes, in the same order: the document commands -- Undo
+    // among them -- and then the panels.
+    (void)bindStudioShellActions(*shell, context, log);
+    StudioShellPanels panels{*shell, context, log};
+
+    // Reachable at all: an action the registry carries and no menu names is one a user cannot
+    // invoke, which is the same to them as one that was never written.
+    bool offered = false;
+    for (const StudioMenuDefinition& menu : shell->menus())
+    {
+        for (const StudioMenuEntry& entry : menu.entries)
+        {
+            if (!entry.isSeparator() && !entry.isSubmenu()
+                && entry.id == "studio.asset.newMaterial")
+            {
+                offered = true;
+            }
+        }
+    }
+    CNA_STUDIO_EXPECT(offered);
+
+    // Standing in a subfolder, which is the case that separates "writes where the user is" from
+    // "writes to Assets and happens to be right".
+    panels.contentBrowserState().folder = "Assets/Materials";
+
+    const std::filesystem::path folder = std::filesystem::path{project.root()} / "Assets"
+                                       / "Materials";
+    const std::filesystem::path first = folder / "New Material.cnamaterial";
+    const std::filesystem::path second = folder / "New Material 2.cnamaterial";
+
+    shell->invoke("studio.asset.newMaterial");
+    // Nothing was refused: an action registered with no handler is invoked, recorded as "not
+    // implemented" and otherwise silent -- which is how this binding sat in `bindViewport`, where
+    // a headless editor never reaches it, without anything saying so.
+    CNA_STUDIO_EXPECT(shell->refusedActions().empty());
+    CNA_STUDIO_EXPECT(std::filesystem::exists(first));
+
+    // Tracked as well as written. A file the database has not rescanned is one the browser does
+    // not list and the Inspector cannot open -- written and invisible is the same as not written.
+    const AssetRecord* record =
+        context.getAssets().findByPath("Assets/Materials/New Material.cnamaterial");
+    CNA_STUDIO_EXPECT(record != nullptr);
+    if (record != nullptr)
+    {
+        CNA_STUDIO_EXPECT(record->type == AssetType::Material);
+
+        // And selected, because a user who asks for a new material wants to edit it rather than
+        // go and find it.
+        CNA_STUDIO_EXPECT_EQ(context.getSelectedAsset().toString(), record->id.toString());
+    }
+
+    // A second one gets a name of its own. Two materials called the same thing in one folder is
+    // one file, and the second write would silently replace the first.
+    shell->invoke("studio.asset.newMaterial");
+    CNA_STUDIO_EXPECT(std::filesystem::exists(second));
+    CNA_STUDIO_EXPECT(std::filesystem::exists(first));
+
+    // It is a command like every other document mutation (D-06), so Undo takes the file back --
+    // not just the record. A "create" that left the file behind would leave the folder filling
+    // with materials the user has already undone.
+    shell->invoke("studio.edit.undo");
+    CNA_STUDIO_EXPECT(!std::filesystem::exists(second));
+    CNA_STUDIO_EXPECT(std::filesystem::exists(first));
+}

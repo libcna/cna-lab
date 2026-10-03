@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="styles.css">
+<title>CNA Studio Reference</title>
+<meta name="description" content="Requirements, every default keyboard shortcut, the headless command lines, the build options and the renderer model.">
+</head>
+<body>
+
+<header class="bar">
+  <div class="bar-in">
+    <a class="mark" href="index.html">
+      <svg class="mark-glyph" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4">
+        <path d="M1 4.5V1h3.5M11.5 1H15v3.5M15 11.5V15h-3.5M4.5 15H1v-3.5"/>
+        <path d="M8 6.2v3.6M6.2 8h3.6" stroke-width="1.2"/>
+      </svg>
+      CNA Studio
+    </a>
+    <nav aria-label="Site">
+      <a href="index.html">Overview</a>
+      <a href="tutorial.html">Tutorial</a>
+      <a href="workflow.html">The workflow</a>
+      <a href="reference.html" aria-current="page">Reference</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <div class="pagehead">
+    <p class="eyebrow">Reference</p>
+    <h1>Requirements, keys and command lines</h1>
+    <p class="lede">
+      Everything you look up rather than read: what you need installed, every default shortcut, the
+      headless command lines, the build options and the renderer model.
+    </p>
+  </div>
+
+  <section id="requirements">
+    <div class="stack-lg">
+      <h2>Requirements</h2>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>You need</th><th>Why</th></tr></thead>
+          <tbody>
+            <tr><td>A C++23 compiler &mdash; GCC 13+, Clang 16+ or MSVC 19.38+</td><td>Studio and CNA are both C++23</td></tr>
+            <tr><td>CMake &ge; 3.20</td><td>Studio drives <em>your project's</em> CMake; it never generates a build system of its own</td></tr>
+            <tr><td>A <a href="https://github.com/libcna/cna">CNA</a> checkout</td><td>Only to <b>build a game</b>, or to get the scene viewport. Studio itself builds without one</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="prose">
+        You do not need a GPU, a display, or any of CNA's sibling checkouts to build and run Studio.
+        The default build has no external dependencies at all: 1832 assertions across 69 CTest cases,
+        in about a minute and a half.
+      </p>
+    </div>
+  </section>
+
+  <section id="keyboard">
+    <div class="stack-lg">
+      <h2>Keyboard</h2>
+      <p class="prose">
+        Every one of these is rebindable under <b>Preferences &rsaquo; Shortcuts</b>, and every
+        command Studio has is also on a menu &mdash; a command reachable only by a chord is one nobody
+        can discover, and a test refuses it.
+      </p>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Chord</th><th>Command</th><th>Menu</th></tr></thead>
+          <tbody>
+            <tr><td><kbd>Ctrl</kbd>+<kbd>N</kbd></td><td>New Scene</td><td>File</td></tr>
+            <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>N</kbd></td><td>New Project&hellip;</td><td>File</td></tr>
+            <tr><td><kbd>Ctrl</kbd>+<kbd>O</kbd></td><td>Open Project&hellip;</td><td>File</td></tr>
+            <tr><td><kbd>Ctrl</kbd>+<kbd>S</kbd></td><td>Save</td><td>File</td></tr>
+            <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd></td><td>Save All</td><td>File</td></tr>
+            <tr><td><kbd>Ctrl</kbd>+<kbd>Q</kbd></td><td>Quit</td><td>File</td></tr>
+            <tr><td><kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Y</kbd></td><td>Undo / Redo</td><td>Edit</td></tr>
+            <tr><td><kbd>Ctrl</kbd>+<kbd>D</kbd></td><td>Duplicate</td><td>Edit</td></tr>
+            <tr><td><kbd>Del</kbd></td><td>Delete</td><td>Edit</td></tr>
+            <tr><td><kbd>F2</kbd></td><td>Rename</td><td>Edit</td></tr>
+            <tr><td><kbd>Ctrl</kbd>+<kbd>G</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd></td><td>Group / Ungroup</td><td>Entity</td></tr>
+            <tr><td><kbd>W</kbd> / <kbd>E</kbd> / <kbd>R</kbd></td><td>Translate / Rotate / Scale gizmo</td><td>View</td></tr>
+            <tr><td><kbd>X</kbd></td><td>Switch the gizmo between world and local space</td><td>View</td></tr>
+            <tr><td><kbd>F</kbd></td><td>Focus Selected &mdash; move the camera to frame it</td><td>View</td></tr>
+            <tr><td><kbd>2</kbd> / <kbd>3</kbd> / <kbd>4</kbd></td><td>2D view / 3D view / Game view</td><td>View</td></tr>
+            <tr><td><kbd>F5</kbd></td><td>Play</td><td>Play</td></tr>
+            <tr><td><kbd>Ctrl</kbd>+<kbd>F5</kbd></td><td>Pause</td><td>Play</td></tr>
+            <tr><td><kbd>Alt</kbd>+<kbd>F5</kbd></td><td>Step One Frame</td><td>Play</td></tr>
+            <tr><td><kbd>Shift</kbd>+<kbd>F5</kbd></td><td>Stop</td><td>Play</td></tr>
+            <tr><td><kbd>F12</kbd></td><td>Capture Frame</td><td>Play</td></tr>
+            <tr><td><kbd>Ctrl</kbd>+<kbd>B</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd></td><td>Build / Clean Build</td><td>Build</td></tr>
+            <tr><td><kbd>F1</kbd></td><td>About CNA Studio</td><td>Help</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="prose">
+        The View menu also carries the standard orthographic views (front, back, left, right, top,
+        bottom), the shading modes, the debug channels (lighting, normals, metallic, roughness,
+        unlit), the bounds overlays and the tilemap tools &mdash; all on menus, none on a default
+        chord.
+      </p>
+    </div>
+  </section>
+
+  <section id="headless">
+    <div class="stack-lg">
+      <h2>Running without a window</h2>
+      <p class="prose">
+        Headless mode is not a lesser Studio: it opens projects, reads scenes, creates projects from
+        templates and exports them, with no GPU and no display.
+      </p>
+<pre><code>cna-studio --list-templates
+cna-studio --new-project=DIR --template=ID --project-name=NAME
+cna-studio --project=FILE --headless --frames=N
+cna-studio --project=FILE --export=DIR
+cna-studio --ui-benchmark        <span class="c"># what a frame of UI costs, per panel</span>
+cna-studio --host-capabilities   <span class="c"># what Studio requires of a host renderer</span>
+cna-studio --list-backends       <span class="c"># the CNA graphics backends this build knows about</span>
+cna-studio --help                <span class="c"># the rest</span></code></pre>
+      <h3>Photographing the interface</h3>
+      <p class="prose">
+        Studio can render its own shell to a PNG with no graphics device at all. This is how the
+        panel close-ups on these pages were taken, and how the visual regression suite runs on every
+        commit:
+      </p>
+<pre><code><span class="c"># the whole shell</span>
+cna-studio --shell-preview=shell.png --shell-size=1920x1080 --shell-theme=dark \
+           --project=examples/HelloSprites/HelloSprites.cnaproject --select=Player
+
+<span class="c"># one panel, filling the frame, for a page taller than its dock</span>
+cna-studio --shell-preview=build.png --shell-size=1500x510 --shell-panel-only=build \
+           --project=examples/HelloSprites/HelloSprites.cnaproject</code></pre>
+      <p class="prose">
+        A real window screenshots itself too, which is where the wide captures on these pages come
+        from &mdash; that one needs a display and a GL driver, and Xvfb plus Mesa's software
+        rasteriser is enough:
+      </p>
+<pre><code>cna-studio --project=examples/HelloSprites/HelloSprites.cnaproject --select=Player \
+           --window-size=1600x900 --frames=8 --workspace=none --screenshot=shell.png</code></pre>
+    </div>
+  </section>
+
+  <section id="build">
+    <div class="stack-lg">
+      <h2>Building Studio</h2>
+<pre><code>git clone https://github.com/libcna/cna-studio
+cd cna-studio
+cmake -S . -B build -G Ninja
+cmake --build build -j4
+ctest --test-dir build</code></pre>
+      <h3>With the CNA viewport</h3>
+<pre><code>cd ..
+git clone https://github.com/libcna/cna.git
+git clone https://github.com/libcna/sharp-runtime.git
+cd cna-studio
+
+cmake -S . -B build-cna -DCNA_STUDIO_WITH_CNA=ON -DCNA_DEVICES=ON
+cmake --build build-cna -j</code></pre>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Option</th><th>Default</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><td><code>CNA_STUDIO_WITH_CNA</code></td><td><code>OFF</code></td><td>Build the CNA-backed viewport, UI renderer and input platform</td></tr>
+            <tr><td><code>CNA_STUDIO_BUILD_TESTS</code></td><td><code>ON</code></td><td>Build the test suite</td></tr>
+            <tr><td><code>CNA_STUDIO_WARNINGS_AS_ERRORS</code></td><td><code>OFF</code></td><td><code>-Werror</code> / <code>/WX</code></td></tr>
+            <tr><td><code>CNA_STUDIO_CNA_ROOT</code></td><td><code>../cna</code></td><td>Where to find the CNA checkout</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="prose">
+        CNA itself needs SDL3's build dependencies plus FFmpeg headers;
+        <code>-DCNA_DEVICES=ON</code> is what gives Studio a working clipboard. The root
+        <code>README.md</code> lists the exact Debian package names.
+      </p>
+    </div>
+  </section>
+
+  <section id="renderers">
+    <div class="stack-lg">
+      <h2>Renderers and platforms</h2>
+      <p class="prose">
+        A build target names two independent things: a <b>CNA platform</b> &mdash; the windowing and
+        input layer, one of SDL3, SDL2, headless or terminal &mdash; and a <b>CNA renderer</b>, the
+        graphics backend.
+      </p>
+      <p class="prose">
+        Studio classifies the fifty renderer identities CNA publishes rather than keeping a list of
+        its own, and a guard test refuses any code outside that catalogue that names a renderer:
+        a hard-coded backend name stops being true the next time CNA adds one, silently, because an
+        unknown renderer looks exactly like a renderer the user did not pick. When CNA adds an
+        identity, Studio's test suite fails and names it. That failure <em>is</em> the notification.
+      </p>
+      <div class="note">
+        <b>The renderer Studio draws itself with and the renderer your game targets are unrelated.</b>
+        A machine that cannot run Vulkan can still build a Vulkan game, and a Studio that refused
+        would be wrong. Studio's own requirement is a separate question, and
+        <code>cna-studio --host-capabilities</code> answers it.
+      </div>
+    </div>
+  </section>
+
+  <section id="docs">
+    <div class="stack-lg">
+      <h2>The documentation in the repository</h2>
+      <p class="prose">
+        These pages present the documents below. Where they disagree, the documents are right and
+        these pages are stale.
+      </p>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Document</th><th>Answers</th></tr></thead>
+          <tbody>
+            <tr><td><code>docs/GETTING-STARTED.md</code></td><td>A clone to a running game, in eight steps</td></tr>
+            <tr><td><code>docs/USER-GUIDE.md</code></td><td>The eleven steps, and what Studio deliberately does not do</td></tr>
+            <tr><td><code>docs/ARCHITECTURE.md</code></td><td>How it is built, and why</td></tr>
+            <tr><td><code>docs/RENDERERS-AND-PLATFORMS.md</code></td><td>Where the renderer model lives and which guard fails when you get it wrong</td></tr>
+            <tr><td><code>docs/ADR-001-SCOPE-REDUCTION.md</code></td><td>Why the scope is what it is</td></tr>
+            <tr><td><code>docs/ADR-002-THE-FOUR-SILENT-QUESTIONS.md</code></td><td>Four decisions the roadmap left open, and what was decided</td></tr>
+            <tr><td><code>plan.md</code></td><td>What is and is not being worked on, and the Definition of done</td></tr>
+            <tr><td><code>CHANGELOG.md</code></td><td>Releases, and what the version numbers mean under maintenance</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <nav class="pager" aria-label="Pagination">
+    <a href="workflow.html"><span>Back to</span>The eleven steps</a>
+    <a class="next" href="index.html"><span>Back to</span>Overview</a>
+  </nav>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>
+      CNA Studio 1.0.0 &mdash; a lightweight visual development companion for CNA applications.
+      Source at <a href="https://github.com/libcna/cna-studio">github.com/libcna/cna-studio</a>;
+      CNA itself at <a href="https://github.com/libcna/cna">github.com/libcna/cna</a>.
+      These pages present <code>docs/</code>; where they disagree, <code>docs/</code> is right.
+    </p>
+  </div>
+</footer>
+
+</body>
+</html>

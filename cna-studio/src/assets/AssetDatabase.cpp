@@ -1,0 +1,934 @@
+// SPDX-License-Identifier: MS-PL
+#include "CNA/Studio/Assets/AssetDatabase.hpp"
+#include "CNA/Studio/Core/StudioFileWrite.hpp"
+
+#include <algorithm>
+#include <array>
+#include <chrono>
+#include <cctype>
+#include <filesystem>
+#include <fstream>
+#include <set>
+#include <sstream>
+
+namespace CNA::Studio
+{
+    namespace
+    {
+        struct AssetTypeName
+        {
+            AssetType type;
+            const char* name;
+        };
+
+        constexpr std::array<AssetTypeName, 13> kAssetTypeNames{{
+            {AssetType::Unknown, "Unknown"},
+            {AssetType::Texture2D, "Texture2D"},
+            {AssetType::SpriteFont, "SpriteFont"},
+            {AssetType::Font, "Font"},
+            {AssetType::SoundEffect, "SoundEffect"},
+            {AssetType::Song, "Song"},
+            {AssetType::Effect, "Effect"},
+            {AssetType::Model, "Model"},
+            {AssetType::Scene, "Scene"},
+            {AssetType::Prefab, "Prefab"},
+            {AssetType::Material, "Material"},
+            {AssetType::EnvironmentMap, "EnvironmentMap"},
+            {AssetType::RawData, "RawData"},
+        }};
+
+        std::string toLowerCase(std::string_view text)
+        {
+            std::string result{text};
+            std::transform(result.begin(), result.end(), result.begin(),
+                           [](unsigned char character) { return static_cast<char>(std::tolower(character)); });
+            return result;
+        }
+
+        /** @brief Converts a filesystem path to the forward-slash form stored in project files. */
+        std::string toPortablePath(const std::filesystem::path& path)
+        {
+            std::string text = path.generic_string();
+            return text;
+        }
+    }
+
+    Uuid studioRecoverAssetIdFromSidecar(std::string_view text)
+    {
+        // Deliberately not a JSON parse: the whole premise is that parsing failed. What this looks
+        // for is the narrowest thing that could be an id -- the key, a colon, a quoted run -- and
+        // then hands it to `Uuid::parse`, which is what decides whether it really is one. Nothing
+        // here guesses; a run that does not parse as a `Uuid` is not recovered.
+        constexpr std::string_view kKey = "\"id\"";
+
+        for (std::size_t at = text.find(kKey); at != std::string_view::npos;
+             at = text.find(kKey, at + 1))
+        {
+            std::size_t cursor = at + kKey.size();
+            while (cursor < text.size() && (text[cursor] == ' ' || text[cursor] == '\t'))
+            {
+                ++cursor;
+            }
+            if (cursor >= text.size() || text[cursor] != ':') { continue; }
+
+            ++cursor;
+            while (cursor < text.size() && (text[cursor] == ' ' || text[cursor] == '\t'))
+            {
+                ++cursor;
+            }
+            if (cursor >= text.size() || text[cursor] != '"') { continue; }
+
+            const std::size_t open = cursor + 1;
+            const std::size_t close = text.find('"', open);
+
+            // An unterminated string is the shape of a file truncated *inside* the id, and there
+            // is no id in it to recover -- only a prefix of one, which `Uuid::parse` refuses and
+            // which must not be accepted by being lenient here instead.
+            if (close == std::string_view::npos) { continue; }
+
+            if (const Uuid recovered = Uuid::parse(std::string{text.substr(open, close - open)});
+                recovered.isValid())
+            {
+                return recovered;
+            }
+        }
+
+        return Uuid{};
+    }
+
+    const char* toString(AssetType type)
+    {
+        for (const auto& entry : kAssetTypeNames)
+        {
+            if (entry.type == type) { return entry.name; }
+        }
+        return "Unknown";
+    }
+
+    AssetType parseAssetType(std::string_view text)
+    {
+        for (const auto& entry : kAssetTypeNames)
+        {
+            if (text == entry.name) { return entry.type; }
+        }
+        return AssetType::Unknown;
+    }
+
+    void AssetDatabase::setProjectRoot(std::string projectRoot)
+    {
+        projectRoot_ = std::move(projectRoot);
+    }
+
+    std::string AssetDatabase::resolvePath(std::string_view relativePath) const
+    {
+        if (projectRoot_.empty()) { return std::string{relativePath}; }
+        return toPortablePath(std::filesystem::path{projectRoot_} / std::filesystem::path{relativePath});
+    }
+
+    AssetType AssetDatabase::guessTypeFromExtension(std::string_view path)
+    {
+        const std::string extension = toLowerCase(std::filesystem::path{path}.extension().string());
+
+        if (extension == ".png" || extension == ".jpg" || extension == ".jpeg" || extension == ".bmp"
+            || extension == ".tga" || extension == ".dds" || extension == ".gif")
+        {
+            return AssetType::Texture2D;
+        }
+        if (extension == ".spritefont" || extension == ".fnt") { return AssetType::SpriteFont; }
+        if (extension == ".ttf" || extension == ".otf" || extension == ".ttc") { return AssetType::Font; }
+        if (extension == ".wav" || extension == ".xwb" || extension == ".xsb") { return AssetType::SoundEffect; }
+        if (extension == ".ogg" || extension == ".mp3" || extension == ".flac") { return AssetType::Song; }
+        if (extension == ".fx" || extension == ".hlsl" || extension == ".glsl") { return AssetType::Effect; }
+        if (extension == ".gltf" || extension == ".glb" || extension == ".fbx" || extension == ".obj"
+            || extension == ".cnj")
+        {
+            return AssetType::Model;
+        }
+        if (extension == ".cnascene") { return AssetType::Scene; }
+        if (extension == ".cnaprefab") { return AssetType::Prefab; }
+        if (extension == ".cnamaterial") { return AssetType::Material; }
+        if (extension == ".cnaenv") { return AssetType::EnvironmentMap; }
+        if (extension == ".json" || extension == ".xml" || extension == ".txt" || extension == ".csv")
+        {
+            return AssetType::RawData;
+        }
+        return AssetType::Unknown;
+    }
+
+    std::string AssetDatabase::defaultImporterFor(AssetType type)
+    {
+        switch (type)
+        {
+            case AssetType::Texture2D: return "CNA.TextureImporter";
+            case AssetType::SpriteFont: return "CNA.SpriteFontImporter";
+            case AssetType::Font: return "CNA.FontImporter";
+            case AssetType::SoundEffect: return "CNA.SoundEffectImporter";
+            case AssetType::Song: return "CNA.SongImporter";
+            case AssetType::Effect: return "CNA.EffectImporter";
+            case AssetType::Model: return "CNA.ModelImporter";
+            case AssetType::Scene: return "CNA.SceneImporter";
+
+            // No importer. A prefab is authored by the editor and read by the editor; there is no
+            // conversion step for one, and inventing an importer with no settings would put an
+            // empty section in the inspector for every prefab in the project.
+            case AssetType::Prefab: return {};
+
+            // Same reasoning as a prefab: a `.cnamaterial` is the editor's own output, read
+            // directly, so there is nothing to import and no settings to offer for importing it.
+            case AssetType::Material: return {};
+
+            // And a `.cnaenv` likewise. Its settings are real and are edited -- they are simply in
+            // the document rather than in the sidecar, because what they configure is the
+            // *processing* of a panorama this asset only points at, not the reading of a file.
+            case AssetType::EnvironmentMap: return {};
+            case AssetType::RawData: return "CNA.RawDataImporter";
+            case AssetType::Unknown: return {};
+        }
+        return {};
+    }
+
+    const AssetRecord* AssetDatabase::find(const Uuid& id) const
+    {
+        const auto found = recordsById_.find(id);
+        return found == recordsById_.end() ? nullptr : &found->second;
+    }
+
+    AssetRecord* AssetDatabase::findMutable(const Uuid& id)
+    {
+        const auto found = recordsById_.find(id);
+        return found == recordsById_.end() ? nullptr : &found->second;
+    }
+
+    const AssetRecord* AssetDatabase::findByPath(std::string_view relativePath) const
+    {
+        const auto found = idsByPath_.find(std::string{relativePath});
+        return found == idsByPath_.end() ? nullptr : find(found->second);
+    }
+
+    std::vector<const AssetRecord*> AssetDatabase::getAll() const
+    {
+        std::vector<const AssetRecord*> records;
+        records.reserve(idsByPath_.size());
+        for (const auto& [path, id] : idsByPath_)
+        {
+            if (const AssetRecord* record = find(id)) { records.push_back(record); }
+        }
+        return records;
+    }
+
+    bool AssetDatabase::add(AssetRecord record)
+    {
+        if (!record.id.isValid()) { return false; }
+
+        // A record may be re-added with a new source path (an asset that moved). Drop the stale
+        // path index entry first, or findByPath would keep resolving the old location.
+        if (const auto existing = recordsById_.find(record.id); existing != recordsById_.end())
+        {
+            idsByPath_.erase(existing->second.sourcePath);
+            countPath(existing->second.sourcePath, false);
+        }
+
+        // A record being replaced stops counting before the new one starts, or two adds of one id
+        // would leave the missing count carrying the first one for ever.
+        if (const auto existing = recordsById_.find(record.id); existing != recordsById_.end())
+        {
+            if (!existing->second.sourcePresent) { --missingCount_; }
+        }
+
+        const Uuid id = record.id;
+        const std::string path = record.sourcePath;
+
+        // Asked once, here, rather than trusted from the caller: a record handed in by a test, by
+        // an undone delete or by a scan has no reliable idea whether its file is on disk, and a
+        // cache seeded from a guess is worse than no cache. A scan pays exactly one probe per
+        // record overall -- this one for the files it walked, and the pass at its end for the rest.
+        const bool present = !path.empty() && probe(path);
+        record.sourcePresent = present;
+
+        recordsById_[id] = std::move(record);
+        if (!path.empty())
+        {
+            idsByPath_[path] = id;
+            countPath(path, true);
+        }
+        if (!present) { ++missingCount_; }
+        return true;
+    }
+
+    bool AssetDatabase::canMoveAsset(const Uuid& id, const std::string& newRelativePath,
+                                     std::string* errorMessage) const
+    {
+        const auto fail = [&](std::string reason) {
+            if (errorMessage != nullptr) { *errorMessage = std::move(reason); }
+            return false;
+        };
+
+        const AssetRecord* record = find(id);
+        if (record == nullptr) { return fail("no asset with that id"); }
+        if (newRelativePath.empty()) { return fail("destination path is empty"); }
+        if (record->sourcePath == newRelativePath) { return true; }
+
+        // A destination that climbs out of the project would put the asset somewhere the project
+        // cannot describe, and the relative path stored in the sidecar would stop meaning anything.
+        const std::filesystem::path normalised =
+            std::filesystem::path{newRelativePath}.lexically_normal();
+        if (normalised.is_absolute() || normalised.native().rfind("..", 0) == 0)
+        {
+            return fail("destination must stay inside the project");
+        }
+
+        const std::string destination = normalised.generic_string();
+        if (findByPath(destination) != nullptr)
+        {
+            return fail("'" + destination + "' is already tracked");
+        }
+
+        std::error_code errorCode;
+        if (std::filesystem::exists(resolvePath(destination), errorCode))
+        {
+            return fail("'" + destination + "' already exists");
+        }
+
+        return true;
+    }
+
+    bool AssetDatabase::moveAsset(const Uuid& id, const std::string& newRelativePath,
+                                  std::string* errorMessage)
+    {
+        const auto fail = [&](std::string reason) {
+            if (errorMessage != nullptr) { *errorMessage = std::move(reason); }
+            return false;
+        };
+
+        // The same rule the command asked before it was pushed onto the undo stack, rather than a
+        // second copy of it here: a command whose validity and whose execution disagreed would be
+        // one that lands in the history and then quietly does nothing.
+        if (!canMoveAsset(id, newRelativePath, errorMessage)) { return false; }
+
+        AssetRecord* record = findMutable(id);
+        if (record->sourcePath == newRelativePath) { return true; }
+
+        const std::string destination =
+            std::filesystem::path{newRelativePath}.lexically_normal().generic_string();
+
+        std::error_code errorCode;
+        const std::filesystem::path from{resolvePath(record->sourcePath)};
+        const std::filesystem::path to{resolvePath(destination)};
+
+        std::filesystem::create_directories(to.parent_path(), errorCode);
+        if (errorCode) { return fail("cannot create '" + to.parent_path().generic_string() + "'"); }
+
+        errorCode.clear();
+        std::filesystem::rename(from, to, errorCode);
+        if (errorCode) { return fail("cannot move '" + record->sourcePath + "': " + errorCode.message()); }
+
+        // The sidecar follows the file. If it will not, the move is undone rather than left half
+        // done: an orphaned source file gets a fresh id on the next scan, which silently breaks
+        // every reference to it.
+        const std::filesystem::path sidecarFrom{from.generic_string() + kSidecarExtension};
+        const std::filesystem::path sidecarTo{to.generic_string() + kSidecarExtension};
+
+        errorCode.clear();
+        if (std::filesystem::exists(sidecarFrom, errorCode))
+        {
+            errorCode.clear();
+            std::filesystem::rename(sidecarFrom, sidecarTo, errorCode);
+            if (errorCode)
+            {
+                std::error_code rollback;
+                std::filesystem::rename(to, from, rollback);
+                return fail("cannot move the sidecar for '" + record->sourcePath + "': "
+                            + errorCode.message());
+            }
+        }
+
+        idsByPath_.erase(record->sourcePath);
+        countPath(record->sourcePath, false);
+        record->sourcePath = destination;
+        idsByPath_[destination] = id;
+        countPath(destination, true);
+
+        // Rewritten because the sidecar records its own path nowhere -- but its stamp is about the
+        // file, and a move is a good moment to be sure the two agree.
+        writeSidecar(id);
+        return true;
+    }
+
+    bool AssetDatabase::repointAsset(const Uuid& id, const std::string& newRelativePath,
+                                     std::string* errorMessage)
+    {
+        const auto fail = [&](std::string reason) {
+            if (errorMessage != nullptr) { *errorMessage = std::move(reason); }
+            return false;
+        };
+
+        AssetRecord* record = findMutable(id);
+        if (record == nullptr) { return fail("no asset with that id"); }
+        if (newRelativePath.empty()) { return fail("destination path is empty"); }
+
+        const std::filesystem::path normalised =
+            std::filesystem::path{newRelativePath}.lexically_normal();
+        if (normalised.is_absolute() || normalised.native().rfind("..", 0) == 0)
+        {
+            return fail("destination must stay inside the project");
+        }
+
+        const std::string destination = normalised.generic_string();
+        if (record->sourcePath == destination) { return true; }
+
+        if (const AssetRecord* occupant = findByPath(destination);
+            occupant != nullptr && occupant->id != id)
+        {
+            // Two records for one file is a database that cannot say which id a scene means, and
+            // the next scan would resolve it by whichever it walked last.
+            return fail("'" + destination + "' is already tracked");
+        }
+
+        idsByPath_.erase(record->sourcePath);
+        countPath(record->sourcePath, false);
+        record->sourcePath = destination;
+        idsByPath_[destination] = id;
+        countPath(destination, true);
+
+        // The record now points somewhere else, so what was cached about the old path says nothing
+        // about this one. This is the repair for a *missing* asset, so getting it wrong would leave
+        // the browser showing a file it had just found as still gone.
+        setPresence(*record, probe(destination));
+
+        // At the new location, because that is what makes the repair survive a restart: with no
+        // sidecar beside it the next scan gives the file a fresh id and breaks every reference
+        // again, which is the failure this exists to end.
+        writeSidecar(id);
+        return true;
+    }
+
+    bool AssetDatabase::removeRecord(const Uuid& id)
+    {
+        const auto found = recordsById_.find(id);
+        if (found == recordsById_.end()) { return false; }
+
+        if (!found->second.sourcePresent) { --missingCount_; }
+        idsByPath_.erase(found->second.sourcePath);
+        countPath(found->second.sourcePath, false);
+        recordsById_.erase(found);
+        return true;
+    }
+
+    bool AssetDatabase::probe(const std::string& relativePath) const
+    {
+        // The one place this class touches the filesystem to answer "is it there", so the counter
+        // is complete by construction rather than by everyone remembering to increment it.
+        ++presenceProbes_;
+        std::error_code error;
+        return std::filesystem::exists(resolvePath(relativePath), error) && !error;
+    }
+
+    void AssetDatabase::setPresence(AssetRecord& record, bool present)
+    {
+        if (record.sourcePresent == present) { return; }
+        record.sourcePresent = present;
+        if (present) { --missingCount_; }
+        else { ++missingCount_; }
+    }
+
+    std::size_t AssetDatabase::refreshPresence(const Uuid& id)
+    {
+        std::size_t changed = 0;
+
+        if (id.isValid())
+        {
+            const auto found = recordsById_.find(id);
+            if (found == recordsById_.end()) { return 0; }
+
+            const bool present = probe(found->second.sourcePath);
+            if (found->second.sourcePresent != present) { ++changed; }
+            setPresence(found->second, present);
+            return changed;
+        }
+
+        for (auto& [recordId, record] : recordsById_)
+        {
+            (void)recordId;
+            const bool present = probe(record.sourcePath);
+            if (record.sourcePresent != present) { ++changed; }
+            setPresence(record, present);
+        }
+        return changed;
+    }
+
+    void AssetDatabase::countPath(const std::string& relativePath, bool added)
+    {
+        if (relativePath.empty()) { return; }
+
+        const std::size_t slash = relativePath.find_last_of('/');
+        const std::string folder =
+            slash == std::string::npos ? std::string{} : relativePath.substr(0, slash);
+
+        // The folder itself, and then every ancestor for the cumulative count. A path is at most a
+        // handful of levels deep, so this is a short loop once per add or move rather than a walk
+        // over the project once per frame.
+        const auto bump = [added](std::map<std::string, std::size_t>& counts,
+                                  const std::string& key) {
+            if (added) { ++counts[key]; return; }
+
+            const auto found = counts.find(key);
+            if (found == counts.end()) { return; }
+
+            // Erased at zero rather than left as an entry meaning nothing: the keys are "folders
+            // that hold something", and a zero entry would make an emptied folder look like one
+            // that is still there when the last file in it moves away.
+            if (--found->second == 0) { counts.erase(found); }
+        };
+
+        bump(folderCounts_, folder);
+        bump(folderTotals_, folder);
+
+        std::string ancestor = folder;
+        while (!ancestor.empty())
+        {
+            const std::size_t slash = ancestor.find_last_of('/');
+            ancestor = slash == std::string::npos ? std::string{} : ancestor.substr(0, slash);
+            bump(folderTotals_, ancestor);
+        }
+    }
+
+    std::size_t AssetDatabase::getTotalAssetCount(std::string_view folder) const
+    {
+        const auto found = folderTotals_.find(std::string{folder});
+        return found == folderTotals_.end() ? 0 : found->second;
+    }
+
+    std::size_t AssetDatabase::getDirectAssetCount(std::string_view folder) const
+    {
+        const auto found = folderCounts_.find(std::string{folder});
+        return found == folderCounts_.end() ? 0 : found->second;
+    }
+
+    std::vector<std::string> AssetDatabase::getFolderPaths() const
+    {
+        std::set<std::string> folders;
+        for (const auto& [folder, count] : folderCounts_)
+        {
+            (void)count;
+            if (folder.empty()) { continue; }
+
+            // Every ancestor too, because a folder that holds only other folders holds nothing
+            // directly and so has no count entry -- and it is still a folder the user can be in.
+            std::size_t from = 0;
+            while (true)
+            {
+                const std::size_t slash = folder.find('/', from);
+                if (slash == std::string::npos) { folders.insert(folder); break; }
+                folders.insert(folder.substr(0, slash));
+                from = slash + 1;
+            }
+        }
+        return {folders.begin(), folders.end()};
+    }
+
+    bool AssetDatabase::setAssetPresent(const Uuid& id, bool present)
+    {
+        const auto found = recordsById_.find(id);
+        if (found == recordsById_.end()) { return false; }
+
+        const bool changed = found->second.sourcePresent != present;
+        setPresence(found->second, present);
+        return changed;
+    }
+
+    bool AssetDatabase::isMissing(const Uuid& id) const
+    {
+        const AssetRecord* record = find(id);
+        if (record == nullptr) { return false; }
+
+        // The cached answer. This used to be a stat, and the Content Browser calls it once per row
+        // per pass -- see the header for when the cache is refreshed and why never is not an option.
+        return !record->sourcePresent;
+    }
+
+    std::vector<Uuid> AssetDatabase::getMissingAssets() const
+    {
+        std::vector<Uuid> missing;
+        missing.reserve(missingCount_);
+        for (const auto& [id, record] : recordsById_)
+        {
+            if (!record.sourcePresent) { missing.push_back(id); }
+        }
+        std::sort(missing.begin(), missing.end());
+        return missing;
+    }
+
+    const FormatMigrator& getAssetFormatMigrator()
+    {
+        static const FormatMigrator migrator{"asset sidecar", AssetDatabase::kFormatVersion};
+        return migrator;
+    }
+
+    JsonValue AssetDatabase::recordToJson(const AssetRecord& record)
+    {
+        JsonValue json = JsonValue::makeObject();
+        json.set("formatVersion", JsonValue{kFormatVersion});
+        json.set("id", JsonValue{record.id.toString()});
+        json.set("type", JsonValue{toString(record.type)});
+        if (!record.importerId.empty()) { json.set("importer", JsonValue{record.importerId}); }
+        if (!record.importerSettings.isNull()) { json.set("settings", record.importerSettings); }
+
+        if (!record.dependencies.empty())
+        {
+            JsonValue dependencies = JsonValue::makeArray();
+            for (const Uuid& dependency : record.dependencies)
+            {
+                dependencies.append(JsonValue{dependency.toString()});
+            }
+            json.set("dependencies", std::move(dependencies));
+        }
+
+        if (record.sourceSize != 0 || record.sourceModifiedTime != 0)
+        {
+            JsonValue stamp = JsonValue::makeObject();
+            stamp.set("size", JsonValue{static_cast<std::int64_t>(record.sourceSize)});
+            stamp.set("modifiedTime", JsonValue{record.sourceModifiedTime});
+            json.set("sourceStamp", std::move(stamp));
+        }
+
+        if (record.importedSize != 0 || record.importedModifiedTime != 0)
+        {
+            // Separate from `sourceStamp`, which the watcher keeps pointed at the file. This one is
+            // what an import wrote, and the difference between them is what "needs reimporting"
+            // means (STUDIO-10001).
+            JsonValue stamp = JsonValue::makeObject();
+            stamp.set("size", JsonValue{static_cast<std::int64_t>(record.importedSize)});
+            stamp.set("modifiedTime", JsonValue{record.importedModifiedTime});
+            json.set("importedStamp", std::move(stamp));
+        }
+        return json;
+    }
+
+    AssetRecord AssetDatabase::recordFromJson(const JsonValue& json, std::string relativePath)
+    {
+        AssetRecord record;
+        record.id = Uuid::parse(json["id"].asString());
+        record.sourcePath = std::move(relativePath);
+        record.type = parseAssetType(json["type"].asString());
+        record.importerId = json["importer"].asString();
+
+        // A `.ttf` written by an older build says "SpriteFont", because that is what this build
+        // used to derive for the extension (`plan.md` STUDIO-10006). Corrected here rather than
+        // through the format migrator, and the difference matters: nothing about the *file format*
+        // changed, so there is no version to bump. What changed is which type Studio derives from
+        // an extension -- and the type is derived data that the sidecar happens to cache, not a
+        // choice anybody made. A migrator step could not do it anyway: a step sees the parsed JSON
+        // and the sidecar does not record the path, because it sits beside the file.
+        //
+        // The importer id follows only when it is still the old type's default, so a project that
+        // deliberately points a font at something else keeps doing so.
+        const AssetType derived = guessTypeFromExtension(record.sourcePath);
+        if (derived == AssetType::Font && record.type == AssetType::SpriteFont)
+        {
+            record.type = AssetType::Font;
+            if (record.importerId == defaultImporterFor(AssetType::SpriteFont))
+            {
+                record.importerId = defaultImporterFor(AssetType::Font);
+            }
+        }
+
+        record.importerSettings = json["settings"];
+
+        for (const JsonValue& dependency : json["dependencies"].getElements())
+        {
+            const Uuid id = Uuid::parse(dependency.asString());
+            if (id.isValid()) { record.dependencies.push_back(id); }
+        }
+
+        const JsonValue& stamp = json["sourceStamp"];
+        record.sourceSize = static_cast<std::uint64_t>(stamp["size"].asNumber());
+        record.sourceModifiedTime = static_cast<std::int64_t>(stamp["modifiedTime"].asNumber());
+
+        const JsonValue& imported = json["importedStamp"];
+        record.importedSize = static_cast<std::uint64_t>(imported["size"].asNumber());
+        record.importedModifiedTime = static_cast<std::int64_t>(imported["modifiedTime"].asNumber());
+        return record;
+    }
+
+    bool AssetDatabase::writeSidecar(const Uuid& id, std::string* errorMessage) const
+    {
+        const AssetRecord* record = find(id);
+        if (record == nullptr)
+        {
+            if (errorMessage != nullptr) { *errorMessage = "unknown asset id " + id.toString(); }
+            return false;
+        }
+
+        // **A database with no project root does not write.** `resolvePath` returns the relative
+        // path unchanged when there is no root, so a sidecar written from one lands next to
+        // whatever the process happens to be standing in -- which is a file appearing in the
+        // user's working directory for an asset that is not there.
+        //
+        // This was latent and silent: the write simply failed, because the folder did not exist
+        // either. `STUDIO-31003` made the writer create the folders above its target, which is
+        // right for a document being saved into a new one and turned this into a directory tree
+        // appearing in the source checkout. Refused here, where the missing thing actually is.
+        if (getProjectRoot().empty())
+        {
+            if (errorMessage != nullptr)
+            {
+                *errorMessage = "cannot write a sidecar for '" + record->sourcePath
+                              + "': this asset database has no project root";
+            }
+            return false;
+        }
+
+        const std::string sidecarPath = resolvePath(record->sourcePath) + kSidecarExtension;
+
+        // **The asset's folder must already be there.** `studioWriteFileAtomically` creates the
+        // directories above its target, which is what every *document* writer wanted -- a new
+        // material in a new folder, a project being created. A sidecar is the opposite case: it
+        // is metadata that belongs beside a file, so a missing folder means the asset is missing
+        // too, and building a tree for it would write the identity of something that is not
+        // there. Refused with a reason rather than silently.
+        //
+        // Before `STUDIO-31003` this was accidental -- the write simply failed, and said nothing.
+        // Making the writer create directories turned that silence into a folder appearing, which
+        // is how a test running with no project root came to write into the source tree.
+        const std::filesystem::path sidecarFolder =
+            std::filesystem::path{sidecarPath}.parent_path();
+        if (!sidecarFolder.empty() && !std::filesystem::exists(sidecarFolder))
+        {
+            if (errorMessage != nullptr)
+            {
+                *errorMessage = "cannot write '" + sidecarPath + "': the folder '"
+                              + sidecarFolder.generic_string() + "' does not exist";
+            }
+            return false;
+        }
+
+        // `plan.md` STUDIO-31003. A sidecar holds the asset's *identity* -- its `Uuid` -- and
+        // every scene in the project references it by that id. A truncated one is not a lost
+        // setting, it is an asset that comes back as a different asset and breaks every reference
+        // to it.
+        const StudioFileWriteResult wrote =
+            studioWriteFileAtomically(sidecarPath, Json::write(recordToJson(*record), true));
+        if (!wrote.succeeded)
+        {
+            if (errorMessage != nullptr) { *errorMessage = wrote.error; }
+            return false;
+        }
+        return true;
+    }
+
+    AssetScanResult AssetDatabase::scan(const std::string& relativeAssetDirectory)
+    {
+        AssetScanResult result;
+
+        /** @brief Ids the walk stood on, so the presence pass below probes only the rest. */
+        std::set<Uuid> seen;
+
+        if (projectRoot_.empty())
+        {
+            result.errorMessage = "no project root set";
+            return result;
+        }
+
+        const std::filesystem::path assetRoot = std::filesystem::path{projectRoot_} / relativeAssetDirectory;
+        std::error_code errorCode;
+        if (!std::filesystem::exists(assetRoot, errorCode))
+        {
+            // An absent asset directory is a perfectly normal state for a brand-new project, so
+            // this succeeds with a warning rather than failing.
+            result.succeeded = true;
+            result.warnings.push_back("asset directory '" + relativeAssetDirectory + "' does not exist yet");
+            return result;
+        }
+
+        std::filesystem::recursive_directory_iterator iterator{
+            assetRoot, std::filesystem::directory_options::skip_permission_denied, errorCode};
+        if (errorCode)
+        {
+            result.errorMessage = "cannot walk '" + toPortablePath(assetRoot) + "': " + errorCode.message();
+            return result;
+        }
+
+        const std::filesystem::path rootPath{projectRoot_};
+        for (const std::filesystem::directory_entry& entry : iterator)
+        {
+            if (!entry.is_regular_file(errorCode)) { continue; }
+
+            const std::filesystem::path& path = entry.path();
+            // Sidecars describe assets; they are not assets themselves.
+            if (path.extension() == kSidecarExtension) { continue; }
+
+            // And a half-written file is not an asset either (`plan.md` STUDIO-31010). A crash
+            // during a save leaves one of `studioWriteFileAtomically`'s temporaries behind, and a
+            // scan that treated it as content would give it a `Uuid`, track it as an asset of
+            // unknown type, show it in the Content Browser and write a sidecar beside it -- so
+            // one interrupted save would leave the project holding a permanent record of it.
+            //
+            // **Reported rather than deleted.** Removing it would be repairing a user's folder
+            // without telling them, which is the thing `STUDIO-31011` exists to forbid; and the
+            // file is evidence that a save was interrupted, which is worth knowing.
+            if (studioIsWriteTemporaryName(path.filename().string()))
+            {
+                result.warnings.push_back(
+                    "'" + toPortablePath(path)
+                    + "' is a half-written file left by an interrupted save. It is not imported. "
+                      "Delete it once you have checked the document beside it is the one you want.");
+                continue;
+            }
+
+            const std::string relativePath = toPortablePath(std::filesystem::relative(path, rootPath, errorCode));
+            if (errorCode || relativePath.empty())
+            {
+                result.warnings.push_back("cannot make '" + toPortablePath(path) + "' relative to the project root");
+                errorCode.clear();
+                continue;
+            }
+
+            ++result.discoveredCount;
+
+            const std::string sidecarPath = toPortablePath(path) + kSidecarExtension;
+            AssetRecord record;
+            bool isNew = true;
+
+            if (std::filesystem::exists(sidecarPath, errorCode))
+            {
+                std::ifstream stream{sidecarPath, std::ios::binary};
+                std::ostringstream buffer;
+                buffer << stream.rdbuf();
+                const std::string sidecarText = buffer.str();
+                JsonParseResult parsed = Json::parse(sidecarText);
+                if (parsed.succeeded)
+                {
+                    const FormatMigrationResult migration =
+                        getAssetFormatMigrator().migrate(parsed.value);
+
+                    if (migration.succeeded)
+                    {
+                        record = recordFromJson(parsed.value, relativePath);
+                        for (const std::string& step : migration.applied)
+                        {
+                            result.warnings.push_back("sidecar '" + relativePath + kSidecarExtension
+                                                      + "' upgraded from an older format: " + step);
+                        }
+                    }
+                    else
+                    {
+                        // The id survives even when nothing else does. Scenes reference assets by
+                        // id (D-08), so regenerating it would break every reference in the project
+                        // -- a far worse outcome than an importer setting reverting to its default.
+                        // The sidecar is left on disk untouched, so a build that understands it
+                        // still can.
+                        record = AssetRecord{};
+                        record.id = Uuid::parse(parsed.value["id"].asString());
+                        record.sourcePath = relativePath;
+                        record.type = guessTypeFromExtension(relativePath);
+                        record.importerId = defaultImporterFor(record.type);
+
+                        result.warnings.push_back("sidecar '" + relativePath + kSidecarExtension
+                                                  + "': " + migration.errorMessage
+                                                  + "; its id was kept and its settings ignored");
+                    }
+
+                    isNew = !record.id.isValid();
+                    if (isNew)
+                    {
+                        result.warnings.push_back("sidecar '" + relativePath + kSidecarExtension
+                                                  + "' has no valid id; a new id was assigned");
+                    }
+                }
+                else if (const Uuid recovered = studioRecoverAssetIdFromSidecar(sidecarText);
+                         recovered.isValid())
+                {
+                    // The same reasoning as the migration failure above, applied to the case that
+                    // used to ignore it: the id is what other files point at, so it is recovered
+                    // from the bytes rather than replaced. A save interrupted partway leaves
+                    // exactly this -- valid JSON up to the cut, `id` long since written.
+                    record = AssetRecord{};
+                    record.id = recovered;
+                    record.sourcePath = relativePath;
+                    record.type = guessTypeFromExtension(relativePath);
+                    record.importerId = defaultImporterFor(record.type);
+                    isNew = false;
+
+                    result.warnings.push_back("sidecar '" + relativePath + kSidecarExtension
+                                              + "' is malformed ("
+                                              + Json::describeFailure(sidecarText, parsed)
+                                              + "); its id was recovered from the file and its"
+                                                " settings were lost");
+                }
+                else
+                {
+                    // Nothing to preserve, so the loss is real and is stated as one rather than
+                    // reported as routine: every scene and prefab pointing at the old id now
+                    // points at nothing.
+                    result.warnings.push_back("sidecar '" + relativePath + kSidecarExtension
+                                              + "' is malformed ("
+                                              + Json::describeFailure(sidecarText, parsed)
+                                              + ") and holds no readable id; a new id was assigned,"
+                                                " so existing references to this asset will not"
+                                                " resolve");
+                }
+            }
+
+            if (isNew)
+            {
+                record = AssetRecord{};
+                record.id = Uuid::generate();
+                record.sourcePath = relativePath;
+                record.type = guessTypeFromExtension(relativePath);
+                record.importerId = defaultImporterFor(record.type);
+                ++result.newCount;
+            }
+            else if (const AssetRecord* previous = find(record.id); previous != nullptr
+                     && previous->sourcePath != relativePath)
+            {
+                // The same id now lives at a different path: the file was moved or renamed. Every
+                // scene referencing it keeps working, because scenes reference the id.
+                ++result.movedCount;
+            }
+
+            record.sourceSize = static_cast<std::uint64_t>(entry.file_size(errorCode));
+            if (errorCode) { record.sourceSize = 0; errorCode.clear(); }
+
+            // Stored in seconds, not in the clock's native ticks. A nanosecond count is around
+            // 4.6e18, which is past the range a double represents exactly -- and JSON numbers are
+            // doubles, so the native value would round-trip through the sidecar wrong and make
+            // every asset look modified on every scan. Seconds are exact and are finer-grained
+            // than any reimport decision needs.
+            const auto writeTime = entry.last_write_time(errorCode);
+            record.sourceModifiedTime =
+                errorCode ? 0
+                          : std::chrono::duration_cast<std::chrono::seconds>(writeTime.time_since_epoch()).count();
+            errorCode.clear();
+
+            // Recorded so the presence pass at the end of the scan probes only the records the
+            // walk did not reach -- add() has already asked about this one.
+            seen.insert(record.id);
+            add(record);
+
+            if (isNew && !writeSidecar(record.id))
+            {
+                result.warnings.push_back("cannot write sidecar for '" + relativePath
+                                          + "'; its id will not survive a restart");
+            }
+        }
+
+        for (auto& [recordId, stored] : recordsById_)
+        {
+            if (seen.count(recordId) != 0) { continue; }
+            setPresence(stored, probe(stored.sourcePath));
+        }
+
+        result.missingCount = missingCount_;
+        result.succeeded = true;
+        return result;
+    }
+
+    void AssetDatabase::clear()
+    {
+        recordsById_.clear();
+        idsByPath_.clear();
+        folderCounts_.clear();
+        folderTotals_.clear();
+        missingCount_ = 0;
+    }
+}

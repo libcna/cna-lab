@@ -1,0 +1,835 @@
+// SPDX-License-Identifier: MS-PL
+/**
+ * @file CNA/Studio/ShellPanels/StudioViewportPanel.hpp
+ * @brief Navigating and selecting in the native shell's viewport.
+ *
+ * `plan.md` STUDIO-07009.
+ *
+ * ### The panel does not draw the scene
+ *
+ * The scene arrives as a texture the shell composites (`STUDIO-04012`); this is everything *else* a
+ * viewport is — the camera the pointer moves, and what a click in it selects. Keeping the two apart
+ * is what lets this half be tested with no graphics device at all: navigation and picking are
+ * arithmetic over a camera and a document, and neither needs a pixel.
+ *
+ * ### Gestures are the ones the prototype's viewport used
+ *
+ * Wheel zooms about the pointer rather than about the centre, because zooming about the centre
+ * makes a user chase the thing they were looking at. Middle drag pans; so does right drag, because
+ * a trackpad has no middle button. Left click selects, and a click that hits nothing clears the
+ * selection — which is how a user deselects without a keyboard.
+ */
+
+#pragma once
+
+#include "CNA/Studio/Core/Uuid.hpp"
+#include "CNA/Studio/Scene/StudioCamera2D.hpp"
+#include "CNA/Studio/Scene/StudioCamera3D.hpp"
+#include "CNA/Studio/Scene/Tilemap.hpp"
+#include "CNA/Studio/Scene/TransformGizmos.hpp"
+#include "CNA/Studio/Scene/TransformGizmos3D.hpp"
+#include "CNA/Studio/Scene/SceneDebugView.hpp"
+#include "CNA/Studio/Scene/SceneWireframe.hpp"
+#include "CNA/Studio/UiCore/StudioActionRegistry.hpp"
+#include "CNA/Studio/UiCore/StudioPreferences.hpp"
+#include "CNA/Studio/UiCore/StudioIcons.hpp"
+#include "CNA/Studio/UiCore/StudioFrame.hpp"
+#include "CNA/Studio/UiCore/UiRect.hpp"
+
+#include <cstdint>
+#include <optional>
+#include <string_view>
+#include <vector>
+#include "CNA/Studio/Viewport/StudioViewport.hpp"
+
+namespace CNA::Studio
+{
+    class StudioContext;
+
+    /**
+     * @brief The viewport's own retained state: which manipulator is showing, and any drag in it.
+     *
+     * Held by the caller rather than by the frame's widget store because a gizmo drag is *editor*
+     * state, not widget state: it survives the panel being scrolled, re-docked or momentarily
+     * hidden, and it is the thing an undo has to be able to reason about.
+     */
+    /**
+     * @brief What a press in the native viewport means.
+     *
+     * Named apart from the prototype's `StudioTool`, which lives in the Dear ImGui panel headers
+     * that `STUDIO-07030` deletes — and which shares this namespace. Two types of one name in
+     * `CNA::Studio` is the ODR violation `STUDIO-02039` exists to refuse: it compiles, it links,
+     * and it corrupts memory at run time hundreds of tests away from the cause.
+     */
+    /**
+     * @brief Which projection the viewport is showing.
+     *
+     * Named apart from the prototype's `ViewMode` for the reason `STUDIO-02039` records: two types
+     * of one name in `CNA::Studio` compile, link and corrupt memory at run time, and both UIs are
+     * in this binary until `STUDIO-07031`.
+     *
+     * The two views share nothing below the camera. A press in 3D orbits rather than pans, picks
+     * along a ray rather than against a layer order, and has no tile under it at all — so the
+     * panel branches once, at the top, rather than threading a mode through six functions that
+     * would each then be about two things.
+     */
+    enum class StudioViewportView
+    {
+        /** @brief The orthographic 2D scene: sprites, tilemaps, the grid. */
+        TwoD,
+        /** @brief The perspective or orthographic 3D scene: meshes, sprites as quads, wireframe. */
+        ThreeD,
+
+        /**
+         * @brief What the game will show: the scene through its own camera, with no editor chrome.
+         *
+         * `plan.md` STUDIO-11012. Not a third editing view -- it is the *answer* to "what will a
+         * player see", and the whole value of it is that it is not editable: no grid, no gizmo, no
+         * selection marking, no picking. A game view a user could click in would be one where the
+         * thing they were checking moved while they checked it.
+         *
+         * The camera is the scene's, chosen by `computeGameView`, so the editor's own 2D and 3D
+         * cameras are untouched and are exactly where they were left on the way back.
+         */
+        Game
+    };
+
+    /** @brief The name of @p view, for a menu row or an overlay. */
+    [[nodiscard]] const char* studioViewportViewName(StudioViewportView view);
+
+    /**
+     * @brief How the 3D view draws geometry.
+     *
+     * `plan.md` STUDIO-11010. There was no such choice: the viewport drew the solid meshes *and*
+     * every one of their edges, always, so a scene with any real geometry in it was permanently
+     * hatched and a user could not get a clean shaded picture to judge lighting or materials by.
+     * Three modes, because the third is the one people actually want most of the time and is not
+     * expressible as a toggle of either other.
+     */
+    enum class StudioViewportShading
+    {
+        /** @brief Solid geometry, no mesh edges. The default, and what was missing. */
+        Shaded,
+
+        /**
+         * @brief Mesh edges only: no solid models and no textured sprite quads.
+         *
+         * Sprites go too, and that is the part worth stating. A sprite has no edges of its own
+         * beyond the quad the bounds box already draws, so leaving them textured would make a
+         * "wireframe" that is half wireframe and half picture.
+         */
+        Wireframe,
+
+        /** @brief Both, which is what the viewport did before there was a choice. */
+        ShadedWireframe,
+    };
+
+    /** @brief The name of @p shading, for a menu row or an overlay. */
+    [[nodiscard]] const char* studioViewportShadingName(StudioViewportShading shading);
+
+    /**
+     * @brief What a shading mode means for the three batches the 3D view builds.
+     *
+     * Separated from the renderer so the *decision* is testable without a graphics device: the
+     * host that owns the device turns these three booleans into calls, and there is nothing else
+     * in that translation to get wrong.
+     */
+    struct StudioShadingPlan
+    {
+        /** @brief Build and draw the solid mesh batch. */
+        bool solidModels = true;
+
+        /** @brief Build and draw sprites as textured quads. */
+        bool spriteQuads = true;
+
+        /** @brief Ask the wireframe for each model's own edges rather than only its box. */
+        bool meshEdges = false;
+    };
+
+    /** @brief Returns what @p shading asks the 3D view to draw. */
+    [[nodiscard]] StudioShadingPlan studioShadingPlan(StudioViewportShading shading);
+
+    /**
+     * @brief Returns the wireframe options the 3D view should be built with.
+     *
+     * The whole of the host's decision, in a CNA-free function, for the reason `studioShadingPlan`
+     * is one: what the host is left with is a call, and a call is not a thing that can be wrong in
+     * a way a test would catch.
+     *
+     * It exists because the host *was* getting it wrong. `buildSceneWireframe` was called with no
+     * mesh provider at all, so every option that needs geometry silently did nothing in the real
+     * editor: the Wireframe shading mode (STUDIO-11010) drew no model edges, and a selected model
+     * got no outline (STUDIO-11007) -- both tested, both correct, and neither reaching the screen
+     * because the one line that hands the meshes over was missing. Assembling the options here
+     * means a test can assert that it is not missing.
+     *
+     * @param meshProvider Passed by value and moved in: the caller builds one per frame, and a
+     *        reference would invite holding one that outlives the frame it was made for.
+     */
+    [[nodiscard]] WireframeOptions studioViewportWireframeOptions(
+        StudioViewportShading shading, bool gridOnGroundPlane, BoundsDisplay boundsOverlay,
+        bool boundingSpheres, MeshProvider meshProvider = {},
+        StudioDebugView debugView = StudioDebugView::None,
+        StudioPivotMode pivotMode = StudioPivotMode::Center);
+
+    enum class StudioViewportTool
+    {
+        /** @brief Pick entities and drag the gizmo. The default. */
+        Select,
+        /** @brief Set the tile under the cursor on the selected tilemap. */
+        PaintTiles,
+        /** @brief Clear the tile under the cursor. */
+        EraseTiles,
+        /** @brief Take the tile under the cursor as the brush, then go back to painting. */
+        PickTile,
+        /** @brief Fill the rectangle a drag encloses, applied on release. */
+        FillTiles
+    };
+
+    /** @brief The display name of @p tool, e.g. `"Paint Tiles"`. */
+    [[nodiscard]] std::string_view studioViewportToolName(StudioViewportTool tool);
+
+    /** @brief What a viewport drag is doing right now. */
+    enum class StudioViewportGesture : std::uint8_t
+    {
+        /** @brief Nothing: the buttons and modifiers held do not name a camera gesture. */
+        None,
+        /** @brief Turn the eye around the pivot. */
+        Orbit,
+        /** @brief Slide the eye and the pivot together. */
+        Pan,
+        /** @brief Move the eye towards or away from the pivot. */
+        Dolly,
+        /** @brief Turn the eye in place, leaving it where it is. */
+        Look
+    };
+
+    /** @brief Returns a stable English name for a gesture, for diagnostics and tests. */
+    [[nodiscard]] std::string_view studioViewportGestureName(StudioViewportGesture gesture);
+
+    /** @brief The buttons and modifiers a viewport drag is being made with. */
+    struct StudioViewportChord
+    {
+        bool left = false;
+        bool middle = false;
+        bool right = false;
+        bool alt = false;
+        bool shift = false;
+        bool control = false;
+    };
+
+    /**
+     * @brief Maps a button-and-modifier chord onto a camera gesture, under one navigation scheme.
+     *
+     * `plan.md` STUDIO-11015. Three schemes were stored, loaded, given a row in the Preferences
+     * panel and **read by nothing** — the viewport's gestures were hard-coded. A preference that
+     * changes nothing is worse than no preference: a user who sets it and finds the viewport
+     * unchanged concludes the editor is broken, which is a fair reading.
+     *
+     * **A pure function**, deliberately. It is the whole of what the three schemes disagree about,
+     * it takes six booleans and an enumeration and returns an enumeration, and every one of the
+     * combinations that matter can therefore be stated as a test rather than performed with a
+     * mouse. The viewport keeps the arithmetic; this keeps the vocabulary.
+     *
+     * **The schemes are what their tools do, not an interpretation of them.** Maya puts every
+     * camera gesture behind Alt so an unmodified drag is always a selection; Blender puts them on
+     * the middle button with Shift and Control as the modifiers, leaving left free for the same
+     * reason. Studio's own is the one this editor shipped with. A user who asks for Maya and gets
+     * nearly-Maya is worse served than one who was told the scheme is not implemented.
+     *
+     * @param style Which scheme to answer under.
+     * @param chord What is held.
+     * @return The gesture, or @ref StudioViewportGesture::None.
+     */
+    [[nodiscard]] StudioViewportGesture studioViewportGestureFor(StudioNavigationStyle style,
+                                                                 const StudioViewportChord& chord);
+
+    /** @brief Whether @p tool writes into a tilemap rather than selecting. */
+    [[nodiscard]] bool studioViewportToolPaints(StudioViewportTool tool);
+
+    struct StudioViewportState
+    {
+        /**
+         * @brief What a press in the viewport means.
+         *
+         * Kept apart from @ref mode on purpose, exactly as the prototype keeps them: a gizmo mode
+         * picks *which manipulator* acts on the selection, and a tool decides whether a press
+         * manipulates at all. A single enum spanning both would make "paint tiles with the rotate
+         * gizmo" expressible, which is not a thing.
+         */
+        /**
+         * @brief Which projection is showing. The 2D and 3D views share only the document.
+         */
+        StudioViewportView view = StudioViewportView::TwoD;
+
+        StudioViewportTool tool = StudioViewportTool::Select;
+
+        /**
+         * @brief How the 3D view draws geometry (`plan.md` STUDIO-11010).
+         *
+         * Means nothing in the 2D view, which has no meshes and no choice to make about them --
+         * the commands that set it are disabled there rather than hidden, like the ground-plane
+         * toggle beside them.
+         */
+        StudioViewportShading shading = StudioViewportShading::Shaded;
+
+        /**
+         * @brief What the 3D view colours surfaces by (`plan.md` STUDIO-11011).
+         *
+         * Beside the shading mode rather than folded into it, because the two are different
+         * questions -- "solid or edges" and "what colour is the surface" -- and they compose. A
+         * user looking at roughness in shaded-wireframe is not doing anything odd, and making them
+         * give up the wireframe to see a channel would be a restriction with no reason behind it.
+         */
+        StudioDebugView debugView = StudioDebugView::None;
+
+        /**
+         * @brief Which entities get their bounding volume drawn over them (`plan.md` STUDIO-11008).
+         *
+         * Off by default: the overlay answers a question -- why did my click miss, why did Focus
+         * fly me inside that -- and an answer permanently on screen is noise. 3D only, like the
+         * shading above; the 2D viewport draws every sprite at its extent already, so its box and
+         * its bounds are the same rectangle.
+         */
+        BoundsDisplay boundsOverlay = BoundsDisplay::None;
+
+        /** @brief Whether the overlay also draws the bounding sphere (`plan.md` STUDIO-11008). */
+        bool boundingSpheres = false;
+
+        /**
+         * @brief Multiplier on pan, orbit and fly speed, from the user's preferences.
+         *
+         * Carried on the state rather than read from a preferences object the panel would have to
+         * be handed, because the panel is CNA-free arithmetic over a camera and a document and
+         * giving it a second thing to know about would be giving it a reason to need a Studio.
+         * The shell copies it in every frame, for the reason the autosave interval is re-read
+         * every poll: a setting applied only when the panel changes it is one that works when you
+         * change it and not when you restart.
+         */
+        float cameraSpeed = 1.0f;
+
+        /** @brief Whether the wheel's zoom direction is reversed. */
+        bool invertZoom = false;
+
+        /**
+         * @brief Whether the 3D grid lies on the ground plane rather than the scene's own.
+         *
+         * `STUDIO-07056`. Copied in every frame from the preferences alongside `cameraSpeed` and
+         * `invertZoom`, and for the same reason: a preference also arrives by being *assigned*
+         * when the host loads it from disk, so a setting applied only when the Preferences panel
+         * changes it works when you change it and not when you restart.
+         *
+         * It means nothing in the 2D view, which has one plane and no choice to make about it —
+         * the command that sets it is disabled there rather than hidden, so a user who looked for
+         * it can see it exists and see why it is greyed out.
+         */
+        bool gridOnGroundPlane = false;
+
+        /** @brief Whether a 3D navigation gesture is in progress. */
+        bool navigating = false;
+        /** @brief Whether that gesture has moved at all, which is what makes it not a click. */
+        bool navigationMoved = false;
+        /** @brief Where the pointer was last frame, in panel coordinates. */
+        float navigationX = 0.0f;
+        float navigationY = 0.0f;
+
+        /**
+         * @brief Which navigation scheme the viewport follows.
+         *
+         * Read every frame from the preferences by whoever owns them, like `cameraSpeed` and
+         * `invertZoom` beside it — and for the same reason: a preference also arrives by being
+         * *assigned* when the host loads it from disk, so a setting applied only when the
+         * Preferences panel changes it works when you change it and not when you restart.
+         */
+        StudioNavigationStyle navigation = StudioNavigationStyle::Studio;
+
+        /** @brief The gesture the current drag resolved to, kept for the length of the drag. */
+        StudioViewportGesture navigationGesture = StudioViewportGesture::None;
+
+        /** @brief The tile the paint and fill tools write. */
+        std::int64_t paintTile = 0;
+
+        /**
+         * @brief Distinguishes one paint stroke from the next in the undo stack's merge key.
+         *
+         * Without it a drag across forty tiles and the drag after it would merge into one entry,
+         * and undoing would jump back past a stroke the user had finished and accepted.
+         */
+        std::uint64_t paintStroke = 0;
+
+        /** @brief Whether this stroke has already pushed a command, so the next cell merges in. */
+        bool paintStrokeHasEdited = false;
+
+        /** @brief Where a fill drag began, while one is in flight. */
+        std::optional<TileCoordinate> fillStart;
+
+        /**
+         * @brief Where a rubber-band selection began, in panel pixels, while one is in flight.
+         *
+         * `plan.md` STUDIO-12009. Panel pixels rather than world coordinates because the band is
+         * drawn on the screen and *stays* on the screen: a band anchored in the world would stretch
+         * and slide if the camera moved under it, which is exactly what a wheel notch mid-drag
+         * would do.
+         */
+        std::optional<StudioVector2> boxSelectStart;
+
+        /** @brief Where the pointer is now, while a band is being dragged. */
+        StudioVector2 boxSelectCurrent;
+
+        /**
+         * @brief Whether the band adds to the selection rather than replacing it.
+         *
+         * Resolved at the press and kept, like the navigation gesture beside it: a user who let go
+         * of Ctrl halfway through a band would otherwise find the selection they were adding to
+         * replaced at the moment they released.
+         */
+        bool boxSelectAdds = false;
+
+        /** @brief True while a rubber band is being dragged. */
+        [[nodiscard]] bool boxSelecting() const { return boxSelectStart.has_value(); }
+
+        /** @brief Abandons any band in flight. */
+        void endBoxSelect()
+        {
+            boxSelectStart.reset();
+            boxSelectAdds = false;
+        }
+
+        /** @brief Which manipulator the selection shows. */
+        GizmoMode mode = GizmoMode::Translate;
+
+        /** @brief Whether the translate gizmo's arms follow the world axes or the entity's own. */
+        GizmoSpace space = GizmoSpace::World;
+
+        /**
+         * @brief Where a multi-selection's gizmo sits (`plan.md` STUDIO-12006).
+         *
+         * `Center` by default, which is what the editor did when there was no choice. Means
+         * nothing for a selection of one -- an entity's own pivot is its own position either way --
+         * which is why the commands that set it stay live rather than flickering with the
+         * selection: a mode is a preference, not a property of what happens to be picked.
+         */
+        StudioPivotMode pivotMode = StudioPivotMode::Center;
+
+        /**
+         * @brief Whether drags snap without a modifier being held (`plan.md` STUDIO-12007).
+         *
+         * Off by default, which is what the editor did when Ctrl was the only way to snap. With it
+         * on, Ctrl *inverts* it rather than repeating it -- so the modifier is "the other one"
+         * either way round, and a user who works snapped all day has a momentary escape for the one
+         * placement that has to sit off the grid.
+         */
+        bool snapping = false;
+
+        TranslateGizmoDrag translate;
+        RotateGizmoDrag rotate;
+        ScaleGizmoDrag scale;
+
+        /**
+         * @brief The same gesture applied to a whole selection.
+         *
+         * Runs *beside* the three above rather than instead of them: those compute what the
+         * gesture is — how far along an axis, through what angle, by what factor — and this turns
+         * that one answer into an edit per entity. Two gesture implementations would be two
+         * chances for the group and the entity under the cursor to disagree.
+         */
+        MultiTransformDrag multi;
+
+        /**
+         * @brief The same three manipulators, over the 3D view (STUDIO-07050).
+         *
+         * A separate set of drag objects rather than the 2D ones reused: `TranslateGizmo3DDrag`
+         * and its neighbours solve in the world against a camera ray, which is a different problem
+         * from the 2D gizmos' screen-space arithmetic, and sharing one drag object between two
+         * unrelated solvers would make "which math is this frame's `update()` doing" a question
+         * that depends on which view happened to be open last.
+         *
+         * `GizmoMode` and `GizmoSpace` above are shared: which manipulator is armed and which
+         * space it measures in are properties of the *selection*, not of the projection looking
+         * at it, and a mode that reset itself across a view switch would be a tool that forgets
+         * what it was doing every time a user pressed 2 or 3.
+         */
+        TranslateGizmo3DDrag translate3D;
+        RotateGizmo3DDrag rotate3D;
+        ScaleGizmo3DDrag scale3D;
+
+        /** @brief The 3D form of @ref multi, for the same reason. */
+        MultiTransform3D multi3D;
+
+        /**
+         * @brief Distinguishes one multi-drag from the next in the undo stack's merge key.
+         *
+         * Without it, two consecutive group drags would merge into one undo entry — and undoing
+         * would jump back past a gesture the user had already finished and accepted.
+         */
+        std::uint64_t multiDragId = 0;
+
+        /**
+         * @brief Whether this drag has already pushed a command.
+         *
+         * The first frame of a drag opens an undo entry and every frame after it merges into that
+         * one, so the whole gesture is a single Ctrl+Z rather than one per frame at sixty a second.
+         */
+        bool dragHasEdited = false;
+
+        /** @brief True while any 2D manipulator is being dragged. */
+        [[nodiscard]] bool dragging() const
+        {
+            return translate.isActive() || rotate.isActive() || scale.isActive();
+        }
+
+        /** @brief True while any 3D manipulator is being dragged. */
+        [[nodiscard]] bool dragging3D() const
+        {
+            return translate3D.isActive() || rotate3D.isActive() || scale3D.isActive();
+        }
+
+        /** @brief Ends whatever drag is in flight, in either view. */
+        void endDrag()
+        {
+            translate.end();
+            rotate.end();
+            scale.end();
+            multi.end();
+            translate3D.end();
+            rotate3D.end();
+            scale3D.end();
+            multi3D.end();
+            dragHasEdited = false;
+        }
+    };
+
+    /** @brief What the user did in the viewport this frame. */
+    /**
+     * @brief Draws the armed tool's name, and its tile index where one applies.
+     *
+     * Over the image in the corner, which is where the prototype puts it — and it is the only
+     * thing on the screen that says a press means something other than "select". A tool that
+     * armed silently would be a viewport that behaves differently from yesterday with nothing
+     * explaining why.
+     *
+     * Drawn only while a tile tool is armed: an overlay that was always there would be chrome over
+     * the thing the viewport exists to show.
+     *
+     * @param frame The frame.
+     * @param bounds The viewport's rectangle.
+     * @param state The tool and its brush; the brush is written when the field commits.
+     */
+    void studioViewportToolOverlay(StudioFrame& frame, const UiRect& bounds,
+                                   StudioViewportState& state);
+
+    /**
+     * @brief Names the active debug view over the image, or draws nothing in `None`.
+     *
+     * The same argument the tool overlay is written for. A scene drawn in Roughness is grey, and
+     * so is a scene whose textures failed to import; a scene in Unlit is flat, and so is a scene
+     * whose lights were deleted. The overlay is the only thing that tells a user which of the two
+     * they are looking at, and without it a debug view left on is a bug report.
+     *
+     * Bottom-left rather than top-left, where the toolbar and the tool overlay already are: three
+     * things stacked in one corner is a corner nobody reads.
+     *
+     * @return The rectangle drawn, or an empty one when there was nothing to say.
+     */
+    UiRect studioViewportDebugOverlay(StudioFrame& frame, const UiRect& bounds,
+                                      StudioDebugView view);
+
+    /** @brief One control on the viewport toolbar. */
+    struct StudioViewportToolbarItem
+    {
+        /**
+         * @brief The action it invokes, or empty for a group separator.
+         *
+         * An action id rather than a callback, so the button's enablement, its checked state, its
+         * keyboard shortcut and its tooltip all come from the one place they come from everywhere
+         * else in Studio. A viewport toolbar with its own copies of those would be the second
+         * place "is Rotate armed" is decided, and the two would disagree the first time one of
+         * them was changed.
+         */
+        std::string_view actionId;
+        /** @brief What to draw. */
+        StudioIcon icon = StudioIcon::None;
+
+        /**
+         * @brief What to draw instead while the action is checked. `None` keeps @ref icon.
+         *
+         * For a toggle whose two states are two *things* rather than one thing on and off. World
+         * space and local space are the case: a lit button says "this is on", which is the wrong
+         * sentence when the alternative is not "off" but "the other one". The prototype's button
+         * was labelled with the space it was in for exactly this reason, and a toolbar that cannot
+         * be read is half a control (`docs/MIGRATION-INVENTORY.md`).
+         */
+        StudioIcon checkedIcon = StudioIcon::None;
+    };
+
+    /** @brief The toolbar's contents, in order. Empty ids are separators. */
+    [[nodiscard]] const std::vector<StudioViewportToolbarItem>& studioViewportToolbarItems();
+
+    /**
+     * @brief Draws the viewport's own toolbar over the scene, and routes its clicks.
+     *
+     * `plan.md` STUDIO-35050. What every professional 3D viewport has and this one did not: the
+     * view, the transform mode, the transform space and snapping, where the user is already
+     * looking. Before it, every one of those lived only on a menu or a window-level toolbar, which
+     * means the answer to "what will a drag do" was somewhere other than the thing being dragged.
+     *
+     * **Over the image rather than above it.** A strip that took height from the viewport would
+     * make the scene smaller, and the scene is what the panel is for. It is inset from the corner
+     * and drawn on a raised surface so it reads as floating rather than as painted on.
+     *
+     * **Driven by the action registry**, which is what makes it free: a command that is disabled
+     * greys out here, a checkable one shows its state, and a command whose shortcut is rebound
+     * says so in its tooltip, with no code here for any of it.
+     *
+     * @param frame The frame.
+     * @param bounds The viewport's rectangle.
+     * @param actions The registry the buttons invoke.
+     * @return The rectangle the toolbar occupied, so a caller can keep other overlays clear of it.
+     */
+    UiRect studioViewportToolbar(StudioFrame& frame, const UiRect& bounds,
+                                 StudioActionRegistry& actions);
+
+    struct StudioViewportResult
+    {
+        /** @brief The camera moved, so the scene must be re-rendered. Input pass only. */
+        bool cameraChanged = false;
+
+        /** @brief The selection changed. Input pass only. */
+        bool selectionChanged = false;
+
+        /** @brief What was picked, or the nil id when the click hit nothing. Input pass only. */
+        Uuid picked;
+
+        /** @brief The world point under the pointer, for a status bar or a ruler. */
+        StudioVector2 pointerWorld;
+
+        /** @brief Whether the pointer is over the viewport at all. */
+        bool pointerInside = false;
+
+        /** @brief A manipulator moved the selection this frame. Input pass only. */
+        bool transformed = false;
+
+        /** @brief A tile tool wrote into the tilemap this frame. Input pass only. */
+        bool tilesPainted = false;
+
+        /** @brief The tool changed itself, which the eyedropper does. Input pass only. */
+        bool toolChanged = false;
+
+        /**
+         * @brief A press and release in the 3D view that turned no camera. Input pass only.
+         *
+         * Separate from a plain click because in 3D every button is also a navigation gesture: a
+         * release after an orbit must not select whatever the camera happened to stop over, which
+         * is exactly what makes a 3D viewport feel like it is fighting the user.
+         */
+        bool clicked3D = false;
+
+        /**
+         * @brief An asset was dropped into the view, and is to be put in the scene. Input pass only.
+         *
+         * `plan.md` STUDIO-09008. Reported rather than acted on here, because what an asset
+         * *becomes* is one decision shared with the hierarchy (`Scene/AssetDrop.hpp`), and because
+         * creating an entity is a command and this panel already reports every other one it wants.
+         */
+        Uuid assetDropped;
+
+        /** @brief Where in the world it was dropped, which is where the new entity goes. */
+        StudioVector3 assetDropPosition;
+    };
+
+    /**
+     * @brief Drives the camera and the selection from input over @p bounds.
+     *
+     * @param frame The frame.
+     * @param bounds The viewport panel's body, in window coordinates.
+     * @param context The editor. Its scene is picked against; its selection is written.
+     * @param camera The editor camera, panned and zoomed in place.
+     * @param state Which manipulator is showing, and any drag in progress.
+     * @param sizeProvider Resolves a sprite's texel size for picking. An empty provider makes
+     *        every sprite pick at its default size, which is what a build with no device can know.
+     * @return What happened.
+     */
+    StudioViewportResult studioViewportPanel(StudioFrame& frame, const UiRect& bounds,
+                                             StudioContext& context, StudioCamera2D& camera,
+                                             StudioViewportState& state,
+                                             const SpriteSizeProvider& sizeProvider = {});
+
+    /**
+     * @brief Drives the 3D camera and the selection from input over @p bounds.
+     *
+     * The same shape as @ref studioViewportPanel and deliberately a separate function rather than a
+     * branch inside it: the two views share the document and nothing else, and one function holding
+     * both would be one where every reader has to work out which half they are in.
+     *
+     * Orbit is a left drag, pan is Shift, and the wheel dollies geometrically so that one notch
+     * feels the same close up and far away. The turn rate is radians per *pixel* rather than per
+     * fraction of the panel, so a narrow viewport does not turn faster than a wide one.
+     *
+     * @param frame The frame.
+     * @param bounds The viewport panel's body, in window coordinates.
+     * @param context The editor. Its scene is picked against; its selection is written.
+     * @param camera The 3D editor camera, orbited, panned and dollied in place.
+     * @param state The viewport's retained state.
+     * @param sizeProvider Resolves a sprite's texel size, so a sprite picks at its extent.
+     * @return What happened.
+     */
+    StudioViewportResult studioViewportPanel3D(StudioFrame& frame, const UiRect& bounds,
+                                               StudioContext& context, StudioCamera3D& camera,
+                                               StudioViewportState& state,
+                                               const SpriteSizeProvider& sizeProvider = {});
+
+    /**
+     * @brief How far the pointer must travel before a press becomes a band rather than a click.
+     *
+     * `plan.md` STUDIO-12009. Without it every click is a band a fraction of a pixel wide, and a
+     * click on empty space -- which is how a user deselects -- would instead run a band that
+     * selected whatever happened to be under that pixel. Four is the usual figure: below a hand's
+     * own tremor on a press, above nothing.
+     */
+    inline constexpr float kStudioBoxSelectThreshold = 4.0f;
+
+    /** @brief Returns true when a press from @p from to @p to has become a band rather than a click. */
+    [[nodiscard]] bool studioIsBoxSelectDrag(const StudioVector2& from, const StudioVector2& to);
+
+    /**
+     * @brief Returns where a drop at @p pointer lands in the 3D view (`plan.md` STUDIO-12011).
+     *
+     * **On the grid's own plane**, whichever the user has chosen, because the grid is the only
+     * landmark a 3D view has and a thing dropped onto it is a thing standing somewhere the user can
+     * see. Dropping at a fixed depth instead would put an entity in mid-air at a distance nobody
+     * chose, and dropping at the origin would put it under whatever is already there.
+     *
+     * **When the ray does not meet that plane, the drop lands in front of the camera** -- at the
+     * orbit distance, along the ray. That happens when the view is edge-on to the plane or looking
+     * away from it, and the alternative is refusing a drop the user has already committed to. In
+     * front of the camera is somewhere they can see it and drag it from, which is all a drop has to
+     * promise.
+     */
+    [[nodiscard]] StudioVector3 studioDropPoint3D(const StudioCamera3D& camera,
+                                                  const StudioVector2& pointer,
+                                                  bool onGroundPlane);
+
+    /**
+     * @brief Returns whether this drag rounds, given the toggle and the modifier (STUDIO-12007).
+     *
+     * The modifier inverts the toggle rather than repeating it. With snapping off, Ctrl snaps, as
+     * it always has; with snapping on, Ctrl is the momentary escape -- one placement that has to
+     * sit off the grid, without turning the setting off and forgetting to turn it back on.
+     */
+    [[nodiscard]] constexpr bool studioIsSnapping(bool snapToggle, bool modifierHeld)
+    {
+        return snapToggle != modifierHeld;
+    }
+
+    /**
+     * @brief Returns the band to draw over a viewport of @p bounds, or nothing.
+     *
+     * In window coordinates, because that is what the draw list takes; the state holds panel pixels
+     * so the band is unaffected by the panel moving. Nothing until the press has passed
+     * `kStudioBoxSelectThreshold`, so a click never flickers a one-pixel rectangle.
+     */
+    [[nodiscard]] std::optional<UiRect> studioBoxSelectRect(const StudioViewportState& state,
+                                                            const UiRect& bounds);
+
+    /** @brief Draws the rubber band over @p bounds, if one is in flight (`plan.md` STUDIO-12009). */
+    void studioViewportSelectionOverlay(StudioFrame& frame, const UiRect& bounds,
+                                        const StudioViewportState& state);
+
+    /**
+     * @brief Where the camera preview goes, and which camera it looks through (STUDIO-11012).
+     *
+     * A camera has no size and nothing to look at from the outside: a user aiming one is working
+     * from a position, a rotation and a number, and finding out what those add up to means pressing
+     * play. The preview is the answer in the corner of the viewport they are already in.
+     */
+    struct StudioCameraPreview
+    {
+        /** @brief The camera to look through, or a nil id when there is nothing to preview. */
+        Uuid cameraId;
+
+        /** @brief Where the picture goes, in the same coordinates the viewport bounds came in. */
+        UiRect bounds;
+
+        /** @brief True when there is both a camera and room for it. */
+        [[nodiscard]] bool isVisible() const { return cameraId.isValid() && !bounds.isEmpty(); }
+    };
+
+    /**
+     * @brief Returns the preview for @p selection over a viewport of @p viewportBounds.
+     *
+     * **Exactly one selected camera, or nothing.** Two cameras selected is a question with no
+     * answer -- showing the first would be arbitrary, and two insets would take a quarter of the
+     * viewport to say something about a selection the user is in the middle of making.
+     *
+     * **Bottom right, at a sixteen-by-nine, sized from the viewport and clamped.** A fraction alone
+     * puts a postage stamp in a small panel and half a screen in a large one; a fixed size covers a
+     * small panel entirely. Bottom right rather than bottom left because the manipulator sits on
+     * the selection, which is usually where the user has centred the view.
+     *
+     * **Nothing at all when the viewport is too small to spare the room.** A preview that covers
+     * the thing being aimed is worse than none: the user would be moving a camera by watching the
+     * one view that no longer shows where it is.
+     */
+    [[nodiscard]] StudioCameraPreview studioCameraPreview(const UiRect& viewportBounds,
+                                                          const SceneDocument& scene,
+                                                          const std::vector<Uuid>& selection);
+
+    /**
+     * @brief Occupies @p bounds with the game view, which accepts no editing input.
+     *
+     * `plan.md` STUDIO-11012. The same one-widget surface the other two views open with, and then
+     * nothing: no picking, no gizmo, no navigation, no asset drop. That is the whole point of it --
+     * the game view answers "what will a player see", and a view a user could edit in is one where
+     * the thing they were checking moves while they check it.
+     *
+     * The surface is still described, rather than the panel being left empty, because a click in an
+     * unclaimed area falls through to whatever is docked beneath and a viewport that quietly passes
+     * presses on is worse than one that ignores them.
+     *
+     * @return Only `pointerInside`, so play mode can still route the mouse into a running game --
+     *         which is the one thing a game view *should* accept, and is the game's input rather
+     *         than the editor's.
+     */
+    StudioViewportResult studioViewportPanelGame(StudioFrame& frame, const UiRect& bounds);
+
+    /**
+     * @brief Moves @p camera to frame the current selection.
+     *
+     * An entity with no drawable geometry — a camera, an empty grouping node — still has a
+     * position, and framing it centres on that rather than doing nothing: a key that appears not
+     * to work is worse than one that works modestly.
+     *
+     * @param context The editor, for the scene and the selection.
+     * @param camera The camera to move.
+     * @param sizeProvider Resolves sprite sizes, so a sprite frames to its extent rather than to
+     *        a point.
+     * @return False when nothing is selected, or when nothing selected could be located.
+     */
+    bool studioFrameSelection(const StudioContext& context, StudioCamera2D& camera,
+                              const SpriteSizeProvider& sizeProvider = {});
+
+    /**
+     * @brief Moves @p camera to frame the current selection, in three dimensions.
+     *
+     * `plan.md` STUDIO-11003. The 3D counterpart of the overload above, and needed rather than
+     * optional: Focus Selected moved the *2D* camera whichever view was showing, so pressing F in
+     * the 3D viewport rearranged a camera nobody was looking through and appeared to do nothing.
+     *
+     * Keeps the camera's orientation and moves only where it is and how far back, which is what
+     * "focus" means in every editor that has it: a key that also levelled the view would take away
+     * the angle the user had just set up.
+     *
+     * @param context The editor, for the scene and the selection.
+     * @param camera The camera to move.
+     * @param sizeProvider Resolves sprite sizes, so a sprite frames to its extent rather than to
+     *        a point.
+     * @param meshProvider Resolves a model's geometry, so a model frames to the size it is drawn
+     *        at. Without one it frames to the icon-sized box `computeEntityBounds3D` falls back
+     *        to, which put the camera *inside* any model bigger than eight units (`plan.md`
+     *        STUDIO-11008). A caller with no mesh cache passes nothing and gets the old answer.
+     * @return False when nothing is selected, or when nothing selected could be located.
+     */
+    bool studioFrameSelection3D(const StudioContext& context, StudioCamera3D& camera,
+                                const SpriteSizeProvider& sizeProvider = {},
+                                const MeshProvider& meshProvider = {});
+}

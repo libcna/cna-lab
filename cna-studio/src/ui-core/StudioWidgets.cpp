@@ -1,0 +1,1965 @@
+// SPDX-License-Identifier: MS-PL
+/**
+ * @file StudioWidgets.cpp
+ * @brief Button, toggle, checkbox, tab, menu-bar title and menu-item behaviour and appearance.
+ */
+
+#include "CNA/Studio/UiCore/StudioWidgets.hpp"
+
+#include "CNA/Studio/Core/NumberText.hpp"
+#include "CNA/Studio/UiCore/StudioFontAtlas.hpp"
+#include "CNA/Studio/UiCore/StudioTextEdit.hpp"
+#include "CNA/Studio/UiCore/StudioTextMeasure.hpp"
+
+#include <algorithm>
+#include <cmath>
+
+namespace CNA::Studio
+{
+    namespace
+    {
+        /** @brief The ellipsis used when a label does not fit, as UTF-8. */
+        constexpr std::string_view kEllipsis = "\xE2\x80\xA6";
+
+        /** @brief Returns a metric already scaled to physical pixels. */
+        float metricOf(const StudioTheme& theme, StudioMetric metric)
+        {
+            return static_cast<float>(theme.metric(metric));
+        }
+
+        /**
+         * @brief Whether the keyboard asked to activate the focused widget this frame.
+         *
+         * Ignored while a text field is taking input: Space is a character there, and a UI in
+         * which typing a sentence presses buttons is not one anybody can use.
+         *
+         * @param frame Frame supplying the router.
+         * @return True when Space or Enter went down and text input is not wanted.
+         */
+        bool keyboardActivationRequested(const StudioFrame& frame)
+        {
+            const StudioInputRouter& router = frame.router();
+            if (router.wantsTextInput()) { return false; }
+            return router.keyPressed(UiKey::Space) || router.keyPressed(UiKey::Enter);
+        }
+
+        /**
+         * @brief Resolves the theme state a control should draw in.
+         *
+         * `Selected` is not one of @ref StudioInteraction's answers because selection is the
+         * caller's concept, not the router's. It outranks hover at rest and yields to an active
+         * press, which is the order that makes a chosen toolbar button still respond visibly to
+         * being pressed again.
+         *
+         * @param interaction What the router reported.
+         * @param selected Whether the caller considers the control chosen.
+         * @return The state to resolve theme colours with.
+         */
+        StudioControlState resolveState(const StudioInteraction& interaction, bool selected)
+        {
+            if (interaction.disabled) { return StudioControlState::Disabled; }
+            if (interaction.held) { return StudioControlState::Pressed; }
+            if (selected) { return StudioControlState::Selected; }
+            if (interaction.hovered) { return StudioControlState::Hover; }
+            return StudioControlState::Normal;
+        }
+
+        /** @brief Draws the focus indicator just inside a control. */
+        void drawFocus(StudioFrame& frame, const UiRect& bounds)
+        {
+            const StudioTheme& theme = frame.theme();
+            frame.drawList().drawFocusRing(bounds, theme.color(StudioColorRole::FocusRing),
+                                           metricOf(theme, StudioMetric::FocusRingWidth));
+        }
+
+        /**
+         * @brief The shared body of every activatable control.
+         *
+         * Registers the tab stop, routes the pointer, folds in keyboard activation and honours the
+         * cursor request -- once, so that four widgets cannot end up with four slightly different
+         * ideas of what a click is.
+         *
+         * @param frame Frame to describe into.
+         * @param id The widget's identity.
+         * @param bounds Its rectangle.
+         * @param enabled False for a widget that must not respond.
+         * @param focusable False to leave it out of the Tab order.
+         * @param cursor Cursor requested while it owns the pointer.
+         * @param activateOnRelease True for menu-style controls that commit on button-up.
+         * @return What happened to it.
+         */
+        StudioWidgetResult interactControl(StudioFrame& frame, WidgetId id, const UiRect& bounds,
+                                           bool enabled, bool focusable, StudioCursor cursor,
+                                           bool activateOnRelease = false)
+        {
+            StudioWidgetResult result;
+
+            if (frame.isInputPass() && enabled && focusable)
+            {
+                frame.router().registerFocusable(id, true);
+            }
+
+            result.interaction = frame.interact(id, bounds, enabled);
+
+            if (result.interaction.hovered && enabled)
+            {
+                frame.requestCursor(id, cursor);
+            }
+
+            if (!frame.isInputPass() || !enabled) { return result; }
+
+            // A click is press and release on the same widget; a menu item commits on release
+            // inside it even when the press began on the title that opened the menu, which is what
+            // makes press-drag-release through a menu work the way every desktop menu does.
+            const bool pointerActivated = activateOnRelease
+                ? result.interaction.releasedOver
+                : result.interaction.clicked;
+
+            result.activated = pointerActivated
+                || (result.interaction.focused && keyboardActivationRequested(frame));
+            return result;
+        }
+
+        /** @brief Draws a check mark inside a box, as two strokes. */
+        void drawCheckMark(StudioFrame& frame, const UiRect& box, StudioColor color)
+        {
+            const float thickness = std::max(1.0f, box.height * 0.14f);
+            const float left = box.left() + box.width * 0.20f;
+            const float middleX = box.left() + box.width * 0.42f;
+            const float right = box.left() + box.width * 0.82f;
+            const float middleY = box.top() + box.height * 0.52f;
+            const float bottom = box.top() + box.height * 0.74f;
+            const float top = box.top() + box.height * 0.26f;
+
+            StudioDrawList& list = frame.drawList();
+            list.drawLine(left, middleY, middleX, bottom, color, thickness);
+            list.drawLine(middleX, bottom, right, top, color, thickness);
+        }
+
+        /** @brief Draws a right-pointing submenu arrow inside a box. */
+        /** @brief Draws a down-pointing chevron inside a box, as two strokes. */
+        void drawDropdownArrow(StudioFrame& frame, const UiRect& box, StudioColor color)
+        {
+            const float thickness = std::max(1.0f, box.height * 0.10f);
+            const float left = box.centerX() - box.width * 0.22f;
+            const float right = box.centerX() + box.width * 0.22f;
+            const float top = box.centerY() - box.height * 0.09f;
+            const float bottom = box.centerY() + box.height * 0.13f;
+
+            StudioDrawList& list = frame.drawList();
+            list.drawLine(left, top, box.centerX(), bottom, color, thickness);
+            list.drawLine(box.centerX(), bottom, right, top, color, thickness);
+        }
+
+        void drawSubmenuArrow(StudioFrame& frame, const UiRect& box, StudioColor color)
+        {
+            const float w = box.width * 0.34f;
+            const float h = box.height * 0.30f;
+            const float cx = box.centerX();
+            const float cy = box.centerY();
+            frame.drawList().fillTriangle(cx - w * 0.4f, cy - h, cx - w * 0.4f, cy + h,
+                                          cx + w * 0.6f, cy, color);
+        }
+    } // namespace
+
+    std::string studioTruncateText(const StudioFrame& frame, const StudioFontStyle& style,
+                                   std::string_view text, float maxWidth)
+    {
+        if (maxWidth <= 0.0f) { return {}; }
+        if (frame.measureText(style, text).width <= maxWidth) { return std::string{text}; }
+
+        const float ellipsisWidth = frame.measureText(style, kEllipsis).width;
+        if (ellipsisWidth > maxWidth) { return std::string{kEllipsis}; }
+
+        // Walk grapheme clusters, not bytes and not code points. Cutting a multi-byte character
+        // in half produces a sequence no decoder reads, and the glyph that replaces it is wider
+        // than the one it replaced -- so a byte-wise truncation can overflow the very box it was
+        // called to fit. Cutting between a letter and its accent is subtler and worse: it is
+        // valid UTF-8, so nothing complains, and it renders as a stray mark on the ellipsis.
+        std::size_t fit = 0;
+        for (std::size_t i = studioGraphemeNext(text, 0); i <= text.size();
+             i = studioGraphemeNext(text, i))
+        {
+            std::string candidate{text.substr(0, i)};
+            candidate += kEllipsis;
+            if (frame.measureText(style, candidate).width > maxWidth) { break; }
+            fit = i;
+            if (i >= text.size()) { break; }
+        }
+
+        if (fit == 0) { return std::string{kEllipsis}; }
+        std::string result{text.substr(0, fit)};
+        result += kEllipsis;
+        return result;
+    }
+
+    UiRect studioDrawText(StudioFrame& frame, const UiRect& box, std::string_view text,
+                          StudioFontRole role, StudioColor color, StudioTextAlign align)
+    {
+        if (text.empty() || box.isEmpty()) { return UiRect{}; }
+
+        const StudioFontStyle style = frame.theme().font(role);
+        const std::string fitted = studioTruncateText(frame, style, text, box.width);
+        if (fitted.empty()) { return UiRect{}; }
+
+        const StudioTextMetrics metrics = frame.measureText(style, fitted);
+
+        // Whole pixels. A baseline at a fractional y lands every glyph in the line on a half pixel,
+        // which is the difference between text that looks crisp and text that looks faintly
+        // smeared at exactly the sizes a UI uses.
+        const float baseline = std::round(metrics.centeredBaseline(box.top(), box.height));
+
+        float x = box.left();
+        if (align == StudioTextAlign::Center)
+        {
+            x = box.left() + std::max(0.0f, std::round((box.width - metrics.width) * 0.5f));
+        }
+        else if (align == StudioTextAlign::Right)
+        {
+            x = box.right() - std::min(metrics.width, box.width);
+        }
+        x = std::round(x);
+
+        const UiRect ink{x, baseline - metrics.ascent, metrics.width, metrics.height()};
+
+        StudioFontAtlas* atlas = frame.fontAtlas();
+        if (atlas == nullptr)
+        {
+            // No atlas: the measured box, at reduced alpha, so a build without fonts looks
+            // visibly unfinished rather than silently empty.
+            if (frame.isDrawPass()) { frame.drawList().drawTextPlaceholder(ink, color); }
+            return ink;
+        }
+
+        if (frame.isInputPass())
+        {
+            // Rasterise now, while there is still a whole pass before anything is drawn. Doing it
+            // during the draw pass works too -- the atlas upload is emitted at end of frame for
+            // exactly that reason -- but doing it here keeps the draw pass free of allocation.
+            atlas->prepare(style, fitted);
+            return ink;
+        }
+        if (!frame.isDrawPass()) { return ink; }
+
+        const StudioFontFace& face = atlas->face(style);
+        StudioDrawList& list = frame.drawList();
+
+        float pen = x;
+        char32_t previous = 0;
+        std::size_t offset = 0;
+        while (offset < fitted.size())
+        {
+            const char32_t codepoint = StudioFontAtlas::decodeUtf8(fitted, offset);
+            if (codepoint == 0) { break; }
+
+            // Kerning is applied before the glyph, not after the previous one, so a run that is
+            // clipped mid-word still positions every glyph it does draw exactly where an unclipped
+            // run would have.
+            if (previous != 0) { pen += face.kerning(previous, codepoint); }
+
+            const StudioGlyph* glyph = face.glyph(codepoint);
+            if (glyph == nullptr) { previous = codepoint; continue; }
+
+            if (glyph->hasInk())
+            {
+                const UiRect quad{std::round(pen + glyph->bearingX),
+                                  std::round(baseline + glyph->bearingY),
+                                  static_cast<float>(glyph->width),
+                                  static_cast<float>(glyph->height)};
+                list.drawGlyph(quad, glyph->u0, glyph->v0, glyph->u1, glyph->v1,
+                               StudioFontAtlas::kTextureId, color);
+            }
+
+            pen += glyph->advance;
+            previous = codepoint;
+        }
+
+        return ink;
+    }
+
+    float studioLabelWidth(const StudioFrame& frame, std::string_view text, StudioFontRole role)
+    {
+        const float padding = metricOf(frame.theme(), StudioMetric::ControlPaddingHorizontal);
+        return frame.measureText(role, WidgetIdStack::visibleLabel(text)).width + padding * 2.0f;
+    }
+
+    StudioWidgetResult studioButton(StudioFrame& frame, WidgetId id, const UiRect& bounds,
+                                    std::string_view label, const StudioButtonOptions& options)
+    {
+        const StudioTheme& theme = frame.theme();
+        StudioWidgetResult result = interactControl(frame, id, bounds, options.enabled,
+                                                    options.focusable, options.cursor);
+
+        // Offered even when disabled: "why is this greyed out" is exactly the moment somebody
+        // hovers for an explanation, and a tooltip that vanished then would be missing at the one
+        // time it is most wanted.
+        if (!options.tooltip.empty()) { (void)frame.requestTooltip(id, options.tooltip, bounds); }
+
+        if (!frame.isDrawPass()) { return result; }
+
+        const StudioControlState state = resolveState(result.interaction, options.selected);
+        const float radius = metricOf(theme, StudioMetric::CornerRadius);
+
+        switch (options.kind)
+        {
+            case StudioButtonKind::Normal:
+                frame.drawList().fillRoundedRect(bounds, theme.controlBackground(state), radius);
+                if (state != StudioControlState::Disabled)
+                {
+                    frame.drawList().strokeRect(bounds, theme.color(StudioColorRole::Border),
+                                                metricOf(theme, StudioMetric::BorderWidth));
+                }
+                break;
+            case StudioButtonKind::Accent:
+                frame.drawList().fillRoundedRect(bounds, theme.accent(state), radius);
+                break;
+            case StudioButtonKind::Toolbar:
+                // No surface at rest. A toolbar of twenty filled squares reads as a wall; the fill
+                // appearing on hover is what tells the user which one they are about to press.
+                if (state != StudioControlState::Normal)
+                {
+                    frame.drawList().fillRoundedRect(bounds, theme.controlBackground(state), radius);
+                }
+                break;
+            case StudioButtonKind::Ghost:
+                if (state == StudioControlState::Hover || state == StudioControlState::Pressed)
+                {
+                    frame.drawList().fillRoundedRect(bounds, theme.controlBackground(state), radius);
+                }
+                break;
+        }
+
+        StudioColor textColor = theme.controlText(state);
+        if (options.kind == StudioButtonKind::Accent && state != StudioControlState::Disabled)
+        {
+            textColor = theme.color(StudioColorRole::AccentForeground);
+        }
+        else if (options.kind == StudioButtonKind::Toolbar && state == StudioControlState::Normal
+                 && !options.selected)
+        {
+            textColor = theme.color(StudioColorRole::TextSecondary);
+        }
+
+        const float padding = metricOf(theme, StudioMetric::ControlPaddingHorizontal);
+        const std::string_view visible = WidgetIdStack::visibleLabel(label);
+        const bool showLabel = !options.iconOnly && !visible.empty();
+
+        if (options.icon != StudioIcon::None)
+        {
+            const float iconSize = metricOf(theme, StudioMetric::IconSize);
+
+            if (!showLabel)
+            {
+                // The whole button. Centring the icon in the control is what makes a row of
+                // icon-only buttons line up, however wide each one happens to be.
+                studioDrawIcon(frame, bounds, options.icon, textColor);
+            }
+            else
+            {
+                // Icon and label as one unit, centred together. Placing the icon at a fixed inset
+                // and centring the label separately makes every button look subtly off-balance,
+                // and differently off-balance depending on the length of its word.
+                const float gap = metricOf(theme, StudioMetric::SpacingSmall);
+                const float labelWidth = studioLabelWidth(frame, visible, options.font);
+                const float total = iconSize + gap + labelWidth;
+                const float left = options.align == StudioTextAlign::Left
+                    ? bounds.left() + padding
+                    : std::round(bounds.centerX() - total * 0.5f);
+
+                studioDrawIcon(frame, UiRect{left, bounds.top(), iconSize, bounds.height},
+                               options.icon, textColor);
+                studioDrawText(frame,
+                               UiRect{left + iconSize + gap, bounds.top(), labelWidth, bounds.height},
+                               visible, options.font, textColor, StudioTextAlign::Left);
+            }
+        }
+        else if (showLabel)
+        {
+            studioDrawText(frame, bounds.inset(UiEdges{padding, 0.0f}), visible, options.font,
+                           textColor, options.align);
+        }
+
+        if (result.interaction.focused) { drawFocus(frame, bounds); }
+        return result;
+    }
+
+    StudioWidgetResult studioToggle(StudioFrame& frame, WidgetId id, const UiRect& bounds,
+                                    std::string_view label, bool& checked,
+                                    const StudioButtonOptions& options)
+    {
+        StudioButtonOptions effective = options;
+        effective.selected = checked;
+
+        StudioWidgetResult result = studioButton(frame, id, bounds, label, effective);
+        if (result.activated)
+        {
+            // Input pass only -- studioButton only sets `activated` there -- so the draw pass that
+            // follows reads and draws the new value. Flipping in both passes would return it to
+            // where it started before anybody saw it move.
+            checked = !checked;
+            result.changed = true;
+        }
+        return result;
+    }
+
+    StudioWidgetResult studioSlider(StudioFrame& frame, WidgetId id, const UiRect& bounds,
+                                    float& value, const StudioSliderOptions& options)
+    {
+        const StudioTheme& theme = frame.theme();
+
+        // A range with no width is a control with nothing to choose. Drawn rather than skipped, so
+        // a property whose descriptor declares `minimum == maximum` looks like the fixed thing it
+        // is instead of a row that silently vanished.
+        const bool usable = options.enabled && options.maximum > options.minimum;
+
+        StudioWidgetResult result =
+            interactControl(frame, id, bounds, usable, /*focusable=*/true, StudioCursor::Arrow);
+
+        if (!options.tooltip.empty())
+        {
+            (void)frame.requestTooltip(id, options.tooltip, bounds);
+        }
+
+        const float span = options.maximum - options.minimum;
+
+        // Where the thumb sits, before any edit: clamped so an out-of-range value -- from a
+        // hand-edited file or an older build -- pins to an end rather than drawing outside the
+        // track. The *value* is left alone until the user moves it; showing it wrong and silently
+        // correcting it are both worse than showing it pinned.
+        const auto fractionOf = [&](float from) {
+            if (span <= 0.0f) { return 0.0f; }
+            return std::clamp((from - options.minimum) / span, 0.0f, 1.0f);
+        };
+
+        const float thumbSize = std::min(metricOf(theme, StudioMetric::IconSizeSmall), bounds.height);
+        const float travel = std::max(bounds.width - thumbSize, 0.0f);
+
+        const auto commit = [&](float proposed) {
+            float next = std::clamp(proposed, options.minimum, options.maximum);
+            if (options.step > 0.0f)
+            {
+                // Rounded to a stop and clamped again: a step that does not divide the range would
+                // otherwise put the last stop past the maximum.
+                next = options.minimum + std::round((next - options.minimum) / options.step)
+                                             * options.step;
+                next = std::clamp(next, options.minimum, options.maximum);
+            }
+            if (next == value) { return; }
+            value = next;
+            result.changed = true;
+        };
+
+        if (frame.isInputPass() && usable)
+        {
+            // Press *and* drag both set the value from where the pointer is, so clicking the track
+            // jumps there. A slider is a position, and the gesture that says "put it here" should.
+            if (result.interaction.pressed || result.interaction.held)
+            {
+                const float from = bounds.left() + thumbSize * 0.5f;
+                const float fraction =
+                    travel > 0.0f ? std::clamp((frame.input().mouseX - from) / travel, 0.0f, 1.0f)
+                                  : 0.0f;
+                commit(options.minimum + fraction * span);
+            }
+
+            // The arrows nudge, which is the gesture a pointer cannot do precisely. By the step
+            // where there is one and by a hundredth of the range where there is not, so a slider
+            // over 0..1 moves in hundredths and one over 1..179 degrees moves in degrees.
+            if (result.interaction.focused)
+            {
+                const float nudge = options.step > 0.0f ? options.step : span * 0.01f;
+                if (frame.router().keyPressed(UiKey::LeftArrow)) { commit(value - nudge); }
+                if (frame.router().keyPressed(UiKey::RightArrow)) { commit(value + nudge); }
+                if (frame.router().keyPressed(UiKey::Home)) { commit(options.minimum); }
+                if (frame.router().keyPressed(UiKey::End)) { commit(options.maximum); }
+            }
+        }
+
+        if (!frame.isDrawPass()) { return result; }
+
+        const StudioControlState state = resolveState(result.interaction, /*selected=*/false);
+        const float fraction = fractionOf(value);
+        const float radius = metricOf(theme, StudioMetric::CornerRadius);
+
+        // The track, thinner than the row so the thumb reads as riding on it rather than as a
+        // second box inside a first.
+        const float trackHeight = std::max(metricOf(theme, StudioMetric::SeparatorThickness) * 3.0f,
+                                           4.0f);
+        const UiRect track{bounds.left(), bounds.top() + (bounds.height - trackHeight) * 0.5f,
+                           bounds.width, trackHeight};
+        frame.drawList().fillRoundedRect(track, theme.color(StudioColorRole::ScrollbarTrack),
+                                         trackHeight * 0.5f);
+
+        // The filled portion, so the value is readable without reading the thumb's position
+        // against the ends -- which is the thing a slider is bad at and a number is good at.
+        const float filledWidth = thumbSize * 0.5f + fraction * travel;
+        if (filledWidth > 0.0f)
+        {
+            frame.drawList().fillRoundedRect(
+                UiRect{track.left(), track.top(), filledWidth, track.height},
+                usable ? theme.accent(state) : theme.color(StudioColorRole::ControlBackgroundDisabled),
+                trackHeight * 0.5f);
+        }
+
+        const UiRect thumb{bounds.left() + fraction * travel,
+                           bounds.top() + (bounds.height - thumbSize) * 0.5f, thumbSize, thumbSize};
+        frame.drawList().fillRoundedRect(
+            thumb,
+            usable ? theme.color(result.interaction.held ? StudioColorRole::ScrollbarThumbHover
+                                                         : StudioColorRole::ScrollbarThumb)
+                   : theme.color(StudioColorRole::ControlBackgroundDisabled),
+            std::min(radius, thumbSize * 0.5f));
+        frame.drawList().strokeRect(thumb, theme.color(StudioColorRole::Border),
+                                    metricOf(theme, StudioMetric::BorderWidth));
+
+        if (result.interaction.focused)
+        {
+            frame.drawList().strokeRect(bounds, theme.color(StudioColorRole::Accent),
+                                        metricOf(theme, StudioMetric::FocusRingWidth));
+        }
+
+        return result;
+    }
+
+    StudioWidgetResult studioCheckbox(StudioFrame& frame, WidgetId id, const UiRect& bounds,
+                                      std::string_view label, bool& checked, bool enabled)
+    {
+        const StudioTheme& theme = frame.theme();
+        StudioWidgetResult result =
+            interactControl(frame, id, bounds, enabled, /*focusable=*/true, StudioCursor::Arrow);
+
+        if (result.activated)
+        {
+            checked = !checked;
+            result.changed = true;
+        }
+
+        if (!frame.isDrawPass()) { return result; }
+
+        const StudioControlState state = resolveState(result.interaction, /*selected=*/false);
+        const float indicator = std::min(metricOf(theme, StudioMetric::IconSize), bounds.height);
+        UiRect row = bounds;
+        UiRect box = row.splitLeft(indicator);
+        box.y = bounds.top() + (bounds.height - indicator) * 0.5f;
+        box.height = indicator;
+
+        if (checked)
+        {
+            frame.drawList().fillRoundedRect(box, theme.accent(state),
+                                             metricOf(theme, StudioMetric::CornerRadius));
+            drawCheckMark(frame, box,
+                          state == StudioControlState::Disabled
+                              ? theme.color(StudioColorRole::TextDisabled)
+                              : theme.color(StudioColorRole::AccentForeground));
+        }
+        else
+        {
+            frame.drawList().fillRoundedRect(box, theme.controlBackground(state),
+                                             metricOf(theme, StudioMetric::CornerRadius));
+            frame.drawList().strokeRect(box, theme.color(StudioColorRole::Border),
+                                        metricOf(theme, StudioMetric::BorderWidth));
+        }
+
+        const float gap = metricOf(theme, StudioMetric::SpacingSmall);
+        row.splitLeft(gap);
+        studioDrawText(frame, row, WidgetIdStack::visibleLabel(label), StudioFontRole::Body,
+                       theme.controlText(state), StudioTextAlign::Left);
+
+        if (result.interaction.focused) { drawFocus(frame, bounds); }
+        return result;
+    }
+
+    StudioWidgetResult studioTab(StudioFrame& frame, WidgetId id, const UiRect& bounds,
+                                 std::string_view label, const StudioTabOptions& options)
+    {
+        const StudioTheme& theme = frame.theme();
+        StudioWidgetResult result = interactControl(frame, id, bounds, options.enabled,
+                                                    /*focusable=*/true, StudioCursor::Arrow);
+        if (!frame.isDrawPass()) { return result; }
+
+        const StudioControlState state = resolveState(result.interaction, options.active);
+
+        if (options.active)
+        {
+            frame.drawList().fillRect(bounds, theme.color(StudioColorRole::PanelHeaderActive));
+
+            // An accent rule along the top edge, because the active tab's fill merges into the
+            // panel body beneath it and a fill alone leaves "which tab is this" ambiguous.
+            UiRect marker = bounds;
+            marker.height = std::max(1.0f, metricOf(theme, StudioMetric::FocusRingWidth) * 2.0f);
+            frame.drawList().fillRect(marker, theme.color(StudioColorRole::Accent));
+        }
+        else if (state == StudioControlState::Hover || state == StudioControlState::Pressed)
+        {
+            frame.drawList().fillRect(bounds, theme.controlBackground(state));
+        }
+        else
+        {
+            // `STUDIO-35020`. An inactive tab was drawn as nothing at all -- the strip showed
+            // through -- so a strip of four panels read as four labels floating on a bar, and
+            // which of them were tabs was something the user learned by clicking. It is a surface
+            // now, one step above the strip and one below the active tab, which is the whole of
+            // what makes a tab strip legible at a glance.
+            frame.drawList().fillRect(bounds, theme.color(StudioColorRole::TabInactive));
+        }
+
+        // A hairline between tabs, at the right edge of every one. Two adjacent inactive tabs are
+        // otherwise a single wide surface with two labels in it.
+        {
+            UiRect seam = bounds;
+            seam.x = bounds.right() - metricOf(theme, StudioMetric::SeparatorThickness);
+            seam.width = metricOf(theme, StudioMetric::SeparatorThickness);
+            frame.drawList().fillRect(seam, theme.color(StudioColorRole::TabStripBackground));
+        }
+
+        const float padding = metricOf(theme, StudioMetric::SpacingMedium);
+        UiRect label_area = bounds.inset(UiEdges{padding, 0.0f});
+
+        if (options.modified)
+        {
+            // A dot rather than an asterisk in the text: the marker must not change the label's
+            // width, or every tab in the strip shifts when a document is edited.
+            const float dot = metricOf(theme, StudioMetric::SpacingSmall);
+            UiRect marker = label_area.splitRight(dot * 2.0f);
+            frame.drawList().fillRoundedRect(
+                UiRect{marker.centerX() - dot * 0.5f, marker.centerY() - dot * 0.5f, dot, dot},
+                theme.color(StudioColorRole::TextSecondary), dot * 0.5f);
+        }
+
+        // The active tab is the panel's title and the only thing that says what the surface below
+        // it is, so it carries weight rather than size: a larger active tab would change the
+        // strip's height when the selection moved, and every tab would jump.
+        studioDrawText(frame, label_area, WidgetIdStack::visibleLabel(label),
+                       options.active ? StudioFontRole::Subheading : StudioFontRole::Body,
+                       options.enabled
+                           ? theme.color(options.active ? StudioColorRole::TextPrimary
+                                                        : StudioColorRole::TextSecondary)
+                           : theme.color(StudioColorRole::TextDisabled),
+                       StudioTextAlign::Left);
+
+        if (result.interaction.focused) { drawFocus(frame, bounds); }
+        return result;
+    }
+
+    StudioWidgetResult studioMenuBarItem(StudioFrame& frame, WidgetId id, const UiRect& bounds,
+                                         std::string_view label, bool open, bool enabled)
+    {
+        const StudioTheme& theme = frame.theme();
+        StudioWidgetResult result =
+            interactControl(frame, id, bounds, enabled, /*focusable=*/true, StudioCursor::Arrow);
+        if (!frame.isDrawPass()) { return result; }
+
+        const StudioControlState state = resolveState(result.interaction, open);
+        if (open)
+        {
+            frame.drawList().fillRect(bounds, theme.color(StudioColorRole::PopupBackground));
+        }
+        else if (state == StudioControlState::Hover || state == StudioControlState::Pressed)
+        {
+            frame.drawList().fillRect(bounds, theme.controlBackground(state));
+        }
+
+        const float padding = metricOf(theme, StudioMetric::SpacingMedium);
+        studioDrawText(frame, bounds.inset(UiEdges{padding, 0.0f}),
+                       WidgetIdStack::visibleLabel(label), StudioFontRole::Body,
+                       enabled ? theme.color(StudioColorRole::TextPrimary)
+                               : theme.color(StudioColorRole::TextDisabled),
+                       StudioTextAlign::Center);
+
+        if (result.interaction.focused && !open) { drawFocus(frame, bounds); }
+        return result;
+    }
+
+    StudioSplitterResult studioSplitter(StudioFrame& frame, WidgetId id, const UiRect& bounds,
+                                        StudioSplitterAxis axis, float grabPadding)
+    {
+        const StudioTheme& theme = frame.theme();
+        const bool horizontal = axis == StudioSplitterAxis::Horizontal;
+
+        const UiRect grab = horizontal
+            ? UiRect{bounds.left() - grabPadding, bounds.top(),
+                     bounds.width + grabPadding * 2.0f, bounds.height}
+            : UiRect{bounds.left(), bounds.top() - grabPadding,
+                     bounds.width, bounds.height + grabPadding * 2.0f};
+
+        StudioSplitterResult result;
+        // Not a tab stop: Tab moves between things a keyboard can operate, and a splitter is not
+        // one of them yet. Panel resizing from the keyboard belongs with the layout commands.
+        result.interaction = frame.interact(id, grab, /*enabled=*/true);
+        result.dragging = result.interaction.held;
+
+        if (result.interaction.hovered || result.interaction.held)
+        {
+            frame.requestCursor(id, horizontal ? StudioCursor::ResizeHorizontal
+                                               : StudioCursor::ResizeVertical);
+        }
+
+        if (frame.isInputPass() && result.interaction.held)
+        {
+            result.delta = horizontal ? frame.router().mouseDeltaX() : frame.router().mouseDeltaY();
+        }
+
+        if (!frame.isDrawPass()) { return result; }
+
+        // The gutter between two panels is the same token as a panel's outline, so a splitter at
+        // rest is indistinguishable from the seam it sits in -- which is what a splitter should be
+        // until somebody reaches for it. Drawn as the application background it read as a gap in
+        // the workspace, and a workspace with visible gaps in it looks unfinished.
+        StudioColorRole role = StudioColorRole::PanelOutline;
+        if (result.interaction.held) { role = StudioColorRole::Accent; }
+        else if (result.interaction.hovered) { role = StudioColorRole::BorderStrong; }
+        frame.drawList().fillRect(bounds, theme.color(role));
+
+        return result;
+    }
+
+    float studioMenuItemHeight(const StudioTheme& theme)
+    {
+        // Already whole: theme metrics are integers, so every row boundary in a menu lands on a
+        // pixel at every DPI scale rather than accumulating a fraction down the list.
+        return std::max(metricOf(theme, StudioMetric::RowHeight),
+                        metricOf(theme, StudioMetric::MinimumHitTarget));
+    }
+
+    float studioMenuSeparatorHeight(const StudioTheme& theme)
+    {
+        return metricOf(theme, StudioMetric::SpacingMedium);
+    }
+
+    void studioMenuSeparator(StudioFrame& frame, const UiRect& bounds)
+    {
+        if (!frame.isDrawPass() || bounds.isEmpty()) { return; }
+        const StudioTheme& theme = frame.theme();
+        const float inset = metricOf(theme, StudioMetric::SpacingMedium);
+        frame.drawList().drawHorizontalSeparator(
+            UiRect{bounds.left() + inset, bounds.centerY(), std::max(0.0f, bounds.width - inset * 2.0f),
+                   0.0f},
+            theme.color(StudioColorRole::Separator),
+            metricOf(theme, StudioMetric::SeparatorThickness));
+    }
+
+    StudioWidgetResult studioMenuItem(StudioFrame& frame, WidgetId id, const UiRect& bounds,
+                                      std::string_view label, const StudioMenuItemOptions& options)
+    {
+        const StudioTheme& theme = frame.theme();
+        StudioWidgetResult result =
+            interactControl(frame, id, bounds, options.enabled, /*focusable=*/false,
+                            StudioCursor::Arrow, /*activateOnRelease=*/true);
+
+        if (!frame.isDrawPass()) { return result; }
+
+        // The router's *winner*, not this widget's own hit test. `interaction.hovered` is true for
+        // every widget whose rectangle holds the pointer, and menu popups overlap -- a submenu
+        // flipped to the left sits on top of its parent. Reading the hit test would light up both
+        // the row the user is on and the one hidden underneath it.
+        const bool emphasised = options.highlighted || frame.router().hoveredId() == id;
+        if (emphasised && options.enabled)
+        {
+            frame.drawList().fillRect(bounds, theme.color(StudioColorRole::Selection));
+        }
+
+        const StudioColor textColor = options.enabled
+            ? theme.color(StudioColorRole::TextPrimary)
+            : theme.color(StudioColorRole::TextDisabled);
+
+        const float padding = metricOf(theme, StudioMetric::SpacingMedium);
+        UiRect row = bounds.inset(UiEdges{padding, 0.0f});
+
+        // The check column is reserved whether or not this item is checked, so that the labels of
+        // a menu's items line up instead of stepping left and right as toggles change.
+        const float checkColumn = metricOf(theme, StudioMetric::IconSize);
+        UiRect check = row.splitLeft(checkColumn);
+        if (options.checkable && options.checked)
+        {
+            drawCheckMark(frame, check.inset(UiEdges{0.0f, check.height * 0.25f}),
+                          options.enabled ? theme.color(StudioColorRole::Accent) : textColor);
+        }
+        row.splitLeft(metricOf(theme, StudioMetric::SpacingSmall));
+
+        if (options.hasSubmenu)
+        {
+            UiRect arrow = row.splitRight(checkColumn);
+            drawSubmenuArrow(frame, arrow, textColor);
+        }
+        else if (!options.shortcut.empty())
+        {
+            const float hintWidth = frame.measureText(StudioFontRole::BodySmall, options.shortcut).width;
+            UiRect hint = row.splitRight(std::min(hintWidth + padding, row.width));
+            studioDrawText(frame, hint, options.shortcut, StudioFontRole::BodySmall,
+                           options.enabled ? theme.color(StudioColorRole::TextSecondary) : textColor,
+                           StudioTextAlign::Right);
+        }
+
+        studioDrawText(frame, row, WidgetIdStack::visibleLabel(label), StudioFontRole::Body,
+                       textColor, StudioTextAlign::Left);
+        return result;
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Scrolling
+    // ---------------------------------------------------------------------------------------
+
+    void StudioScrollResult::visibleRows(float rowHeight, std::size_t rowCount,
+                                         std::size_t& outFirst, std::size_t& outLast) const
+    {
+        outFirst = 0;
+        outLast = 0;
+        if (rowHeight <= 0.0f || rowCount == 0) { return; }
+
+        const auto first = static_cast<std::size_t>(std::max(0.0f, std::floor(offsetY / rowHeight)));
+        if (first >= rowCount) { outFirst = outLast = rowCount; return; }
+
+        // One row of slack at each end, so a row scrolled half out of view is still described and
+        // the edge of the list does not pop in and out as the offset crosses a row boundary.
+        const auto visible =
+            static_cast<std::size_t>(std::ceil(viewport.height / rowHeight)) + std::size_t{2};
+
+        outFirst = first;
+        outLast = std::min(rowCount, first + visible);
+    }
+
+    std::size_t studioGridColumns(float viewportWidth, float cellWidth, float spacing)
+    {
+        if (cellWidth <= 0.0f) { return 1; }
+
+        // Floored at one: a panel narrower than a card still has to show it, clipped, rather than
+        // dividing by zero and drawing nothing.
+        return static_cast<std::size_t>(
+            std::max(1.0f, std::floor((viewportWidth - spacing) / (cellWidth + spacing))));
+    }
+
+    float studioGridContentHeight(float viewportWidth, float cellWidth, float cellHeight,
+                                  float spacing, std::size_t itemCount)
+    {
+        if (itemCount == 0) { return 0.0f; }
+
+        const std::size_t columns = studioGridColumns(viewportWidth, cellWidth, spacing);
+        const std::size_t rows = (itemCount + columns - 1) / columns;
+        return static_cast<float>(rows) * (cellHeight + spacing) + spacing;
+    }
+
+    void StudioScrollResult::visibleCells(float cellWidth, float cellHeight, float spacing,
+                                          std::size_t itemCount, std::size_t& outColumns,
+                                          std::size_t& outFirst, std::size_t& outLast) const
+    {
+        outColumns = studioGridColumns(viewport.width, cellWidth, spacing);
+        outFirst = 0;
+        outLast = 0;
+        if (cellHeight <= 0.0f || itemCount == 0) { return; }
+
+        const float stride = cellHeight + spacing;
+        const auto firstRow =
+            static_cast<std::size_t>(std::max(0.0f, std::floor((offsetY - spacing) / stride)));
+
+        const std::size_t rows = (itemCount + outColumns - 1) / outColumns;
+        if (firstRow >= rows) { outFirst = outLast = itemCount; return; }
+
+        // One row of slack at each end, exactly as visibleRows takes: a row scrolled half out of
+        // view is still described, and the edge of the grid does not pop in and out as the offset
+        // crosses a row boundary.
+        const auto visibleRowCount =
+            static_cast<std::size_t>(std::ceil(viewport.height / stride)) + std::size_t{2};
+
+        outFirst = firstRow * outColumns;
+        outLast = std::min(itemCount, (firstRow + visibleRowCount) * outColumns);
+    }
+
+    StudioScrollResult studioBeginScroll(StudioFrame& frame, WidgetId id, const UiRect& bounds,
+                                         const StudioScrollOptions& options)
+    {
+        const StudioTheme& theme = frame.theme();
+
+        StudioScrollResult result;
+        result.viewport = bounds;
+
+        const float contentHeight = std::max(0.0f, options.contentHeight);
+        const float maximumOffset = std::max(0.0f, contentHeight - bounds.height);
+        result.hasVerticalBar = maximumOffset > 0.0f && bounds.height > 0.0f;
+
+        const float thickness = metricOf(theme, StudioMetric::ScrollbarThickness);
+        UiRect track;
+        if (result.hasVerticalBar)
+        {
+            UiRect area = bounds;
+            track = area.splitRight(std::min(thickness, area.width));
+            result.viewport = area;
+        }
+
+        WidgetState& state = frame.state().get(id);
+
+        // Only the input pass moves the view. The draw pass reads what it left, so both passes
+        // agree about where the content is -- which is what makes a click land on the row the user
+        // saw rather than the row that was there before the wheel turned.
+        if (frame.isInputPass())
+        {
+            // Sticking to the end is honoured only while the view is *already* there. A console
+            // that yanked the view back down while somebody was reading further up would be
+            // unusable, and it is the single most common complaint about log windows.
+            //
+            // Measured against how far the content reached *last* frame, not this one. Against the
+            // grown content the view is never already at the end -- that is the whole reason it
+            // grew -- so comparing with the new maximum would mean following never once engaged.
+            const float previousMaximum = state.scalar;
+            const bool wasAtEnd = state.scrollY >= previousMaximum - 0.5f;
+
+            if (bounds.contains(frame.input().mouseX, frame.input().mouseY)
+                && frame.input().wheelY != 0.0f)
+            {
+                const float step = options.wheelStep > 0.0f
+                                 ? options.wheelStep
+                                 : metricOf(theme, StudioMetric::RowHeight) * 3.0f;
+                state.scrollY -= frame.input().wheelY * step;
+            }
+            else if (options.stickToEnd && wasAtEnd)
+            {
+                state.scrollY = maximumOffset;
+            }
+
+            state.scrollY = std::clamp(state.scrollY, 0.0f, maximumOffset);
+            state.scalar = maximumOffset;
+        }
+
+        result.offsetY = std::clamp(state.scrollY, 0.0f, maximumOffset);
+        result.atEnd = result.offsetY >= maximumOffset - 0.5f;
+
+        if (result.hasVerticalBar)
+        {
+            // A thumb whose length is its share of the content, floored at something a person can
+            // actually grab: proportional all the way down means a million-line log gets a thumb
+            // one pixel high, which is a scrollbar in name only.
+            const float minimumThumb = std::max(metricOf(theme, StudioMetric::MinimumHitTarget),
+                                                thickness * 2.0f);
+            const float proportion = contentHeight > 0.0f ? bounds.height / contentHeight : 1.0f;
+            const float thumbHeight =
+                std::max(minimumThumb, std::min(track.height, track.height * proportion));
+
+            const float travel = std::max(0.0f, track.height - thumbHeight);
+            const float position = maximumOffset > 0.0f ? result.offsetY / maximumOffset : 0.0f;
+
+            const UiRect thumb{track.left(), std::round(track.top() + travel * position),
+                               track.width, std::round(thumbHeight)};
+
+            const WidgetId thumbId = frame.ids().make("scrollthumb");
+            const StudioInteraction interaction = frame.interact(thumbId, thumb);
+
+            if (frame.isInputPass() && interaction.pressed && travel > 0.0f)
+            {
+                // Dragged by where the pointer is *within* the thumb, not by the frame's delta:
+                // grabbing the thumb an inch from its top and dragging must not teleport it so the
+                // pointer sits at its centre, and accumulating deltas drifts away from the pointer
+                // over a long drag.
+                WidgetState& thumbState = frame.state().get(thumbId);
+                if (!thumbState.active)
+                {
+                    thumbState.active = true;
+                    thumbState.scalar = frame.input().mouseY - thumb.top();
+                }
+
+                const float wanted = frame.input().mouseY - thumbState.scalar - track.top();
+                state.scrollY = std::clamp(wanted / travel, 0.0f, 1.0f) * maximumOffset;
+                result.offsetY = state.scrollY;
+                result.atEnd = result.offsetY >= maximumOffset - 0.5f;
+            }
+            else if (frame.isInputPass())
+            {
+                frame.state().get(thumbId).active = false;
+            }
+
+            if (frame.isDrawPass())
+            {
+                frame.drawList().fillRect(track, theme.color(StudioColorRole::ScrollbarTrack));
+                frame.drawList().fillRect(
+                    thumb, theme.color(interaction.pressed || interaction.hovered
+                                           ? StudioColorRole::ScrollbarThumbHover
+                                           : StudioColorRole::ScrollbarThumb));
+            }
+        }
+
+        frame.pushClip(result.viewport);
+        return result;
+    }
+
+    void studioEndScroll(StudioFrame& frame)
+    {
+        frame.popClip();
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Text entry
+    // ---------------------------------------------------------------------------------------
+
+    namespace
+    {
+        /**
+         * @brief Converts the frame's typed UTF-16 code units to UTF-8.
+         *
+         * Surrogate pairs included, because an emoji typed into a name field is a user typing a
+         * character, and dropping half of a pair leaves a string that is not valid UTF-16 or UTF-8.
+         * An unpaired surrogate -- which a platform can emit when a composition is interrupted --
+         * is dropped rather than encoded: there is no character to encode.
+         */
+        std::string utf8From(const std::vector<char16_t>& units)
+        {
+            std::string out;
+            out.reserve(units.size());
+
+            for (std::size_t i = 0; i < units.size(); ++i)
+            {
+                char32_t code = units[i];
+
+                if (code >= 0xD800 && code <= 0xDBFF)
+                {
+                    if (i + 1 >= units.size()) { continue; }
+                    const char16_t low = units[i + 1];
+                    if (low < 0xDC00 || low > 0xDFFF) { continue; }
+                    code = 0x10000 + ((code - 0xD800) << 10) + (low - 0xDC00);
+                    ++i;
+                }
+                else if (code >= 0xDC00 && code <= 0xDFFF)
+                {
+                    continue;
+                }
+
+                // Control characters are not text. Tab and Enter mean something to the field and
+                // are handled as keys; the rest would be invisible bytes in somebody's entity name.
+                if (code < 0x20 || code == 0x7F) { continue; }
+
+                if (code < 0x80) { out.push_back(static_cast<char>(code)); }
+                else if (code < 0x800)
+                {
+                    out.push_back(static_cast<char>(0xC0 | (code >> 6)));
+                    out.push_back(static_cast<char>(0x80 | (code & 0x3F)));
+                }
+                else if (code < 0x10000)
+                {
+                    out.push_back(static_cast<char>(0xE0 | (code >> 12)));
+                    out.push_back(static_cast<char>(0x80 | ((code >> 6) & 0x3F)));
+                    out.push_back(static_cast<char>(0x80 | (code & 0x3F)));
+                }
+                else
+                {
+                    out.push_back(static_cast<char>(0xF0 | (code >> 18)));
+                    out.push_back(static_cast<char>(0x80 | ((code >> 12) & 0x3F)));
+                    out.push_back(static_cast<char>(0x80 | ((code >> 6) & 0x3F)));
+                    out.push_back(static_cast<char>(0x80 | (code & 0x3F)));
+                }
+            }
+            return out;
+        }
+
+        /**
+         * @brief The byte offset in @p text nearest to @p x, measuring from @p left.
+         *
+         * Nearest boundary rather than the one before: clicking in the right half of a character
+         * must put the caret after it, which is where a person aiming between two letters expects
+         * it. Measuring prefix by prefix is O(n) per click over a single-line field, which is
+         * nothing; a field long enough for that to matter needs a different layout anyway.
+         *
+         * Cluster boundaries, not code-point ones, so that the mouse cannot reach a place the
+         * arrow keys refuse to stop at. A combining mark adds no width, so the candidate inside
+         * `e` + U+0301 sits at the same x as the one before it -- and picking it would put the
+         * caret inside one rendered glyph, invisibly, until the next Backspace took the accent.
+         */
+        std::size_t offsetNearest(const StudioFrame& frame, const StudioFontStyle& style,
+                                  std::string_view text, float left, float x)
+        {
+            std::size_t best = 0;
+            float bestDistance = std::abs(x - left);
+
+            std::size_t offset = 0;
+            while (offset < text.size())
+            {
+                offset = studioGraphemeNext(text, offset);
+                const float edge =
+                    left + frame.measureText(style, text.substr(0, offset)).width;
+                const float distance = std::abs(x - edge);
+                if (distance < bestDistance) { bestDistance = distance; best = offset; }
+            }
+            return best;
+        }
+    }
+
+    StudioTextFieldResult studioTextField(StudioFrame& frame, WidgetId id, const UiRect& bounds,
+                                          std::string& value,
+                                          const StudioTextFieldOptions& options)
+    {
+        StudioTextFieldResult result;
+        const StudioTheme& theme = frame.theme();
+        const StudioFontStyle style = theme.font(options.font);
+
+        // Registered before interact(), like every other control: the router assigns focus on a
+        // press to a widget it knows is focusable, and one that never registered is one Tab skips
+        // and a click never focuses.
+        if (frame.isInputPass() && options.enabled) { frame.router().registerFocusable(id, true); }
+
+        result.interaction = frame.interact(id, bounds, options.enabled);
+        WidgetState& state = frame.state().get(id);
+
+        const bool focused = result.interaction.focused && options.enabled;
+
+        // The editing buffer is the retained text; `value` is the committed one. Keeping them
+        // apart is what lets Escape restore the old value and what stops a half-typed number being
+        // parsed into the document on every keystroke.
+        // The press, not the focus, starts an edit session. The router grants focus *after* the
+        // frame a press happened on -- it reports the focused widget as of the start of the frame
+        // and reassigns it during interact() -- so a session that waited for focus would begin on
+        // a frame where nothing says the pointer was involved, and select-all-on-focus would then
+        // wipe a field somebody merely clicked into.
+        const bool pressedHere = result.interaction.pressed && options.enabled;
+        const bool editing = focused || pressedHere;
+
+        if (!editing)
+        {
+            // Focus lost with an uncommitted edit commits it. Abandoning somebody's typing because
+            // they clicked elsewhere is the behaviour every form gets wrong and nobody forgives.
+            //
+            // Here rather than after the edit below, which is where it used to be and where it
+            // could never run: this branch clears `active` and overwrites `text` with `value`, so
+            // by the time anything downstream asked whether there was an uncommitted edit there
+            // was no longer any record that there had been one. Every field in Studio silently
+            // threw away an edit the user clicked away from.
+            if (frame.isInputPass() && state.active && state.text != value)
+            {
+                value = state.text;
+                result.committed = true;
+            }
+
+            state.text = value;
+            state.caret = value.size();
+            state.selectionAnchor = value.size();
+            state.active = false;
+        }
+        else if (!state.active)
+        {
+            state.active = true;
+            state.text = value;
+            state.caret = value.size();
+
+            // Select-all applies to focus arriving from the *keyboard*. Tabbing to a number and
+            // typing should replace it; clicking into a name and typing must not destroy it,
+            // because a click is how a person says "I want the caret here". The pointer branch
+            // below places the caret for that case, so all that is needed here is to not select.
+            state.selectionAnchor =
+                (options.selectAllOnFocus && !pressedHere) ? 0 : value.size();
+        }
+
+        StudioTextEdit edit{state.text};
+        edit.moveTo(state.selectionAnchor, false);
+        edit.moveTo(state.caret, true);
+
+        UiRect textArea =
+            bounds.inset(UiEdges{metricOf(theme, StudioMetric::ControlPaddingHorizontal) * 0.5f,
+                                 0.0f});
+
+        // Reserved before anything is laid out in the text area, so the caret, the selection
+        // highlight, the scroll offset and the click-to-caret arithmetic all agree about where the
+        // text starts. Computed here and drawn much further down, because drawing happens after
+        // the edit and the rectangle is needed by both.
+        UiRect prefixArea;
+        if (!options.prefix.empty())
+        {
+            // A tight gap. The prefix is inside a field that may be forty pixels wide in a narrow
+            // inspector, and every pixel it takes is a pixel the number does not have.
+            const float prefixWidth =
+                std::ceil(studioLabelWidth(frame, options.prefix, options.font)
+                          + metricOf(theme, StudioMetric::SpacingXSmall));
+            prefixArea = textArea.splitLeft(std::min(prefixWidth, textArea.width));
+        }
+
+        if (editing && frame.isInputPass())
+        {
+            // Said every frame the field is focused, so the shell's shortcut dispatch and the
+            // keyboard-activation path in the other widgets know a key means text here.
+            frame.router().setWantsTextInput(true);
+
+            const UiInputState& input = frame.input();
+            const bool shift = input.modifiers.shift;
+            const bool control = input.modifiers.control;
+            const StudioInputRouter& router = frame.router();
+
+            if (control && router.keyPressed(UiKey::A)) { edit.selectAll(); }
+            else if (control && router.keyPressed(UiKey::C))
+            {
+                if (edit.hasSelection()) { frame.setClipboardText(edit.selectedText()); }
+            }
+            else if (control && router.keyPressed(UiKey::X))
+            {
+                if (edit.hasSelection())
+                {
+                    frame.setClipboardText(edit.selectedText());
+                    (void)edit.deleteSelection();
+                }
+            }
+            else if (control && router.keyPressed(UiKey::V))
+            {
+                const std::string pasted = frame.clipboardText();
+                if (!pasted.empty())
+                {
+                    // One line. A pasted paragraph in a single-line field would otherwise carry
+                    // newlines the measurer cannot render and the document would store verbatim.
+                    std::string flattened;
+                    flattened.reserve(pasted.size());
+                    for (const char character : pasted)
+                    {
+                        flattened.push_back(character == '\n' || character == '\r' ? ' ' : character);
+                    }
+                    (void)edit.insert(flattened);
+                }
+            }
+            else if (router.keyPressed(UiKey::LeftArrow)) { edit.moveLeft(shift); }
+            else if (router.keyPressed(UiKey::RightArrow)) { edit.moveRight(shift); }
+            else if (router.keyPressed(UiKey::Home)) { edit.moveHome(shift); }
+            else if (router.keyPressed(UiKey::End)) { edit.moveEnd(shift); }
+            else if (router.keyPressed(UiKey::Backspace)) { (void)edit.deleteBackward(); }
+            else if (router.keyPressed(UiKey::Delete)) { (void)edit.deleteForward(); }
+            else if (router.keyPressed(UiKey::Escape))
+            {
+                edit.setText(value);
+                edit.selectAll();
+                result.cancelled = true;
+                frame.router().setFocus(WidgetId{});
+            }
+            else if (router.keyPressed(UiKey::Enter))
+            {
+                if (edit.text() != value) { value = edit.text(); result.committed = true; }
+
+                // Enter ends the editing session, not just the focus. The buffer holds what was
+                // typed -- "00.5" -- and the caller is free to normalise what it stored to "0.5",
+                // which is the ordinary case for any field showing a number. A session left open
+                // across that would find the two different on the next frame, take it for an
+                // uncommitted edit, and commit it a second time: every edit through a normalising
+                // caller landing twice, once as the change and once as a no-op that still takes an
+                // undo slot and makes Ctrl+Z appear to do nothing.
+                state.active = false;
+                frame.router().setFocus(WidgetId{});
+            }
+
+            if (!result.cancelled)
+            {
+                const std::string typed = utf8From(input.characters);
+                if (!typed.empty()) { (void)edit.insert(typed); }
+            }
+        }
+
+        // Pointer, in both passes so the caret the input pass hit-tested is the one drawn.
+        if (options.enabled && (result.interaction.pressed || result.interaction.held))
+        {
+            const std::size_t offset =
+                offsetNearest(frame, style, edit.text(), textArea.left(), frame.input().mouseX);
+            edit.moveTo(offset, !result.interaction.pressed);
+        }
+
+        if (frame.isInputPass())
+        {
+            state.text = edit.text();
+            state.caret = edit.caret();
+            state.selectionAnchor = edit.anchor();
+        }
+
+        result.editing = editing && edit.text() != value;
+
+        if (options.enabled) { (void)frame.requestCursor(id, StudioCursor::Text); }
+
+        if (frame.isDrawPass())
+        {
+            const StudioColorRole background =
+                !options.enabled ? StudioColorRole::ControlBackgroundDisabled
+                                 : (editing ? StudioColorRole::ControlBackgroundSelected
+                                            : (result.interaction.hovered
+                                                   ? StudioColorRole::ControlBackgroundHover
+                                                   : StudioColorRole::ControlBackground));
+            frame.drawList().fillRect(bounds, theme.color(background));
+            frame.drawList().strokeRect(bounds,
+                                        theme.color(editing ? StudioColorRole::FocusRing
+                                                            : StudioColorRole::Border),
+                                        metricOf(theme, StudioMetric::BorderWidth));
+
+            if (!options.prefix.empty() && !prefixArea.isEmpty())
+            {
+                // At its own colour whether or not the field is enabled, because the axis it names
+                // is a fact about the property rather than about whether it can be edited -- and a
+                // greyed X beside a greyed Y is three identical boxes again.
+                studioDrawText(frame, prefixArea, options.prefix, options.font,
+                               theme.color(options.prefixRole));
+            }
+
+            const std::string_view shown = edit.text();
+            if (shown.empty() && !editing && !options.placeholder.empty())
+            {
+                studioDrawText(frame, textArea, options.placeholder, options.font,
+                               theme.color(StudioColorRole::TextDisabled));
+            }
+            else
+            {
+                if (editing && edit.hasSelection())
+                {
+                    const float from =
+                        frame.measureText(style, shown.substr(0, edit.selectionBegin())).width;
+                    const float to =
+                        frame.measureText(style, shown.substr(0, edit.selectionEnd())).width;
+                    frame.drawList().fillRect(
+                        UiRect{textArea.left() + from, bounds.top() + 2.0f, to - from,
+                               std::max(0.0f, bounds.height - 4.0f)},
+                        theme.color(StudioColorRole::Selection));
+                }
+
+                studioDrawText(frame, textArea,
+                               studioTruncateText(frame, style, shown, textArea.width),
+                               options.font,
+                               theme.color(options.enabled ? StudioColorRole::TextPrimary
+                                                           : StudioColorRole::TextDisabled));
+
+                if (editing)
+                {
+                    // Steady, not blinking. Studio has no animation model yet (STUDIO-03030), and
+                    // a caret that blinks off is a caret a golden image catches half the time --
+                    // which would make every text screenshot in the suite nondeterministic.
+                    const float caretX = std::round(
+                        textArea.left()
+                        + frame.measureText(style, shown.substr(0, edit.caret())).width);
+                    frame.drawList().fillRect(
+                        UiRect{caretX, bounds.top() + 2.0f,
+                               std::max(1.0f, metricOf(theme, StudioMetric::BorderWidth)),
+                               std::max(0.0f, bounds.height - 4.0f)},
+                        theme.color(StudioColorRole::TextPrimary));
+                }
+            }
+        }
+
+        return result;
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Drag and drop
+    // ---------------------------------------------------------------------------------------
+
+    StudioNumericFieldResult studioNumericField(StudioFrame& frame, WidgetId id,
+                                                const UiRect& bounds, float& value,
+                                                const StudioNumericFieldOptions& options)
+    {
+        StudioNumericFieldResult result;
+        WidgetState& state = frame.state().get(id);
+
+        // `state.integer` rather than `state.active`, and the reason is worth stating because the
+        // first attempt got it wrong: `studioTextField` uses `active` for its *edit session*, so a
+        // scrub that cleared it cleared the session -- every keystroke was discarded on the next
+        // frame and no field in Studio could be typed into. Retained state is shared by whatever
+        // shares the id, and a wrapper is one of those things.
+        bool scrubbing = state.integer != 0;
+
+        // The scrub is decided *before* the text field runs, because what it decides changes what
+        // the text field is handed.
+        if (options.draggable && options.text.enabled)
+        {
+            // Threshold first, exactly like `studioDragSource` and for the same reason: without it
+            // a click that wobbled by one pixel on a trackpad nudges the value, and a field that
+            // changes when you click it is a field nobody dares click. Below the threshold the
+            // press belongs to the text field and does what it always did.
+            constexpr float kThreshold = 4.0f;
+
+            // Both: the router still names this widget active on the frame the button comes up --
+            // that is how it delivers the release to whoever captured the press -- so `activeId`
+            // alone would report a drag that has already ended, and the caller watching for the
+            // gesture to finish would never see it.
+            const bool held = frame.router().activeId() == id
+                           && frame.input().isMouseDown(UiMouseButton::Left);
+            if (held)
+            {
+                const float dx = frame.input().mouseX - frame.router().pressX();
+
+                if (!scrubbing && std::fabs(dx) >= kThreshold)
+                {
+                    // The value as it was when the press began, kept for the whole gesture. Scrubs
+                    // that accumulated frame deltas instead would drift: every frame would round
+                    // its own increment, and dragging out and back would not return to where it
+                    // started -- which is the one thing a user checks.
+                    scrubbing = true;
+                    state.scalar = value;
+                }
+
+                if (scrubbing)
+                {
+                    float next = state.scalar + dx * options.step;
+                    if (options.integral) { next = std::round(next); }
+
+                    if (frame.isInputPass() && next != value)
+                    {
+                        value = next;
+                        result.changed = true;
+                    }
+                    result.dragging = true;
+                }
+            }
+            else if (scrubbing)
+            {
+                // Released. Cleared here rather than on the press, so the frame the button comes
+                // up still reports `dragging` as false and the caller can see the gesture end.
+                scrubbing = false;
+            }
+        }
+        else if (scrubbing)
+        {
+            scrubbing = false;
+        }
+
+        // Written back once, after the branch above, because `state` is a reference into a store
+        // that `studioTextField` also reaches into -- and because the flag is *this* widget's, not
+        // the frame's.
+        state.integer = scrubbing ? 1 : 0;
+
+        // The text, rendered from whatever the value now is -- including a value this function just
+        // scrubbed, so the field reads back what the drag is doing while it is doing it.
+        std::string text = options.integral
+            ? std::to_string(static_cast<std::int64_t>(value))
+            : studioFormatFloat(value);
+
+        StudioTextFieldOptions textOptions = options.text;
+        if (result.dragging)
+        {
+            // A scrub is not an edit session, but the press that started it opened one -- the text
+            // field begins editing on the press, which is what places the caret where the user
+            // clicked. So the session is open for the whole drag, holding the text as it was when
+            // the button went down.
+            //
+            // Left alone, that session *reverts the drag*: on the frame focus goes away it sees its
+            // buffer differ from the value and commits the buffer, putting back the number the user
+            // had just dragged away from. So the buffer is kept in step with the value instead.
+            // Found by the first three cases in `StudioNumericFieldTests` all reporting the value
+            // unchanged after an unmistakable drag.
+            state.text = text;
+            state.caret = text.size();
+            state.selectionAnchor = text.size();
+
+            // And select-all is off, or the field would highlight itself the moment the drag ends,
+            // which reads as the value having been selected for replacement when the user only let
+            // go of it.
+            textOptions.selectAllOnFocus = false;
+        }
+
+        result.text = studioTextField(frame, id, bounds, text, textOptions);
+
+
+        if (result.text.committed && !result.dragging)
+        {
+            if (options.integral)
+            {
+                std::int64_t parsed = 0;
+                if (studioParseInteger(text, parsed))
+                {
+                    value = static_cast<float>(parsed);
+                    result.changed = true;
+                }
+            }
+            else
+            {
+                float parsed = 0.0f;
+                if (studioParseFloat(text, parsed))
+                {
+                    value = parsed;
+                    result.changed = true;
+                }
+            }
+        }
+
+        // The pointer says what it does. A field that scrubs and looks like a plain text box is one
+        // whose best feature nobody finds -- and the cursor is the only affordance available,
+        // because the field has to go on looking like the field it also is.
+        if (options.draggable && options.text.enabled
+            && (result.dragging || result.text.interaction.hovered))
+        {
+            frame.requestCursor(id, StudioCursor::ResizeHorizontal);
+        }
+
+        return result;
+    }
+
+    void studioDrawDragPreview(StudioFrame& frame)
+    {
+        if (!frame.isDragging() || !frame.isDrawPass()) { return; }
+
+        const std::string& label = frame.dragPayload().label;
+        if (label.empty()) { return; }
+
+        const StudioTheme& theme = frame.theme();
+        const float padding = metricOf(theme, StudioMetric::SpacingSmall);
+        const StudioTextMetrics extent = frame.measureText(StudioFontRole::BodySmall, label);
+        const UiRect box = frame.dragPreviewBounds(std::ceil(extent.width + padding * 2.0f),
+                                                   std::ceil(extent.height() + padding));
+
+        // Clipped to the window rather than to whatever was in force: the preview follows the
+        // pointer across panels, and the clip of the panel it started in would cut it in half.
+        frame.pushClip(UiRect{0.0f, 0.0f, frame.input().displayWidth,
+                              frame.input().displayHeight});
+        frame.drawList().fillRect(box, theme.color(StudioColorRole::PopupBackground));
+        frame.drawList().strokeRect(box, theme.color(StudioColorRole::Accent),
+                                    metricOf(theme, StudioMetric::BorderWidth));
+        studioDrawText(frame, box.inset(UiEdges{padding, 0.0f}), label, StudioFontRole::BodySmall,
+                       theme.color(StudioColorRole::TextPrimary));
+        frame.popClip();
+    }
+
+    bool studioDragSource(StudioFrame& frame, WidgetId source,
+                          const StudioInteraction& interaction,
+                          StudioFrame::StudioDragPayload payload)
+    {
+        if (!frame.isInputPass() || !interaction.held || frame.isDragging()) { return false; }
+
+        // The button has to be down *now*, not merely have been held. On the frame it comes up a
+        // widget still reports `held` -- that is what lets a click resolve -- and starting a drag
+        // there would begin a gesture on the frame it ended, which is how an abandoned drag
+        // resurrects itself and delivers the payload it was told not to.
+        if (!frame.input().isMouseDown(UiMouseButton::Left)) { return false; }
+
+        const float threshold = metricOf(frame.theme(), StudioMetric::SpacingLarge);
+        const float dx = frame.input().mouseX - frame.router().pressX();
+        const float dy = frame.input().mouseY - frame.router().pressY();
+        if (dx * dx + dy * dy <= threshold * threshold) { return false; }
+
+        return frame.beginDrag(source, std::move(payload));
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Drop-down
+    // ---------------------------------------------------------------------------------------
+
+    namespace
+    {
+        /**
+         * @brief A drop-down's pending choice, stored as index + 1.
+         *
+         * Zero has to mean "nothing pending", because zero is what retained state holds the first
+         * time a widget is seen -- and a sentinel that collides with the default is a control that
+         * silently selects its first item the moment it is described.
+         */
+        constexpr float kNoPendingChoice = 0.0f;
+
+        // A drop-down's retained state, in one place so the meanings are readable together:
+        //
+        //   integer  the highlighted row of the open list
+        //   scalar   the pending choice, as index + 1, or kNoPendingChoice
+        //   checked  a pending dismissal
+        //   active   the list opened on this very frame
+        //   text     the index wearing the check mark, as decimal
+        //
+        // Four of the five exist because the list is described *after* the control and can only
+        // answer it through something that outlives the call.
+    }
+
+    StudioDropdownResult studioDropdown(StudioFrame& frame, WidgetId id, const UiRect& bounds,
+                                        const std::vector<std::string>& items, int& selected,
+                                        const StudioDropdownOptions& options)
+    {
+        const StudioTheme& theme = frame.theme();
+        StudioDropdownResult result;
+
+        // A control with nothing to choose from is disabled rather than one that opens on an empty
+        // list: an empty popup is a rectangle the user has to click away.
+        const bool enabled = options.enabled && !items.empty();
+
+        WidgetState& state = frame.state().get(id);
+
+        // The list is described *after* this function has returned -- that is what lets it escape
+        // the panel it sits in -- so its answer cannot come back through the return value. It is
+        // left in the control's own retained state and collected here, on the next pass that
+        // routes input. One frame of latency, and the alternative was a reference into a stack
+        // frame that has already gone.
+        if (frame.isInputPass())
+        {
+            if (state.scalar != kNoPendingChoice)
+            {
+                const auto chosen = static_cast<int>(state.scalar) - 1;
+                state.scalar = kNoPendingChoice;
+                if (chosen >= 0 && static_cast<std::size_t>(chosen) < items.size()
+                    && chosen != selected)
+                {
+                    selected = chosen;
+                    result.changed = true;
+                }
+                if (frame.isPopupOpen(id)) { frame.closePopup(); }
+            }
+            if (state.checked)
+            {
+                state.checked = false;
+                if (frame.isPopupOpen(id)) { frame.closePopup(); }
+            }
+        }
+
+        result.selected = selected;
+        const bool wasOpen = frame.isPopupOpen(id);
+
+        StudioWidgetResult control =
+            interactControl(frame, id, bounds, enabled, /*focusable=*/true, StudioCursor::Arrow);
+        result.interaction = control.interaction;
+
+        if (frame.isInputPass() && enabled)
+        {
+            if (wasOpen)
+            {
+                // Only the pointer closes it from here. While the list is open the keyboard
+                // belongs to the list: `activated` includes Enter on the focused control, and
+                // honouring that would shut the list on the keystroke meant to choose from it.
+                if (control.interaction.clicked) { frame.closePopup(); }
+            }
+            else if (control.activated
+                     || (control.interaction.focused
+                         && frame.router().keyPressed(UiKey::DownArrow)))
+            {
+                frame.openPopup(id);
+                // Opened on what is already selected, so the first Down moves off it rather than
+                // jumping to the top of a list the user is part-way through.
+                state.integer = selected;
+                state.scalar = kNoPendingChoice;
+                state.checked = false;
+                // The same Down that opened the list must not also move within it: a keystroke
+                // that opens a list on the current value and immediately steps off it means the
+                // user can never choose the value they started on without going back up.
+                state.active = true;
+            }
+        }
+
+        result.open = frame.isPopupOpen(id);
+
+        // --- The closed control --------------------------------------------------------------
+        if (frame.isDrawPass())
+        {
+            const StudioControlState visual = !enabled
+                ? StudioControlState::Disabled
+                : resolveState(control.interaction, result.open);
+
+            const float radius = metricOf(theme, StudioMetric::CornerRadius);
+            frame.drawList().fillRoundedRect(bounds, theme.controlBackground(visual), radius);
+            if (visual != StudioControlState::Disabled)
+            {
+                frame.drawList().strokeRect(bounds, theme.color(StudioColorRole::Border),
+                                            metricOf(theme, StudioMetric::BorderWidth));
+            }
+
+            UiRect inner = bounds.inset(
+                UiEdges{metricOf(theme, StudioMetric::ControlPaddingHorizontal), 0.0f});
+            const UiRect arrow = inner.splitRight(metricOf(theme, StudioMetric::IconSize));
+            drawDropdownArrow(frame, arrow, theme.controlText(visual));
+
+            const bool inRange = selected >= 0 && static_cast<std::size_t>(selected) < items.size();
+            const std::string_view shown = inRange
+                ? std::string_view{items[static_cast<std::size_t>(selected)]}
+                : options.placeholder;
+            studioDrawText(frame, inner,
+                           studioTruncateText(frame, theme.font(StudioFontRole::Body), shown,
+                                              inner.width),
+                           StudioFontRole::Body,
+                           inRange ? theme.controlText(visual)
+                                   : theme.color(StudioColorRole::TextDisabled));
+        }
+
+        if (!options.tooltip.empty()) { (void)frame.requestTooltip(id, options.tooltip, bounds); }
+        if (!result.open) { return result; }
+
+        // --- The list, deferred so it escapes whatever panel this control is in ----------------
+        //
+        // Items are captured by value. A caller that builds its list inline -- every renderer, or
+        // every enum case -- hands this a vector that is gone by the time the body runs, and a
+        // reference would be the kind of dangling capture that works in every test and fails on
+        // the one panel that does it.
+        const float rowHeight = studioMenuItemHeight(theme);
+        const float padding = metricOf(theme, StudioMetric::SpacingSmall);
+        const auto visibleRows = static_cast<float>(std::max(1, options.visibleRows));
+        const float listHeight =
+            std::min(static_cast<float>(items.size()), visibleRows) * rowHeight + padding * 2.0f;
+
+        float listTop = bounds.bottom();
+        // Flipped above rather than clipped: a list whose last rows fall off the bottom of the
+        // window is a list whose last options do not exist as far as the user is concerned.
+        if (listTop + listHeight > frame.input().displayHeight)
+        {
+            listTop = std::max(0.0f, bounds.top() - listHeight);
+        }
+        const UiRect list{bounds.left(), std::round(listTop), bounds.width, std::round(listHeight)};
+
+        frame.deferPopup([id, list, items, rowHeight, padding](StudioFrame& f) {
+            const StudioTheme& popupTheme = f.theme();
+            if (f.isDrawPass())
+            {
+                f.drawList().fillRect(list, popupTheme.color(StudioColorRole::PopupBackground));
+                f.drawList().strokeRect(list, popupTheme.color(StudioColorRole::BorderStrong),
+                                        metricOf(popupTheme, StudioMetric::BorderWidth));
+            }
+
+            WidgetState& popupState = f.state().get(id);
+            f.ids().push("dropdown");
+            f.ids().pushIndex(static_cast<std::int64_t>(id.value()));
+
+            StudioScrollOptions scrollOptions;
+            scrollOptions.contentHeight = static_cast<float>(items.size()) * rowHeight;
+
+            const StudioScrollResult scroll = studioBeginScroll(
+                f, f.ids().make("scroll"), list.inset(UiEdges{0.0f, padding}), scrollOptions);
+
+            std::size_t first = 0;
+            std::size_t last = 0;
+            scroll.visibleRows(rowHeight, items.size(), first, last);
+
+            for (std::size_t i = first; i < last; ++i)
+            {
+                const UiRect row{scroll.viewport.left(),
+                                 std::round(scroll.viewport.top() - scroll.offsetY
+                                            + static_cast<float>(i) * rowHeight),
+                                 scroll.viewport.width, rowHeight};
+
+                StudioMenuItemOptions rowOptions;
+                rowOptions.highlighted = popupState.integer == static_cast<std::int64_t>(i);
+                // The current value carries a check rather than only a highlight: the highlight
+                // follows the pointer, so on its own it says where the user is, never where they
+                // are coming from.
+                rowOptions.checkable = true;
+                rowOptions.checked = popupState.text == std::to_string(i);
+
+                const StudioWidgetResult rowResult = studioMenuItem(
+                    f, f.ids().makeIndex(static_cast<std::int64_t>(i)), row, items[i], rowOptions);
+
+                if (!f.isInputPass()) { continue; }
+                if (rowResult.interaction.hovered)
+                {
+                    popupState.integer = static_cast<std::int64_t>(i);
+                }
+                if (rowResult.activated)
+                {
+                    popupState.scalar = static_cast<float>(i) + 1.0f;
+                }
+            }
+
+            studioEndScroll(f);
+            f.ids().pop();
+            f.ids().pop();
+
+            if (!f.isInputPass()) { return; }
+
+            if (popupState.active)
+            {
+                // Opened this frame: the keystroke that opened it is still down, and it belongs to
+                // the control rather than to the list.
+                popupState.active = false;
+                return;
+            }
+
+            StudioInputRouter& router = f.router();
+            const auto count = static_cast<std::int64_t>(items.size());
+            if (router.keyPressed(UiKey::DownArrow))
+            {
+                popupState.integer =
+                    popupState.integer < 0 ? 0 : (popupState.integer + 1) % count;
+            }
+            if (router.keyPressed(UiKey::UpArrow))
+            {
+                popupState.integer =
+                    popupState.integer < 0 ? count - 1 : (popupState.integer - 1 + count) % count;
+            }
+            if (router.keyPressed(UiKey::Home)) { popupState.integer = 0; }
+            if (router.keyPressed(UiKey::End)) { popupState.integer = count - 1; }
+            if (router.keyPressed(UiKey::Enter) && popupState.integer >= 0)
+            {
+                popupState.scalar = static_cast<float>(popupState.integer) + 1.0f;
+            }
+            if (router.keyPressed(UiKey::Escape)) { popupState.checked = true; }
+
+            // A press outside the list dismisses it without choosing anything, which is the other
+            // half of "click elsewhere to cancel".
+            if (router.mousePressed(UiMouseButton::Left)
+                && !list.contains(router.mouseX(), router.mouseY()))
+            {
+                popupState.checked = true;
+            }
+        });
+
+        // Which row wears the check. Kept as text rather than as another number because `integer`
+        // is the highlight and `scalar` is the pending choice, and a third meaning crammed into
+        // one of those is how retained state stops being readable.
+        if (frame.isInputPass())
+        {
+            state.text = selected >= 0 ? std::to_string(selected) : std::string{};
+        }
+        return result;
+    }
+
+    // --- A panel's own right-click menu (STUDIO-09009) -------------------------------------------
+    //
+    // The owner's retained state carries the whole menu between the frame it is opened on and the
+    // frame something is chosen from it:
+    //
+    //   scrollX/scrollY  where the pointer was, so the popup is anchored at the click rather than
+    //                    at the widget -- which for a panel-wide menu would be its top-left corner
+    //   integer          the highlighted row, for keyboard traversal
+    //   scalar           the pending choice, as index + 1 (zero is "nothing chosen")
+    //   checked          dismissed without choosing
+    //
+    // The popup body is deferred, so it runs after the panel has been described and escapes the
+    // panel's clip; that is also why the answer cannot come back through a return value on the same
+    // pass, and arrives on the next one instead.
+
+    void studioOpenContextMenu(StudioFrame& frame, WidgetId owner, float x, float y)
+    {
+        if (!owner.isValid()) { return; }
+
+        WidgetState& state = frame.state().get(owner);
+        state.scrollX = x;
+        state.scrollY = y;
+        state.integer = -1;
+        state.scalar = 0.0f;
+        state.checked = false;
+        frame.openPopup(owner);
+    }
+
+    int studioContextMenu(StudioFrame& frame, WidgetId owner,
+                          const std::vector<StudioContextMenuItem>& items)
+    {
+        if (!owner.isValid() || items.empty()) { return -1; }
+
+        const StudioTheme& theme = frame.theme();
+        WidgetState& state = frame.state().get(owner);
+
+        int chosen = -1;
+        if (frame.isInputPass())
+        {
+            if (state.scalar != 0.0f)
+            {
+                const auto index = static_cast<int>(state.scalar) - 1;
+                state.scalar = 0.0f;
+                if (index >= 0 && static_cast<std::size_t>(index) < items.size())
+                {
+                    chosen = index;
+                }
+                if (frame.isPopupOpen(owner)) { frame.closePopup(); }
+            }
+            if (state.checked)
+            {
+                state.checked = false;
+                if (frame.isPopupOpen(owner)) { frame.closePopup(); }
+            }
+        }
+
+        if (!frame.isPopupOpen(owner)) { return chosen; }
+
+        const float rowHeight = studioMenuItemHeight(theme);
+        const float separatorHeight = studioMenuSeparatorHeight(theme);
+        const float padding = metricOf(theme, StudioMetric::SpacingSmall);
+
+        float height = padding * 2.0f;
+        float width = rowHeight * 4.0f;
+        for (const StudioContextMenuItem& item : items)
+        {
+            height += item.label.empty() ? separatorHeight : rowHeight;
+
+            // Wide enough for the longest row, because a context menu whose entries are elided is
+            // one where "Duplicate" and "Delete" become the same word.
+            float itemWidth = studioLabelWidth(frame, item.label, StudioFontRole::Body)
+                            + rowHeight * 2.0f;
+            if (!item.shortcut.empty())
+            {
+                itemWidth += studioLabelWidth(frame, item.shortcut, StudioFontRole::Body)
+                           + rowHeight;
+            }
+            width = std::max(width, itemWidth);
+        }
+        width = std::ceil(width);
+        height = std::ceil(height);
+
+        // Flipped rather than clipped, on both axes. A menu opened near the bottom-right corner
+        // whose rows fall off the screen is a menu whose last entries do not exist as far as the
+        // user is concerned -- and the last entry is usually Delete.
+        float left = state.scrollX;
+        float top = state.scrollY;
+        if (left + width > frame.input().displayWidth) { left = std::max(0.0f, left - width); }
+        if (top + height > frame.input().displayHeight) { top = std::max(0.0f, top - height); }
+        const UiRect popup{std::round(left), std::round(top), width, height};
+
+        frame.deferPopup([owner, popup, items, rowHeight, separatorHeight, padding](StudioFrame& f) {
+            const StudioTheme& popupTheme = f.theme();
+            if (f.isDrawPass())
+            {
+                f.drawList().fillRect(popup, popupTheme.color(StudioColorRole::PopupBackground));
+                f.drawList().strokeRect(popup, popupTheme.color(StudioColorRole::BorderStrong),
+                                        metricOf(popupTheme, StudioMetric::BorderWidth));
+            }
+
+            WidgetState& popupState = f.state().get(owner);
+            f.ids().push("contextmenu");
+            f.ids().pushIndex(static_cast<std::int64_t>(owner.value()));
+
+            float y = popup.top() + padding;
+            for (std::size_t i = 0; i < items.size(); ++i)
+            {
+                const StudioContextMenuItem& item = items[i];
+                if (item.label.empty())
+                {
+                    studioMenuSeparator(f, UiRect{popup.left(), y, popup.width, separatorHeight});
+                    y += separatorHeight;
+                    continue;
+                }
+
+                const UiRect row{popup.left(), std::round(y), popup.width, rowHeight};
+                y += rowHeight;
+
+                StudioMenuItemOptions options;
+                options.enabled = item.enabled;
+                options.highlighted = popupState.integer == static_cast<std::int64_t>(i);
+                options.shortcut = item.shortcut;
+
+                const StudioWidgetResult result =
+                    studioMenuItem(f, f.ids().makeIndex(static_cast<std::int64_t>(i)), row,
+                                   item.label, options);
+
+                if (!f.isInputPass()) { continue; }
+                if (result.interaction.hovered) { popupState.integer = static_cast<std::int64_t>(i); }
+                if (result.activated) { popupState.scalar = static_cast<float>(i) + 1.0f; }
+            }
+
+            f.ids().pop();
+            f.ids().pop();
+
+            if (!f.isInputPass()) { return; }
+
+            StudioInputRouter& router = f.router();
+            const auto count = static_cast<std::int64_t>(items.size());
+
+            // Traversal steps over separators and over disabled rows, so Down never parks the
+            // highlight on something Enter cannot choose.
+            const auto step = [&items, count](std::int64_t from, std::int64_t delta) {
+                for (std::int64_t i = 0; i < count; ++i)
+                {
+                    from = (from + delta + count) % count;
+                    if (!items[static_cast<std::size_t>(from)].label.empty()
+                        && items[static_cast<std::size_t>(from)].enabled)
+                    {
+                        return from;
+                    }
+                }
+                return static_cast<std::int64_t>(-1);
+            };
+
+            if (router.keyPressed(UiKey::DownArrow))
+            {
+                popupState.integer = step(popupState.integer < 0 ? count - 1 : popupState.integer, 1);
+            }
+            if (router.keyPressed(UiKey::UpArrow))
+            {
+                popupState.integer = step(popupState.integer < 0 ? 0 : popupState.integer, -1);
+            }
+            if (router.keyPressed(UiKey::Enter) && popupState.integer >= 0)
+            {
+                popupState.scalar = static_cast<float>(popupState.integer) + 1.0f;
+            }
+            if (router.keyPressed(UiKey::Escape)) { popupState.checked = true; }
+
+            // A press outside dismisses without choosing -- including a *right* press, so a second
+            // right-click somewhere else opens the menu there rather than needing a dismiss first.
+            if ((router.mousePressed(UiMouseButton::Left)
+                 || router.mousePressed(UiMouseButton::Right))
+                && !popup.contains(router.mouseX(), router.mouseY()))
+            {
+                popupState.checked = true;
+            }
+        });
+
+        return chosen;
+    }
+
+} // namespace CNA::Studio

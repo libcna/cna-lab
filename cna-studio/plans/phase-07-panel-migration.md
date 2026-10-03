@@ -1,0 +1,1545 @@
+# Phase 7 — Existing-panel migration
+
+> **ARCHIVED — historical record. This file authorises no work.** It belongs to the
+> [archived programme roadmap](../docs/ROADMAP-ARCHIVE.md), whose scope was retired on 2026-09-22
+> by [ADR-001](../docs/ADR-001-SCOPE-REDUCTION.md). **A ⬜ below means *not built*. It no longer
+> means *planned*.** The one authoritative active roadmap is [`plan.md`](../plan.md).
+>
+> **Disposition of this phase:** Complete.
+>
+> Ids in this phase are `STUDIO-07001` … `STUDIO-07999` and are never reused. Every id here still resolves, so a commit, test or code comment that cites
+> one keeps its meaning.
+
+**Purpose.** Port every prototype panel onto the Studio UI and retire the Dear ImGui presentation.
+
+**Exit criteria.** Feature, input, docking and visual parity, proven panel by panel against the Phase 0 inventory — then ImGui is removed deliberately.
+
+**Progress:** 45 of 46 complete `███████████░`
+
+> **The forty-sixth row is ⊘, not open.** `STUDIO-07001` was the *temporary* compatibility adapter
+> that let the Dear ImGui panels and the native ones coexist while the migration ran. The migration
+> finished and `STUDIO-07030`/`07031`/`07099` deleted Dear ImGui, so the condition it was waiting
+> on — both UIs in one running Studio — can no longer be made true and no longer needs to be. Its
+> permanent successor is `STUDIO-07016`, and its row below says so. This phase has no open work.
+
+| Id | Task | Status | Depends on |
+|----|------|:------:|------------|
+| `STUDIO-07001` | Compatibility adapter so unported panels keep working during the migration | ⊘ | `STUDIO-06015` |
+| `STUDIO-07002` | Port the main menu bar | ✅ | `STUDIO-06003` |
+| `STUDIO-07003` | Port the toolbar | ✅ | `STUDIO-06006` |
+| `STUDIO-07004` | Port the status bar | ✅ | `STUDIO-06007` |
+| `STUDIO-07005` | Port the Console / Output Log | ✅ | `STUDIO-07001` |
+| `STUDIO-07006` | Port the Hierarchy panel (World Outliner) | ✅ | `STUDIO-07001` |
+| `STUDIO-07007` | Port the Inspector panel (Details) | ✅ | `STUDIO-07001`, `STUDIO-03035` |
+| `STUDIO-07008` | Port the Content Browser | ✅ | `STUDIO-07001`, `STUDIO-03034` |
+| `STUDIO-07009` | Port the viewport container | ✅ | `STUDIO-04012` |
+| `STUDIO-07010` | Port the Build panel | ✅ | `STUDIO-07001`, `STUDIO-02040`, `STUDIO-03036` |
+| `STUDIO-07011` | Port the Diagnostics panel | ✅ | `STUDIO-07001`, `STUDIO-02022` |
+| `STUDIO-07012` | Port the Validation panel | ✅ | `STUDIO-07001`, `STUDIO-03034` |
+| `STUDIO-07013` | Port the History panel | ✅ | `STUDIO-07001`, `STUDIO-03034` |
+| `STUDIO-07014` | Port the Comparison panel | ✅ | `STUDIO-07001` |
+| `STUDIO-07015` | One log model, read by both consoles | ✅ | — |
+| `STUDIO-07016` | Panel content seam: the shell hosts a ported panel's content | ✅ | `STUDIO-06018` |
+| `STUDIO-07017` | A module for the ported panels, above widgets and document alike | ✅ | `STUDIO-07016` |
+| `STUDIO-07018` | Editors for the property kinds the Details panel shows read-only | ✅ | `STUDIO-07007`, `STUDIO-03036` |
+| `STUDIO-07019` | An undoable command for an entity's enabled flag | ✅ | `STUDIO-07007` |
+| `STUDIO-07020` | Prove parity against the Phase 0 panel and shortcut inventory | ✅ | `STUDIO-00014`, `STUDIO-07014` |
+| `STUDIO-07021` | Prove input parity: keyboard, mouse, drag and drop, clipboard, text editing | ✅ | `STUDIO-07020` |
+| `STUDIO-07022` | Prove docking parity | ✅ | `STUDIO-07020` |
+| `STUDIO-07023` | Visual acceptance review against the Phase 0 reference screenshots | ✅ | `STUDIO-00013`, `STUDIO-07020` |
+| `STUDIO-07024` | Layers panel: the project's render layers and what is on each | ✅ | `STUDIO-03034` |
+| `STUDIO-07040` | Add and remove a component from the native Details panel | ✅ | `STUDIO-07008` |
+| `STUDIO-07041` | Inventory the prototype's *controls*, not only its panels and menus | ✅ | `STUDIO-07020` |
+| `STUDIO-07042` | Prefab overrides in the native Details panel: report, revert, apply | ✅ | `STUDIO-07041` |
+| `STUDIO-07043` | Sprite animation preview in the native Details panel | ✅ | `STUDIO-07041` |
+| `STUDIO-07044` | Audio preview in the native Details panel | ✅ | `STUDIO-07041` |
+| `STUDIO-07045` | The asset inspector: a selected asset's own properties | ✅ | `STUDIO-07041` |
+| `STUDIO-07046` | The material asset editor the prototype already has | ✅ | `STUDIO-07041` |
+| `STUDIO-07047` | Inventory the prototype's *tests*, and close what deleting them would lose | ✅ | `STUDIO-07042`, `STUDIO-07043`, `STUDIO-07044`, `STUDIO-07045`, `STUDIO-07046` |
+| `STUDIO-07048` | `StudioOptions` moves out of the prototype application's header | ✅ | — |
+| `STUDIO-07049` | `--headless` and the 3D smoke flags run the native shell | ✅ | `STUDIO-07048` |
+| `STUDIO-07050` | Transform manipulators in the native 3D view | ✅ | `STUDIO-07009` |
+| `STUDIO-07051` | The native shell reloads assets edited outside it | ✅ | `STUDIO-07008` |
+| `STUDIO-07052` | The native shell loads the project's plugins | ✅ | `STUDIO-07001` |
+| `STUDIO-07053` | `--scene` opens a scene on the native shell | ✅ | `STUDIO-07048` |
+| `STUDIO-07054` | Editors for list and structure properties | ✅ | `STUDIO-07018` |
+| `STUDIO-07055` | A numeric property field is dragged as well as typed | ✅ | `STUDIO-07018` |
+| `STUDIO-07056` | The 3D view's grid plane, offered where it changes something | ✅ | `STUDIO-07009` |
+| `STUDIO-07057` | The angles a user typed survive being read back | ✅ | `STUDIO-07018` |
+| `STUDIO-07058` | Reparenting by dragging in the World Outliner | ✅ | `STUDIO-07006` |
+| `STUDIO-07030` | Remove the Dear ImGui panel implementations | ✅ | `STUDIO-07047`, `STUDIO-07049`, `STUDIO-07050`, `STUDIO-07051`, `STUDIO-07052`, `STUDIO-07053`, `STUDIO-07054`, `STUDIO-07055`, `STUDIO-07056`, `STUDIO-07057`, `STUDIO-07058` |
+| `STUDIO-07031` | Remove the `CNA_STUDIO_WITH_IMGUI` option and the vendored source | ✅ | `STUDIO-07030` |
+
+> **`STUDIO-07030` blocked more than this phase, and closing it only closed part of that.**
+> `CnaStudioHost` — the `--ui=imgui` host — created a `CnaUiRenderer` unconditionally, with no
+> chooser, so the Dear ImGui prototype was one consumer of the classic UI render backend.
+> `STUDIO-07030` deleted `CnaStudioHost` along with the rest of the prototype, which removes that
+> consumer. It does not by itself unblock `STUDIO-04027`: `CnaStudioShellHost` — the *native* host —
+> still constructs a `CnaUiRenderer` of its own, as a compatibility fallback and behind
+> `--ui-renderer=compat`, so the classic backend has a second, native consumer that this task never
+> touched. `STUDIO-04027`'s own entry records the current state of that dependency.
+| `STUDIO-07099` | Guard test: production Studio UI has no dependency on Dear ImGui | ✅ | `STUDIO-07031` |
+
+## Acceptance and verification
+
+Tasks whose completion condition is not obvious from the title.
+
+### `STUDIO-07047` — Inventory the prototype's tests, and close what deleting them would lose
+
+**Acceptance.** Every case in `tests/ApplicationTests.cpp` and `tests/UiTests.cpp` is accounted for:
+either the behaviour it asserts is covered without the prototype — by a unit test over the shared
+code or by a native panel test — or a native test is written for it, or it is recorded as testing
+the prototype's own presentation and therefore going away with it. The accounting is a table a test
+checks, not a document, for the reason `STUDIO-07041` gives.
+
+**Why this exists.** `STUDIO-07041` found that the migration inventory accounted for *surfaces* —
+panels, menus, toolbars, shortcuts — and that a whole level below it was unaccounted for: the
+controls inside a panel. There is a level below *that*, and it is the one deleting the prototype
+actually costs. `ApplicationTests.cpp` is 116 cases and `UiTests.cpp` is 17: gizmo drags and their
+undo merging, prefab instantiate/revert/apply, tilemap brush/fill/eyedropper, asset drops onto typed
+slots, 3D orbit and fly navigation, Euler round-tripping at gimbal lock, crash recovery, plugin
+loading. Almost all of it is *shared* code reached through the prototype's panels, and almost none
+of it is about Dear ImGui. Deleting the panels without this would delete a third of the suite and
+nothing would say so.
+
+**Verification.** A table in `tests/StudioMigrationInventoryTests.cpp` naming, for each prototype
+case, the file and symbol that covers the same behaviour without it — checked against the file, the
+way the Inspector-section table is — and a count that has to be edited deliberately.
+
+**Done, and it cost more than it looked like it would.** All 112 cases are accounted for: 88
+covered elsewhere at the time, 17 recorded as gaps with the task that closes each, and 7 that really
+are about Dear ImGui and go with it. Eight files changed shape on the way — the command-line cases,
+the plugin-host cases and the `UiDrawData` boundary cases were in the prototype's files by habit and
+are files of their own now, so the deletion is a deletion rather than a rescue operation.
+
+**The gap count falls as each row is closed.** `STUDIO-07057` closed two of the seventeen —
+`TheInspectorKeepsTheAnglesTheUserTypedAtGimbalLock` and its cache-invalidation companion, both now
+pointing at real native tests rather than at this task. Fifteen remain, tracked by
+`EveryUnansweredPrototypeCaseNamesTheTaskThatWillCoverIt`'s own count, which is edited by hand for
+exactly this reason: a number nobody has to touch is a number nobody notices go stale.
+
+**What it found first was not a missing test.** Writing the native cases that were missing turned up
+things the native shell cannot do at all, and five defects in what it can:
+
+- `studio.edit.delete` deleted the **last** selected entity and cleared the selection, so deleting a
+  selection of five removed one. `studio.edit.duplicate` left the *original* selected, so the
+  obvious next gesture moved the wrong thing. Both are the whole selection now, as one undo entry.
+- A press on a manipulator that moved nothing **still pushed an undo entry**, so the next Ctrl+Z
+  appeared to do nothing.
+- The 3D viewport started a navigation gesture on `StudioInteraction::pressed`, which is left-button
+  only — so Studio's own middle-drag pan and right-drag fly never began, and the whole Blender
+  scheme, which lives on the middle button, was unreachable.
+- Flying on W and E **also switched the manipulator**, because the shortcut dispatch had no way to
+  know a panel was driving a keyboard gesture. `StudioInputRouter::wantsKeyboardGesture` is the
+  sibling of `wantsTextInput` that says so.
+- A Studio opened with no project started on an **empty scene with no camera** — the prototype calls
+  `newScene` and the native hosts did not — and the viewport then refused to navigate at all,
+  because it gated on a project rather than on having something to show.
+
+### `STUDIO-07050` … `STUDIO-07053` — Four things the native shell does not do, found by `STUDIO-07047`
+
+The inventory of *tests* was written to stop the deletion losing coverage. What it found first was
+four things the native shell cannot do at all — each of them shared code that nobody is running,
+which is the same shape as the crash-recovery gap `STUDIO-07020`'s inventory missed and for the
+same reason: they are not panels, menu items, toolbar controls or shortcuts, so no inventory of
+*surfaces* could see them.
+
+**`STUDIO-07050` — Transform manipulators in the native 3D view.** ✅ `studioViewportPanel3D` picked
+and did not manipulate: there was no gizmo drawn and none to drag, so an entity could not be moved,
+turned or scaled in the 3D view. The maths — `TransformGizmos3D.hpp` — was already unit-tested and
+CNA-free; nothing on the native shell called it. **Acceptance.** Translate, rotate and scale in the
+3D view, each one undo entry, over a multi-selection about its shared pivot, with the same
+manipulator the toolbar names.
+
+**A grab has to win a race against Studio's own navigation scheme**, not merely be checked before
+it. Under Studio's own scheme an unmodified left press is Orbit — the same press a gizmo handle
+lives on — so `beginGizmoDrag3D` is now tried first and, only when it finds nothing to grab, does
+`studioViewportGestureFor` get to resolve a gesture at all. Reversing that order does not fail
+loudly: it silently turns every drag into an orbit, which is why `TheManipulatorTheToolbarNamesIsThe
+OneThatDragsRatherThanOrbits` asserts the *other* direction too — with Rotate armed, a press where
+the translate arm would have run finds no translate gizmo to grab, and still falls through to an
+ordinary orbit rather than being swallowed as a missed drag.
+
+**One set of drag objects per axis, not per mode.** `StudioViewportState` gained
+`TranslateGizmo3DDrag`, `RotateGizmo3DDrag`, `ScaleGizmo3DDrag` and a `MultiTransform3D`, mirroring
+the 2D viewport's own fields, and `dragging3D()`/`endDrag()` were extended to cover all three so a
+released button or a panel losing focus always closes whichever one is open. The multi-selection
+half runs *beside* the single-entity drags rather than instead of them: `MultiTransform3D::begin` is
+only called when the selection has more than one entity, and its pivot is the selection's own
+average world position, computed once at the grab rather than re-derived every frame.
+
+**Verified against the coincidence the maths itself predicts.** The rotate ring's radius and the
+translate arm's length are deliberately the same number of screen pixels, so a translate arm's tip
+sits exactly on another axis's rotate ring at that ring's own zero-angle sample — a real overlap a
+user could hit, not a test artifact. `AGizmoGrabTakesPriorityOverTheOrbitStudiosOwnSchemePutsOnThePlain
+LeftButton`'s partner test for the no-gizmo-drawn case grabs a point midway along where an arm would
+run rather than at its tip, so it proves the fall-through this task is actually about instead of
+proving a legitimate ring grab happened to exist there too.
+
+**`STUDIO-07051` — The native shell reloads assets edited outside it.** ✅ `AssetWatcher` was polled
+by `StudioApplication::pollAssets` and by nothing else, so on the default UI a texture edited in
+another program was never noticed: the editor kept drawing the art from before the edit, the mesh
+cache kept the old model, and a running game was never told. **Acceptance.** An externally changed,
+removed or restored asset is reported and its cached texture, mesh and player copy dropped, as the
+prototype does.
+
+**The change was never the problem.** `AssetWatcher` had always reported correctly and its own
+tests had always passed. What was missing was a caller — which is why the watcher's test suite
+could not have caught this and why nothing looked broken.
+
+**Reloading means forgetting, four times.** The viewport's texture, the mesh cache's model, the
+running player's copy and the importer facts on the record. `studioPollAssetChanges` is that
+description; the two that are not the context's business arrive as sinks, because a rendered
+texture belongs to whatever is rendering and a running game belongs to whatever launched it, and
+neither is the same object on the two UIs. Both sinks empty is the headless preview, and it still
+drops the two caches the context owns — a reload that did nothing without a viewport would make
+every headless caller silently stale.
+
+**A removed asset is deliberately not forwarded to the player.** The file is gone, so there is
+nothing to reload with, and a player told to reload a missing asset would drop the copy it is
+successfully drawing in exchange for nothing.
+
+**Verified against a real edit**, not only in unit tests: with the native shell running on a copy
+of `HelloSprites`, appending a byte to `Assets/Textures/player.png` produces one more Output Log
+message than the same run without the edit.
+
+### `STUDIO-07051`–`07053` — the shape all three shared
+
+Three tasks in one phase, one shape. Something the prototype did and the native shell did not,
+where **nothing failed**, because not doing it produces exactly what having nothing to do produces:
+`--scene` opened the project's own startup scene, the Plugins menu was empty, an edited texture went
+on being drawn. Each is invisible to any test that exercises one UI at a time, and each was found
+by asking what the *other* UI does rather than by anything going wrong.
+
+Each was fixed the same way — the decision extracted into one routine, called from both — and
+`EveryStartUpRoutineBothUisNeedIsCalledByBothOfThem` asserts the second half, which is the half
+that goes stale. An extraction only one caller uses is a refactor rather than a fix, and the two
+look identical in a diff.
+
+That guard is a hand-written list of three, and it is worth being explicit about why that is
+acceptable here where it was not for the flag guard. It is not an inventory of everything the two
+UIs must share — no such list can be complete, which is the lesson `STUDIO-07041` paid for. It is
+the set of routines extracted *because* they had gone out of step, and its job is to keep those
+three in step. A fourth that is added and not listed is exactly as guarded as it was before the
+test existed.
+
+**`STUDIO-07052` — The native shell loads the project's plugins.** ✅ `PluginHost::discover` and
+`loadAll` were called by `StudioApplication::loadPlugins` and by nothing else.
+`bindStudioPluginMenus` faithfully drew the commands a plugin registered — and no plugin was ever
+loaded to register any, so the menu was empty on every native run, which looks exactly like a
+machine with no plugins installed. **Acceptance.** `--plugins=DIR` and the default `plugins/`
+beside the executable are discovered and loaded on the native shell, each failure named per plugin,
+and unloaded while the context is still alive.
+
+**Extracted rather than copied**, the same way `STUDIO-07053` was: `studioLoadPlugins` holds the
+start-up policy — an explicit directory, otherwise `plugins/` beside the executable, otherwise
+nothing, silently, because having no plugins is the ordinary case and a warning about a directory
+nobody created teaches users to ignore warnings. `PluginHost` answers "load what is in this
+directory"; *which* directory is a start-up question and does not belong to it.
+
+**And loading a plugin on this shell for the first time segfaulted on the way out.** Not in the
+loading — in `~StudioShell`, three frames after everything had gone right. Binding a plugin command
+*copies* its `std::function` into `StudioActionRegistry`, and destroying that copy runs a manager
+function that lives in the plugin's library, so a registry cleared after `dlclose` does not fail to
+find the command: it jumps into unmapped memory.
+
+`bindStudioPluginMenus` had anticipated exactly this — its first act is to remove every action it
+registered last time, with a comment saying the `invoke` points into a library the host is about to
+close. What was missing was a caller at shutdown, where the menus are not rebuilt afterwards and
+there is nothing to rebuild them from. `studioClearPluginMenus` is that half, exposed, and the host
+calls it before the unload.
+
+**The hazard is not gone, it is bounded.** `PluginHost::deactivate` removes a plugin's extensions
+from the context and *then* closes its library, and between those two statements the shell still
+holds its copies. Nothing calls `reload` today, so the only unload is at shutdown and that path is
+now correct. A hot reload would reopen the window, and closing it properly means a notification
+before the close rather than a revision noticed after it — recorded as `STUDIO-28015` rather than
+half-fixed here.
+
+**Tested against a real library, not a stub.** Every other plugin-menu case builds a
+`PluginMenuCommand` whose `invoke` is a lambda in the test binary, which stays mapped whatever the
+host does — the right shape for asking what the menus do with a command, and precisely the wrong
+shape for this. `ARealPluginsCommandsLeaveTheRegistryBeforeItsLibraryIsClosed` uses the test plugin
+through `dlopen`, and the way it fails is by crashing. Verified by reversing the two statements: it
+segfaults. `CnaStudioNativeShellLoadsPlugins` is the end-to-end half, asserting three numbers that
+fail differently — discovered without active is a plugin that would not start, active without menu
+rows is one whose commands never reached the registry, and no line at all is a shell that never
+looked.
+
+**`STUDIO-07053` — `--scene` opens a scene on the native shell.** ✅ The flag was parsed, documented
+in the usage text, and read by `StudioApplication::initialize` alone. On the native shell — which is
+the default UI — it was silently ignored and the project's startup scene opened instead.
+**Acceptance.** `--scene=PATH` opens that scene, and a path that will not open is reported rather
+than swallowed.
+
+**Done by deleting the decision three times rather than by adding it a fourth.** Four things start a
+Studio context from a command line — the native shell, the headless preview, the UI benchmark and
+the prototype — and each had written out the same "project, or a new scene; then the override" by
+hand. Three had written it out without the override. `openStudioStartupDocument` is that decision,
+once, in the context module; it takes two paths rather than `StudioOptions`, because the module that
+owns projects and scenes has no business knowing there is a command line.
+
+**The field was missing from the struct, not from the logic.** `CnaStudioShellHostOptions` had no
+`scenePath` at all, so the flag did not survive the journey from the parser to the shell. That is
+the shape worth naming: not a flag that behaves differently on two UIs, but one that *stops
+existing* on the way to the second, where there is nothing to observe because ignoring it produces
+exactly what not passing it produces.
+
+**A failed `--scene` leaves the project open**, and says so in the Output Log and the status bar
+rather than refusing to start. The project is behind the message and is usable; an editor that
+refused to open over one bad path would leave the user with no way to open a good one.
+
+**Guarded by `NoParsedFlagIsReadByThePrototypeAlone`**, which reads the *parser* for every
+`options.<field> =` it performs and fails any field whose only reader is the prototype. Written over
+the parser rather than over a list, because a guard with its own inventory goes stale the first time
+a flag is added — and this project has already paid for that once, when a migration inventory
+complete over panels, menus, toolbars and shortcuts missed `Add Component` for being a button inside
+a panel. It found `--orbit` on its first run, which is four more than the flag list would have had.
+Four flags are allow-listed by name with the task that will close each: `--compare-backends`'
+tolerance, `--plugin-dir` (`STUDIO-07052`), `--recovery-dir` and the two 3D smoke flags
+(`STUDIO-07049`).
+
+**`examples/HelloSprites` gained `Scenes/Level02.cnascene`**, because a project with one scene
+cannot demonstrate a scene override at all. Two entities against Level01's five, so
+`CnaStudioNativeShellSceneOverride` fails unless the status bar and the World Outliner agree about
+which scene opened — two copies of the same scene would have passed while proving nothing.
+
+### `STUDIO-07054` … `STUDIO-07058` — Four more, and a fifth the inventory found on the way
+
+**`STUDIO-07054` — Editors for list and structure properties.** `studioPropertyEditor` shows a
+`List` as "4 items" and a `Structure` as "3 fields", and `EveryPropertyKindTheSchemaDeclaresGets-
+AControlRatherThanASummary` already records those two as the kinds with no editor. What that costs
+is concrete: a sprite animation's frame list and a model renderer's per-part material overrides
+cannot be edited in the native shell at all. The prototype adds, removes and reorders both.
+**Acceptance.** ✅ A list element can be added, removed and moved, a structure's fields are edited
+like any other property, and each change is one undo entry.
+
+**A pure function for the mutation, a wrapping editor for the drawing.** `studioApplyListEdit`
+decides what Add, Remove, Move Up and Move Down do to a `ListValue` and nothing else -- refusing
+rather than clamping, so a move off either end or a remove past the last element leaves the list
+untouched and returns false, and the caller does not push an undo entry for a change that did not
+happen. `compoundPropertyEditor` is the drawing: a summary row with a disclosure and, for a list,
+an Add button, expanding into one row per element with its own editor and, for a list, its own
+Up/Down/Remove.
+
+**Structures reuse the scalar editors rather than inventing their own.** A field of a `Structure` is
+an ordinary `PropertyValue` under a name, so each one is drawn through `studioPropertyEditor` like
+any top-level property -- a structure that needed a second set of controls for its own fields would
+be the drift `STUDIO-07045` extracted this code to avoid, repeated one level down.
+
+**Retained across frames by the row's own id, not by the value.** A list that stayed open only
+while its instance object was the same one would close itself the moment an edit above it rebuilt
+the component array -- which every edit in this panel does, because every edit goes through the
+history as a whole new `PropertyValue`.
+
+**One property push for the whole list, not one per element.** Add, Remove and the two moves all
+produce the *entire new list* and go through the same `SetPropertyCommand` every scalar edit does,
+with `MergePolicy::NewEntry` -- there is nothing continuous about pressing a button, so nothing here
+merges. Undoing an Add takes back the added element and nothing else, because undoing restores the
+list as it was, not the button that was pressed.
+
+**Asset-importer settings get the same editor through the same seam** `STUDIO-07045` built: one
+function, `compoundPropertyEditor`, called from both the component grid and the importer settings
+grid, so a list-typed importer setting is not a third implementation of the same three buttons.
+
+**`STUDIO-07055` — A numeric property field is dragged as well as typed.** ✅ The prototype's number
+fields scrub: press, move sideways, and the value follows, merging into one undo entry for the whole
+gesture. The native field committed on Enter and nothing else, so setting a position meant typing it.
+**Acceptance.** A horizontal drag on a numeric field changes the value proportionally, is one undo
+entry, and a click without movement still places the caret for typing.
+
+**A widget, not an option on the text field.** `studioNumericField` wraps `studioTextField` and adds
+the scrub. A text field stays about text; a numeric field is the thing a property grid actually
+wants, and it is where the formatting, the parsing and the step belong.
+
+**Anchored to the value at the press, not accumulated per frame.** A scrub that summed frame deltas
+would round every increment, so dragging out and back would not return to where it started — which
+is the first thing anybody tries. The value at the press is kept for the whole gesture and the
+offset is computed from it.
+
+**A threshold, so a click is still a click.** Four pixels, the same as `studioDragSource` and for
+the same reason: a trackpad click wobbles, and a field that changes when you click it is one nobody
+dares click. Below the threshold the press belongs to the text field and places the caret.
+
+**Two defects the first attempt had, both invisible except in the one way that mattered.**
+
+The scrub used `WidgetState::active` to mean "a drag is in flight". That is the field
+`studioTextField` uses to mean "an edit session is open", so clearing it after each frame's drag
+check cleared the session — **every keystroke in every numeric field in Studio was discarded on the
+next frame**, while the field still drew, still focused and still reported hover. Retained state is
+shared by whatever shares the id, and a wrapper is one of those things. The scrub has its own flag
+now, and `TheScrubDoesNotShareRetainedStateWithTheEditSession` is the case.
+
+Then, with that fixed, the drag *reverted itself on release*: the press opens an edit session
+holding the text as it was, and on the frame focus goes away the session commits its buffer over
+the value the drag had just produced. The buffer is kept in step with the value while scrubbing.
+Found by three cases all reporting the value unchanged after an unmistakable forty-pixel drag.
+
+**And the undo chain was never closed on this shell.** `MergePolicy::MergeWithPrevious` needs
+`endInteraction` on a frame where nothing is being dragged, or two gestures a minute apart fold
+into one entry and Ctrl+Z throws away both. The prototype has called it since gizmo drags existed;
+the native shell never did — and the material editor was *already* pushing `MergeWithPrevious`, so
+two separate material edits were already folding into one. A live defect with nothing to report it.
+`StudioShellPanels::poll` closes the chain now, and `TwoSeparateScrubsOfOneFieldAreTwoUndoEntries`
+fails without it.
+
+**`studioParseFloat` and `studioParseInteger` moved into `NumberText`**, beside the formatter they
+are the inverse of. Both were duplicated in two panels; the widget would have been a third copy.
+
+**`STUDIO-07056` — The 3D view's grid plane.** ✅ The prototype offers *Grid on Ground Plane* in the
+View menu, and offers it only in the 3D view, where it changes something. The native shell had no
+such command and no `GridPlane` at all. **Acceptance.** The grid can be put on the ground plane in
+the 3D view, the command is absent or disabled in the 2D one, and the choice survives a restart.
+
+**Disabled in the 2D view rather than hidden**, which is where this differs from the prototype and
+deliberately so. The prototype omits the row; a user who went looking for the setting finds nothing
+and learns the feature does not exist. Greyed out, they find it and can see why it is unavailable —
+and the native shell can express that, because a plugin command and a built-in command are both
+registry actions with an `isEnabled` predicate.
+
+**A preference, not viewport state**, and the reason is mechanical rather than stylistic: the
+viewport state is copied *from* the preferences every poll, so a command that wrote to the state
+would be writing to something about to be overwritten and the setting would last one frame. It is
+also what makes the choice survive a restart without inventing a second place to keep it.
+
+**Stored as a boolean rather than as `GridPlane`.** `cna-studio-ui-core` does not link
+`cna-studio-scene`, and giving preferences a reason to would invert the layering for one field. The
+mapping happens in the host that builds the wireframe, which already has both in scope.
+
+**`CnaStudioGridPlaneChangesTheView` is the inverse of the render-backend A/B.** There two routes
+must agree because only the plumbing differs; here two runs must *disagree*, because the only thing
+that differs is the setting. That shape is the one this phase keeps meeting: a preference stored,
+loaded, given a menu row and read by nothing produces two identical captures while every unit test
+around it passes, because each half works — `STUDIO-11015` was exactly that, three viewport
+preferences written to disk and read by nobody. Verified by cutting the host's one line that passes
+the option: the test fails, and passes again when it is restored.
+
+**`STUDIO-07057` — The angles a user typed survive being read back.** ✅ A rotation is stored as a
+quaternion and edited as Euler angles, and the conversion is not injective: at gimbal lock, typing
+90 into one field and reading the extraction back gives different numbers in the other two. The
+prototype kept what was typed until something else changed the rotation. The native editor
+converted afresh every frame. **Acceptance.** The angles a user typed stay in the fields, and stop
+applying the moment the rotation changes from anywhere else.
+
+**The cache compares its own output, not a dirty flag.** Three retained scalars (pitch, yaw, roll),
+keyed under this property's own widget-id path, hold the last degrees committed. They apply only
+while `quaternionFromEulerDegrees(cached) == stored` — which is what picks up an undo, a gizmo drag,
+a reload or a selection change the instant any of them lands, with nothing having to notice or say
+so: none of those happen to reproduce this editor's own rounding, so the comparison simply fails and
+the cache is abandoned. The prototype reaches the same property with an explicit dirty check
+(`eulerEdit_.matches(...) && eulerEdit_.produced == stored`); this reaches it by recomputing the one
+side that can drift rather than tracking a second flag that could disagree with it.
+
+**Tested at two levels, because the panel's own row geometry cannot isolate the interesting half.**
+`studioPropertyEditor` is called directly, over a value held outside any document, to drive the
+gimbal-lock entry and the cache-invalidation exactly — reading each field's own displayed text
+rather than recomputing independently, which is the mistake that made the first draft of this test
+pass whether or not the cache existed. A second, panel-level test goes through a real entity, a real
+`SetPropertyCommand` and a real undo stack, proving the three typed fields commit as three separate
+entries — nothing here is continuous input, so nothing merges.
+
+**`docs/MIGRATION-INVENTORY.md`'s test-level table update with it.** Both of the prototype's own
+gimbal-lock cases now point at the tests above instead of at this task; the running gap count in
+`StudioMigrationInventoryTests.cpp` drops from seventeen to fifteen.
+
+**`STUDIO-07058` — Reparenting by dragging in the World Outliner.** ✅ The prototype reparents by
+dragging one row onto another, refuses a parent dropped onto its own child, and keeps drawing while
+the change is pending. The native outliner had no drag at all — `StudioOutlinerPanel.cpp` mentioned
+reparenting only to say that a cycle would be a bug elsewhere. **Acceptance.** A row dragged onto
+another reparents it as one undo entry; a drop that would make a cycle is refused without an entry;
+the tree keeps drawing throughout.
+
+**Nothing in the widget needed building.** `StudioTreeRow` has carried `dragType`, `dragValue` and
+`dropType` since the Content Browser needed them, and `StudioTreeView` has carried `dropped` and
+`droppedValue` since the Problems panel did. The outliner simply never filled them in — which makes
+this the cheapest of the five gaps and says something about the seam: a facility built for one
+panel turned out to be the whole of what a second one needed.
+
+**The dragged value is the entity's id, not its name.** Two entities may share a name, and a
+reparent that picked whichever the walk found first would be a rearrangement the user did not ask
+for and cannot undo into the one they wanted.
+
+**A drop returns rather than falling through to the click.** A drop lands on the row it was
+released over, and treating that as a press as well would reparent an entity and select the thing
+it was dropped onto in one gesture — the same reason the visibility toggle returns early.
+
+**The cycle is checked before the command is pushed, not after.** `SceneDocument::reparentEntity`
+rejects it and leaves the scene untouched, so pushing anyway would be *harmless* — and would put an
+entry on the undo stack that undoes nothing. A history with entries that do nothing is a history a
+user stops trusting, which costs more than the move they were refused. The refusal is said out
+loud, because a refused drop and a successful one onto a collapsed parent are the same picture:
+in both, the tree does not visibly change.
+
+**One undo entry for the whole move.** The children travel with their parent because they are found
+*through* it, so there is nothing else to record — and an undo that put the parent back while
+leaving its children behind would be worse than no undo at all. Asserted both ways: the entry count
+goes up by exactly one, and after the undo the two children are still on the entity that had them.
+
+### `STUDIO-07048` — `StudioOptions` moves out of the prototype application's header
+
+**Acceptance.** `StudioOptions` and its parser live in a header of their own. Nothing outside the
+prototype's own files includes `CNA/Studio/StudioApplication.hpp`.
+
+**Why.** Every entry point parses the command line into `StudioOptions`, the native shell and the
+shell preview included, and it is declared in the header of the object being deleted. Moving it is
+mechanical and makes `STUDIO-07030` a deletion rather than a deletion plus a refactor — which is
+the difference between a diff a reviewer can read and one they have to take on trust.
+
+**Done.** `CNA/Studio/StudioOptions.hpp` and `src/app/StudioOptions.cpp`.
+`OnlyThePrototypesOwnFilesIncludeThePrototypesApplication` kept the dependency from coming back until
+`STUDIO-07030` deleted `StudioApplication.hpp` itself, at which point — exactly as its own comment
+said it would — the guard went with it: there was nothing left for `main` or anything else to depend
+on.
+
+### `STUDIO-07049` — `--headless` and the 3D smoke flags run the native shell
+
+**Acceptance.** ✅ `--headless`, `--view=3d` and `--orbit` do what they say on a build with no
+prototype in it, and the five CTest smoke cases that use them assert the same things about the
+native shell that they assert about the prototype today.
+
+**Why.** `--headless` resolved to the *prototype* on every build, because that is where the console
+UI lived — so CI's cheapest smoke test, the one that catches a link or start-up regression the unit
+tests cannot see, ran the code being deleted. The native shell already drew headless (that is what
+`--shell-preview` is), so this was wiring rather than invention, but it had to exist before the
+deletion rather than after it.
+
+**`renderShellPreview` is now `--headless`'s own path**, not only `--shell-preview`'s. It needs no
+window, no toolkit and no graphics device either way, so the entry gate in `main()` sends
+`--headless` there the moment nothing named a real UI explicitly — `--ui=imgui --headless` still
+means the console UI, which is the fallback `CnaStudioFallsBackToImGuiWhenAsked` keeps proving by
+name. Writing the PNG is now conditional on `--shell-preview`'s own path being set; `--headless`
+alone still rasterises and checks the frame, just with nothing to photograph it for.
+
+**The viewport had no camera to drive**, which is why `--view=3d` and `--orbit` reached only the
+prototype: `bindViewport`'s commands — the two views among them — are bound by
+`setViewportServices`, and the headless preview had never called it. A bare `StudioCamera2D` and
+`StudioCamera3D`, no scene viewport behind them, are enough — these flags change camera state, not
+what is composited, and a headless preview has no device to composite anything with regardless.
+`--view=3d` now runs through `shell.invoke("studio.view.3d")`, the same command a press of 3 runs,
+rather than a second copy of what that action already does; `--orbit` sets the camera's yaw and
+pitch after it, converting degrees to radians the same way `StudioApplication::initialize` already
+did, and only after the switch, because the switch frames the scene once on its own and applying
+the angles first would have that framing thrown straight back out.
+
+**`--compare-backends` still refuses to run headless.** The check moved from the console UI's own
+path into `renderShellPreview` itself, checked first: comparing means decoding captures, decoding
+needs a device, and that has nothing to do with which path got `--headless` there.
+
+**The guard that would have caught this untangled itself.** `threeDimensionalView` and
+`orbitDegrees` came off `NoParsedFlagIsReadByThePrototypeAlone`'s allow-list once `Main.cpp` read
+them too — the same guard that found `--orbit` was not on a hand-typed list of four flags when
+`STUDIO-07053` wrote it over the parser instead. The guard itself did not outlive what it was
+guarding: it read the prototype's own source for a flag the parser set that only `StudioApplication`
+read, so `STUDIO-07030` deleted it along with that file — there is only one UI left for a parsed flag
+to go unread by, and that is a lone caller, not a divergence between two.
+
+### `STUDIO-07030` — Remove the Dear ImGui panel implementations
+
+**Acceptance.** `src/panels/*.cpp` and their headers, `src/ui/imgui/ImGuiStudioUi.cpp`,
+`src/app/StudioApplication.cpp` and `src/viewport/CnaStudioHost.cpp` are gone, together with every
+test that existed only to exercise them, and the full six-configuration matrix (Debug, Release with
+`-Werror`, ASan+UBSan, CNA on SOFTWARE, CNA on OPENGL4 and a build with `CNA_STUDIO_WITH_IMGUI=OFF`)
+is green.
+
+**Why now.** Every row this one depended on had reached ✅: `STUDIO-07047`'s accounting of the
+prototype's own test suite, and the nine gaps `STUDIO-07050`–`07058` found while writing it. Nothing
+was left that only the prototype could still do.
+
+**Done.** Eleven panel `.cpp` files and the twelve headers under `include/CNA/Studio/Panels`, the
+Dear ImGui presentation layer (`ImGuiStudioUi`), the prototype's application object
+(`StudioApplication`) and its window host (`CnaStudioHost`) are deleted, along with
+`tests/ApplicationTests.cpp` and `tests/UiTests.cpp`. `Main.cpp`'s UI dispatch now recognises exactly
+two shapes: `studio` (the native shell, in a real window or headless) and everything else, which
+lands on the same headless rendering `--headless` itself uses. `imgui` is kept as a name only because
+`CnaStudioFallsBackToImGuiWhenAsked` still exercises it under `--headless`; asked for a real window
+under that name, the binary says plainly that the Dear ImGui UI was removed, rather than either
+opening the native shell under a name that did not ask for it or opening nothing and leaving the
+reason to be guessed at.
+
+**The scaffolding that tracked the migration had to be retired along with what it tracked.**
+`tests/StudioMigrationInventoryTests.cpp` lost the `PrototypeCase` mechanism and the four tests that
+scanned the prototype's own source for panels, menu items, toolbar controls and shortcuts — there is
+no longer a prototype for them to read, and a check that only ever compared two sides of a list has
+nothing left to compare once one side is gone. The Inspector-section checklist next to it stays: it
+was never about the prototype's source, only about what its Inspector drew, and that comparison still
+means something. `tests/ArchitectureGuardTests.cpp` lost
+`OnlyThePrototypesOwnFilesIncludeThePrototypesApplication`, whose own comment said it would when
+`StudioApplication.hpp` went. The `ServiceBoundaryGuardTests.cpp` exception recorded for
+`ImGuiStudioUi.cpp`'s clipboard hooks came out empty for the same reason —
+`EveryRecordedExceptionIsStillARealViolation` exists precisely so an entry cannot outlive the file it
+excused. `docs/MIGRATION-INVENTORY.md` is now what its own introduction always said it would become:
+the record of what the prototype was replaced by, rather than a live check against it.
+
+**Two genuine gaps surfaced only while deleting `tests/PlayerTests.cpp`**, which neither the panel
+inventory nor `STUDIO-07047`'s test inventory had reason to cover: it tested the *player*, not the
+editor. Four of its cases duplicated native `StudioPlayModeTests.cpp` coverage of
+`StudioApplication`'s own play/pause/stop wrapper and were deleted outright. A fifth proved something
+the native shell had never actually done: mirroring a live property edit to a running game.
+`StudioContext` gained `announceCommand`, fired from `execute()` and, explicitly, from the undo and
+redo action handlers that act on the history directly and so bypass it; `StudioPlayService` gained
+`mirrorEdit`; `StudioShellPanels` now registers a command observer in its constructor that forwards
+every `SetPropertyCommand` to whichever game is running. `ALiveEditReachesARunningPlayerAsASetPropertyMessage`
+proves it against a real player process: the confirmation is a trace-level `ReportLog` the play
+service's own `poll()` does not interpret and would silently drop, so the test drains the process
+directly rather than through that filter, and retries the edit across polled frames rather than
+sending it once — the same shape `PausingARealPlayerFollowsItRatherThanAnnouncingIt` already used to
+wait out the player actually connecting.
+
+**`CNA_STUDIO_HAS_HOST` retired in favour of `CNA_STUDIO_HAS_CNA`.** It used to mean
+`CNA_STUDIO_WITH_CNA AND CNA_STUDIO_WITH_IMGUI` — a real window needed both a graphics device and the
+ImGui host that drew into it. The native shell needs only the device, so `--host-capabilities`'s
+live-device check moved to the flag that still means something; the old one would otherwise have
+stayed permanently undefined and made that check always report the binary as headless, even on a
+build with a real window to ask.
+
+### `STUDIO-07001` — Compatibility adapter so unported panels keep working during the migration
+
+**Acceptance, as written.** Both UIs coexist in one running Studio; the strangler migration proceeds
+panel by panel with tests green throughout
+
+**⊘ Superseded by `STUDIO-07016`, after the migration this existed to support finished.**
+
+This was scaffolding with a deliberate end date, and it reached it. The half that was built did its
+job: `StudioShell::setPanelContent` hosted a ported panel's content, a panel with nothing bound was
+the empty surface every panel starts as, and both consoles read one `StudioLog`, so panels were
+ported one at a time with the suite green throughout. Every ✅ row in this phase went through it.
+
+The half that was never built is the words *one running Studio*. The two presentations stayed two
+entry points — `--ui=imgui` and `--ui=studio` — rather than one process drawing ported and unported
+panels side by side. `STUDIO-07030`, `STUDIO-07031` and `STUDIO-07099` have since deleted Dear ImGui:
+the panel implementations, the `CNA_STUDIO_WITH_IMGUI` option, the vendored source, and the guard
+that fails the build if any of it returns. There is no second UI left to coexist with, so that half
+is not open work — it is a requirement with nothing on the other side of it.
+
+**It is not ✅, and resurrecting Dear ImGui to make it ✅ would be the wrong answer to a bookkeeping
+problem.** A temporary requirement that later work made moot did not come true. ⊘ says what
+happened; a ✅ would say something that is not so, and a 🔄 left in place would be a row implying
+work somebody is expected to finish. Both are how a plan stops being worth reading.
+
+**The permanent seam that replaced it is `STUDIO-07016`.** `StudioShell::setPanelContent`,
+`hasPanelContent` and the `StudioPanelContent` callback outlive the migration because hosting a
+panel's content is not a migration concern: it is how *every* panel is drawn, including ones that do
+not exist yet. A panel registered with nothing bound draws as an empty surface — which was the
+unported case then, and is the not-yet-populated case now, which is exactly what a plugin
+contributing a panel needs (`STUDIO-28005`, whose dependency was moved from this row to
+`STUDIO-07016` for that reason). Nothing else depended on this row that is not already ✅.
+
+**What was actually deleted.** No compatibility-only code remained to remove — `STUDIO-07030` and
+`STUDIO-07031` took all of it, and `STUDIO-07099` guards its return through code, through CMake and
+through the vendored directory. What did remain was compatibility-only *prose*, which is worse than
+dead code because nothing compiles it and readers believe it: `--ui=imgui` was documented in
+`StudioOptions::getUsage` twice, once as "the legacy editor, kept as a migration fallback" and once,
+forty lines below, as retired. The seam's own documentation in `StudioShell.hpp` and
+`StudioShellPanels.hpp` still described itself as temporary and named a deletion that has happened.
+Both are corrected to describe the seam that exists.
+
+### `STUDIO-07002` — Port the main menu bar
+
+**Acceptance.** Every item the prototype's menu bar draws is reachable from the native one.
+
+**Done.** `docs/MIGRATION-INVENTORY.md`'s menu table accounts for every row the prototype draws and
+every one resolves. The native bar is ahead rather than level: nine menus to three, built from the
+registry so a row cannot exist and do nothing, with nested submenus, hover opening, keyboard
+traversal and context menus (`STUDIO-06003`, `STUDIO-06017`).
+
+**Plugin menus were the one architectural item**, and are the difference the registry was for. The
+prototype *draws* them — it walks the extension registry every frame and calls `beginMenu` and
+`menuItem` — which works, and which is exactly why a plugin command there can never have a shortcut,
+never be greyed out, never appear on a toolbar and never show up in the shortcut editor. It is not a
+command, it is a row.
+
+`bindStudioPluginMenus` makes each one a registry action under `studio.plugin.`, and the menu names
+the id. A menu a plugin asks for by a name Studio already uses *is* that menu, with one separator
+before the plugin's rows, rather than a second menu of the same name beside it — which is what Dear
+ImGui produces, because `BeginMenu` has no opinion about a title it has already seen. A menu only
+the plugin knows the name of is created before Help.
+
+Rebuilt from a **revision counter** on the extension registry rather than from a callback: a
+callback would put the menu rebuild inside a plugin's load, which is where a plugin that throws
+would take the menu bar with it. Unloading takes the rows and the commands with it, because a row
+left behind calls an `invoke` pointing into a library the host has closed — and reloading three
+times leaves one of everything rather than three.
+
+**What writing it found.** `StudioActionRegistry::add` returns whether it *replaced* a command, not
+whether it succeeded. Reading it as success dropped every plugin row while registering every plugin
+action, which is the shape of bug that looks like the menus being wrong rather than the caller.
+
+### `STUDIO-07003` — Port the toolbar
+
+**Acceptance.** Every control the prototype's toolbars offer is reachable from the native one.
+
+**Done.** The prototype has no application toolbar at all; its controls live inside the Viewport
+panel, which means they move and resize with it and vanish if it is closed. The native toolbar is
+icons at the top of the window, driven by the registry.
+
+`docs/MIGRATION-INVENTORY.md`'s toolbar table accounts for all eleven controls across twelve rows —
+Pause and Resume are two buttons in the prototype and one checkable command here — and every one of
+them resolves. The last open row was **2D/3D**, which waited on the phase that owns it;
+`STUDIO-11001`/`STUDIO-11002` shipped the native 2D and 3D views and bound `studio.view.2d` and
+`studio.view.3d` to `2` and `3`, and `STUDIO-35050`'s viewport toolbar puts both on a strip in the
+viewport's own corner.
+
+**Closed on a check rather than on the existence of related work.** The row had already been true
+for some time and this file went on saying it was open, which is the failure mode prose has: it can
+stop being true without anybody editing it. So the claim is now made by
+`EveryToolbarControlThePrototypeOffersIsReachableFromTheNativeUi`, and it is made at the level the
+acceptance is written at — **reachable**, not merely registered. For each of the twelve rows: the
+status must be ✅, the named command must exist *and have a handler*, and its id must appear on the
+menu bar, the window toolbar or the viewport toolbar. A command that exists and is on none of the
+three is one a user cannot press, and the pre-existing
+`EveryCommandTheInventoryCallsAnsweredExistsAndCanRun` would have passed it without complaint.
+
+The one deliberate indirection is the backend chooser, answered by
+`studio.window.showPanel.comparison`. `StudioShell::registerPanelAction` puts a panel's *toggle* on
+Window ▸ Panels and deliberately puts its `showPanel.` command on no menu, because two rows meaning
+nearly the same thing is a menu that has to be read twice. The check therefore treats
+`showPanel.X` as reachable when `panel.X` is, and says so where it does it.
+
+**Verification.** `tests/StudioMigrationInventoryTests.cpp`
+`EveryToolbarControlThePrototypeOffersIsReachableFromTheNativeUi`, proved against both of the
+failures it exists to catch: a row returned to 🔄 fails it, and deleting `studio.view.2d` from
+`studioViewportToolbarItems` fails it while leaving the command registered and working.
+
+**The tilemap tool is a menu and an overlay, not a toolbar button.** Five exclusive checkable
+commands on the View menu arm it, and the tile index sits in an overlay in the viewport's own corner
+— beside the image it edits, which is where the prototype puts it, and where a docked viewport can
+still show it at any panel size. A toolbar button per tool would be five more icons at the top of the
+window for a mode that only means anything over the viewport.
+
+### `STUDIO-07004` — Port the status bar
+
+**Acceptance.** Whatever the prototype's status bar says is said by the native one.
+
+**Done by there being nothing to port.** The prototype has no status bar: grep the panel sources and
+there is not one. The native bar (`STUDIO-06007`) is therefore new rather than a port, and carries
+what is open, whether it is saved, what is running with a progress bar and a Stop, the active target
+profile, and what Studio itself is drawing on.
+
+Recorded rather than quietly ticked, because "nothing to port" and "ported" are different facts and
+only one of them is a reason to stop looking.
+
+### `STUDIO-07005` — Port the Console / Output Log
+
+**Acceptance.** The Output Log on the Studio UI, at feature parity with the ImGui Console: copy,
+clear, a severity filter, and following new output. The legacy panel kept working, unchanged, until
+`STUDIO-07030` deleted it
+
+**Why this panel first.** It is the simplest panel that is still a real one — a filtered, scrolling
+list with a toolbar — so it exercises what a panel actually needs from the new UI (scrolling,
+virtualised rows, a row of controls, retained view state) without also needing a property grid, a
+tree, drag and drop or a graphics device. If the strangler seam is wrong, this is where it is
+cheapest to find out. It was: porting it is what turned up the need for `STUDIO-07015`,
+`STUDIO-07016` and `STUDIO-03033`, none of which existed before something had to use them
+
+**What the port gained over the original.** Repeated messages collapse with a count, so four hundred
+identical warnings stop burying the one line that matters; rows are virtualised, so a
+hundred-thousand-line log costs what a ten-line one costs; the empty state distinguishes "nothing
+logged" from "four hundred messages your filter is hiding"; and the severity filter is four buttons
+rather than a combo, so the current one is readable without opening anything
+
+**Verification.** `tests/StudioLogPanelTests.cpp` for the model, the panel and the seam;
+`CnaStudioNativeShellOutputLog` draws it on a real CNA device and asserts on the rows it put on
+screen — a count, not a triangle total, because a ported panel and the empty surface it replaced
+both draw *some* geometry and only the row count tells them apart
+
+### `STUDIO-07015` — One log model, read by both consoles
+
+**Acceptance.** `StudioLog` holds the messages; `StudioUi` writes into it; the ImGui console and the
+Studio one both read it. Bounded, with repeats collapsed and counted
+
+**Why it comes before any porting.** Two logs would make the migration impossible to check: every
+difference between the panels would be a difference in what was logged rather than in how it was
+drawn, and nobody could tell a faithful port from a plausible-looking one
+
+**Verification.** `BothConsolesReadOneLog`, plus `ImGuiUiRoutesLogMessagesIntoTheSharedModel`, which
+also holds the legacy accessors to their existing shape — the ImGui panels are a compatibility
+fallback until they are deleted, not something to break on the way past
+
+### `STUDIO-07016` — Panel content seam: the shell hosts a ported panel's content
+
+**Acceptance.** `StudioShell::setPanelContent` gives a registered panel a content function, called
+once per pass with the panel's content rectangle, inside the panel's own clip and id scope — so two
+panels can each have a widget called "clear" without sharing retained state, focus or capture, and
+content that overruns its panel is cut off rather than drawn over its neighbour. Only the active tab
+of a leaf is called: a panel behind another is not drawn and not described, so it costs nothing
+
+**Verification.** `TheOutputLogDrawsItsMessagesThroughTheShell` and
+`APanelWithNoContentCostsNothingAndDrawsAnEmptySurface`
+
+### `STUDIO-07020` — Prove parity against the Phase 0 panel and shortcut inventory
+
+**Acceptance.** Every inventoried panel, menu item, toolbar control and shortcut ticked off item by item, not by impression
+
+**Done, and what "ticked off" turned out to mean.** `STUDIO-00014` already checked the inventory in
+one direction: an item the list calls answered must resolve to a registered panel with content or to
+a command that exists on the same chord. That direction cannot catch the failure this task is about.
+A piece of the prototype the list never mentioned passes every one of those checks, for the plain
+reason that the list is what they read.
+
+So the tests now read the prototype's own source — every `src/panels/*Panel.cpp`, every `menuItem`
+in `MainMenuBar`, every `button` and `propertyField` in `ViewportPanel`'s two toolbars, and every
+`isShortcutPressed` in `StudioApplication::handleShortcuts` — and require each item they find to
+appear in `docs/MIGRATION-INVENTORY.md` with a decided status. The toolbar table is checked in both
+directions, because it is new and a table claiming parity for controls the prototype does not have
+would be a claim about an editor nobody is shipping.
+
+**What it found.** The toolbars had never been inventoried at all: the panels, menus and shortcuts
+had been, and four things live only on a toolbar — Pause, Step, which backend to launch on, and the
+tilemap tool. The tile-index control was the one nothing else would have caught, drawn a hundred
+lines below the rest of the toolbar and only when the paint or fill tool is active.
+
+**What this does not establish.** That the answered items *behave* the same. Coverage is what this
+task proves: every item accounted for, with a reason attached to each that is not. Behaviour is
+`STUDIO-07021` for input, `STUDIO-07022` for docking and `STUDIO-07023` against the reference
+screenshots. The ⬜ rows were what kept `STUDIO-06015` and `STUDIO-07030` from being true; both are
+✅ now that every row above answers ✅ as well.
+
+**Since.** Crash recovery was the first of those rows to close, and closing it showed what the
+inventory is worth: everything *about* recovery already worked and was shared — the snapshot format,
+the store, the atomic write — so it read as done from every angle except the one that mattered.
+Nobody was running it. The Dear ImGui host wrote snapshots and offered what it found; the native
+host runs a different loop and did neither, so a user on `--ui=studio` had no crash recovery at all
+and nothing said so. It is one `StudioRecoverySession` now, driven by whichever host is running.
+
+File > Exit was the second, and it was the odd one out: the command existed and the CNA host closed
+the window, but the host watched `invokedActions()` for the id rather than the command having a
+handler — so the command never ran, nothing asked about unsaved changes, and no other host could
+close at all. It is `StudioShell::setQuitHandler` now, a seam like the clipboard and the workspace.
+That work also found that a caller polling `dialogResult()` on a later frame sees the answer only
+while nothing renders in between; dialogs deliver their answer to whoever asked now, which is what
+made "Escape means Cancel" true rather than nearly true.
+
+Rename in place was the third, and it found a fourth disagreeing chord: `F2` is Rename in the
+prototype and in every file manager, and natively it was Build. Build is `Ctrl+B` now. Writing the
+editable row also found that `studioTextField`'s commit-on-focus-loss had never been able to run —
+every field in Studio silently threw away an edit the user clicked away from.
+
+### `STUDIO-07021` — Prove input parity: keyboard, mouse, drag and drop, clipboard, text editing
+
+**Acceptance.** Every capability the prototype's panels are written against has a named native
+answer and a named test that exercises it.
+
+**Why the surface was not enough.** `STUDIO-07020` accounts for the prototype's panels, menu items,
+toolbar controls and shortcuts. Underneath all of them is `StudioUi` — the interface every prototype
+panel calls — and a method on it with no native answer is a thing the ported panels *cannot do*,
+whatever the inventory says about the panel that used it. A panel can be ported, appear as ✅, and
+still be poorer than the one it replaced.
+
+So `docs/UI-CAPABILITY-PARITY.md` lists all thirty-nine, and the suite checks it in both directions
+and one more: **every row names a test, and that test has to exist**. A parity document is otherwise
+a list of claims, and the claim that costs nothing to write is the one nobody goes back to
+substantiate — the check caught three names invented while writing the table, on its first run.
+
+**What it found.** Nothing missing, which is the answer worth recording. The four capabilities that
+differ — `isRunning`, `sameLine`, `setNextItemWidth`, and `DockSide` on `beginPanel` — differ
+because the native design does not have the problem they solve. `sameLine` and `setNextItemWidth`
+are a cursor-based layout saying "beside the last one" and "this wide"; the native UI has no cursor,
+so a caller splits the rectangle it was given, and the failure they exist to work around cannot
+happen.
+
+### `STUDIO-07022` — Prove docking parity
+
+**Acceptance.** Every panel the prototype opens on a given side is on a matching side of the native
+default arrangement.
+
+**What the prototype actually promises.** A side, and nothing else: `beginPanel("Inspector",
+DockSide::Right)`. That is the whole of it, so that is what parity means here, and the rest of what
+the native model can do — dragging a tab to any edge, tabbing panels together, floating one into its
+own window, saving an arrangement under a name — is more than the prototype offers rather than
+parity with it.
+
+**Checked against the resolved geometry**, not against the calls that built the tree: the tree can
+be right and the layout wrong, and only one of the two is what a user looks at. Against the *group's*
+rectangle rather than the panel's own, because six of the ten share a tab strip and asking where the
+tab in front is would report the other six as placed nowhere — a fact about tabs rather than about
+where the panel lives. And measured relative to the viewport rather than to the window, because
+"beside the viewport" is what a side means, and a fraction of the window would have to be rewritten
+whenever the default proportions were tuned.
+
+### `STUDIO-07023` — Visual acceptance review against the Phase 0 reference screenshots
+
+**Acceptance.** The two UIs captured side by side, at the same sizes, showing the same project, and
+a written judgement about the difference.
+
+**`docs/VISUAL-ACCEPTANCE.md`**, over the four captures in `docs/reference/`. The review is a
+judgement and says so: no test can assert that one editor looks better than another. What the suite
+checks is that the four captures exist, that they are the sizes the review claims — read from the
+PNG headers rather than from the filenames, which are a claim rather than a fact — and that
+everything the review calls unanswered is unanswered in the inventory too, so the two documents
+cannot come to disagree about what is missing.
+
+**What it found, which is why it exists.** Three things, all in one place and none of them visible
+to the panel inventory: the prototype's Inspector shows the **Scene Environment** (ambient colour
+and fog), an editable **Grid Snap**, and the project's **layer list** when nothing is selected, and
+the native Details panel shows only "Select an entity to see its details." The inventory accounts
+for *panels*, and the Inspector is ported — what it structurally cannot see is that a ported panel
+shows something else entirely in a state nobody thought to compare. They are inventory rows now.
+
+**And what it found about itself.** The native shell is ahead of the prototype on everything a user
+sees first — real type, nine menus to three, a toolbar and a status bar the prototype has not got at
+all — and was behind it on one screen's worth of scene-level settings.
+
+**Closed.** The Details panel standing idle shows the project, an editable grid snap, the scene
+environment and the project's layer names with add, rename and remove, each through the command
+history. The reference captures are left as they were: they are the "before" of the migration, and
+re-taking them to hide what the review found would be the wrong kind of tidy.
+
+**And it found something older on the way.** `studioTextField` committed *twice* for any caller that
+normalises what it stores — which is every numeric field in Studio: "00.5" typed, "0.5" written
+back, the editing session left open across the difference, and the next frame reading it as an
+uncommitted edit. Every such edit landed twice, once as the change and once as a no-op that still
+took an undo slot, so Ctrl+Z appeared to do nothing before it did something. Enter ends the session
+now, and `ACallerThatNormalisesWhatItStoresStillCommitsOnce` is the case the plain round-trip test
+could not reach.
+
+### `STUDIO-07031` — Remove the `CNA_STUDIO_WITH_IMGUI` option and the vendored source
+
+**Acceptance.** Removed deliberately, with `THIRD_PARTY_NOTICES.md` updated to match what is
+actually shipped.
+
+**Done.** `option(CNA_STUDIO_WITH_IMGUI ...)`, the `if(CNA_STUDIO_WITH_IMGUI)`-gated
+`cna-studio-imgui-vendor` target, the `-DCNA_STUDIO_WITH_IMGUI=OFF` passed to every extra player
+build, and the status line that printed the option's value are gone from `CMakeLists.txt`.
+`third_party/imgui/` — eleven files, 3.5 MB — is deleted. `THIRD_PARTY_NOTICES.md` lost the Dear
+ImGui section entirely, and its stb_truetype entry, which explained why that translation unit
+carries `STBTT_STATIC` (so its symbols could never collide with ImGui's own vendored copy of the
+same library), is rewritten in the past tense: the reason `STBTT_STATIC` is there has not changed,
+but what it was originally guarding against no longer exists to guard against.
+
+**The default build tree collapses from six configurations to five.** `CNA_STUDIO_WITH_IMGUI=OFF`
+was its own leg of the validation matrix from `STUDIO-07030` onward, distinguishing a build with
+the option off from the (then still ImGui-capable) default. With the option gone, every build is
+that configuration, so there is no longer a distinct fifth thing to build and test — the matrix is
+Debug, Release with `-Werror`, ASan+UBSan, CNA on `SOFTWARE` and CNA on `OPENGL4`, all of them
+already exercising a tree with no Dear ImGui in it anywhere.
+
+**README.md, ANALYSIS.md and docs/ORIGIN.md** each named the option, the vendored directory, or
+`cna-studio-ui-imgui` as a currently-shipped thing rather than as history, and are corrected: the
+architecture diagram's UI box is `cna-studio-shell-panels` now, not "`cna-studio-ui-imgui` (legacy,
+being replaced)", and the build-options table no longer offers a flag that does not exist.
+
+### `STUDIO-07099` — Guard test: production Studio UI has no dependency on Dear ImGui
+
+**Acceptance.** Fails the build if the dependency returns, whether through code or through CMake.
+
+**Done.** `TheNativeStudioUiHasNoDearImGuiDependency` (`tests/ArchitectureGuardTests.cpp`) no
+longer stops at `src/ui-core` and `include/CNA/Studio/UiCore` — the scope that was deliberately
+narrow while the vendored source and the option that built it were still waiting on `STUDIO-07031`
+to remove them. It scans the whole of `src` and `include` for `imgui.h`, `ImGui::`, `ImDrawList`
+and `ImVec2` now that there is no longer a part of the tree excluded on the grounds that it had not
+been ported yet.
+
+**"Through CMake" is a separate check, on purpose.** A `#include` scan cannot see an `option()`
+reintroduced, or a vendored library target added back, so the same test also reads `CMakeLists.txt`
+and `tests/CMakeLists.txt` and fails on `CNA_STUDIO_WITH_IMGUI`, `CNA_STUDIO_HAS_IMGUI`,
+`third_party/imgui`, `cna-studio-imgui-vendor` or `cna-studio-ui-imgui` appearing in either — and on
+`third_party/imgui/` existing on disk at all, which would precede any build file changing to build
+it. The tokens are specific build-graph names rather than the word "imgui" itself: a naive scan for
+that word failed on its first run, against `--ui=imgui`, the CLI name `STUDIO-07030` deliberately
+kept as a synonym for headless rendering, and against the comments recording this history in both
+files — neither of those is the dependency returning, and a guard that could not tell the
+difference would have needed loosening the first time somebody wrote a sentence about why Dear
+ImGui is gone.
+
+**Verified rather than trusted:** the check was proven to actually fail by reintroducing
+`CNA_STUDIO_WITH_IMGUI` as a probe line in `CMakeLists.txt`, confirming the test caught it, and
+reverting the probe before moving on — the same discipline `STUDIO-35063` was written from applies
+to a guard added today exactly as much as to one added a year ago.
+
+### `STUDIO-07006` — Port the Hierarchy panel (World Outliner)
+
+**Acceptance.** The scene's entities as a tree: parents before children, the document's own sibling
+order, a disclosure triangle only where there are children, the component summary that tells a
+camera from a sprite at a glance, and clicking a row selecting it
+
+**Selection goes through the context.** The viewport, the inspector and the gizmos all read
+`StudioContext`'s selection. A panel that kept its own would disagree with the rest of the editor
+the moment anything else changed it — and would do so silently, which is the worst way for two
+views of one document to diverge
+
+**The sibling order is the scene's, not the panel's.** Showing siblings differently from how the
+document holds them is how a user reorders something in one place and cannot find it in another
+
+**Verification.** `tests/StudioOutlinerPanelTests.cpp` splits the two failures a screenshot cannot
+tell apart: what the tree *is* (`studioOutlinerRows`, asserted without a frame) and what a user can
+*do* to it (driven through the real widget with synthesised input). Plus a two-thousand-deep chain,
+because a crash on opening somebody's scene is the worst outcome an outliner has
+
+### `STUDIO-07017` — A module for the ported panels, above widgets and document alike
+
+**Acceptance.** `cna-studio-shell-panels`, linking `cna-studio-ui-core` and `cna-studio-context`.
+Every panel ported in this phase lives here
+
+**Why it exists.** The Output Log could go in ui-core because its model is part of `cna-studio-ui`,
+which ui-core already depends on. The outliner reads a `SceneDocument` and writes a selection, and
+ui-core depends on neither — deliberately, because that is what keeps the widget layer reusable and
+testable without a document model. A panel is the seam where the two are put together, and a seam
+deserves somewhere to be
+
+### `STUDIO-07007` — Port the Inspector panel (Details)
+
+**Acceptance.** The selected entity's name, enabled flag and components, with every property shown
+and the simple kinds editable. Every edit goes through the command history, so Ctrl+Z reaches it
+
+**The first ported panel that writes.** That is what makes it different from the outliner and what
+decides its tests: showing a scene wrong is a bad afternoon, editing one wrong is a lost afternoon's
+work. Nothing here touches an entity directly except the enabled flag, which has no command yet
+(`STUDIO-07019`) and is recorded as such rather than left looking undoable and not being
+
+**What is editable, and what is honestly not.** Booleans, integers, floats, strings, enumerations
+and the two- and three-component vectors. Colours, quaternions, rectangles, references, lists and
+structures are *shown* with what they hold and labelled as not editable yet — a property nobody can
+see is worse than one nobody can change, and a control that looked editable and silently did nothing
+would be worse than both. `STUDIO-07018` wants pickers rather than more text fields: a colour typed
+as four numbers and a rotation typed as four is how an inspector gets a reputation
+
+**A component the registry does not know still shows its properties.** A scene authored by a plugin
+that is not loaded must be readable, or opening it looks like data loss
+
+**Verification.** `tests/StudioDetailsPanelTests.cpp` — the components shown, the two empty states,
+a rename reaching the history and surviving an undo, one axis of a vector edited without disturbing
+the other two, text that is not a number rejected rather than turned into zero, and an entity
+deleted while selected reported rather than dereferenced
+
+### `STUDIO-07018` — Editors for the property kinds the Details panel shows read-only
+
+**Acceptance.** A colour picker, a rotation editor, a rectangle editor, asset and entity pickers,
+and list add/remove/reorder. Pickers, not text fields: four numbers is not a colour
+
+### `STUDIO-07019` — An undoable command for an entity's enabled flag
+
+**Acceptance.** `SceneCommands` gains a set-enabled command and the Details panel routes the
+checkbox through it, like every other edit
+
+### `STUDIO-07008` — Port the Content Browser
+
+**Acceptance.** The project's assets as folders and files: folders before their contents, files
+sorted within a folder, each file showing its type and each folder how much is in it, and clicking
+a file selecting it
+
+**It reads the asset database, not the filesystem.** The database is what knows an asset's stable
+id, its type, and whether its source has gone. A browser that walked the directory instead would
+show files Studio does not track and hide the one fact that matters about a tracked file whose
+source has vanished
+
+**Folders are derived from paths.** A folder therefore exists exactly when something tracked is in
+it. An empty directory on disk does not appear, which is the honest answer: showing it would promise
+a place to put things the database does not know about
+
+**A missing source is dimmed, not disabled.** The distinction was found by a test that could not
+click the row it was meant to. An asset whose file has gone should read as wrong at a glance *and*
+stay selectable — it is the row a user most needs to click, because clicking it is how they find
+out what references the lost file. `StudioTreeRow` grew a `muted` flag so "looks wrong" and "cannot
+be touched" stopped being the same thing
+
+**Verification.** `tests/StudioContentBrowserTests.cpp` — folders derived and ordered, collapsing
+hiding subfolders as well as files, a missing source listed and marked and still clickable, types
+and counts, a click selecting a file and not a folder, and an empty project saying so
+
+### `STUDIO-07010` — Port the Build panel
+
+**Acceptance.** The Build panel on the Studio UI, at parity with the ImGui one: what will be built,
+the exact commands, a Build button, progress and the log tail
+
+**It is not a straight port, and could not have been.** The ImGui panel offers two axes — a platform
+triple and a graphics backend — because that is all the prototype's model had. Studio's model is the
+six-axis `StudioTargetProfile` (`STUDIO-02040`): operating system, architecture, CNA platform, CNA
+renderer, configuration and the optional subsystems, with validation that knows which combinations
+CNA will actually configure. **That model had no user interface at all**, and a project could only
+change what it ships on by editing its `.cnaproject` in a text editor. This is that interface.
+
+**A profile belongs to the project, not to the panel.** The legacy panel kept its chosen platform
+and backend in its own members, so what the user chose was forgotten when the panel closed and was
+never saved — and the Build button could therefore build something the Play button would not. Here
+the profile list *is* the project's, edited in place.
+
+**The lists offer only what CNA will configure.** Renderers are filtered by the chosen operating
+system, and reserved platform names — ones CNA's build recognises and refuses — are left out.
+Offering Direct3D on a Linux target and then failing validation would be the tool asking the user to
+discover a rule it already knows, at the cost of a full configure. The profile's *own* renderer is
+always listed even when this system cannot build it, because a blank control reads as "Studio lost
+your setting" rather than "this combination does not exist", and validation can only explain a value
+the user can still see.
+
+**It found a real defect.** Every project that predates profiles carries CNA's upper-case identity
+in `defaultGraphicsBackend`, and that string became the migrated profile's renderer verbatim — so
+`StudioTargetProfile::renderer`, documented as lower case, was sometimes `"OPENGLES3"`. Every
+renderer comparison in Studio was therefore a case-insensitive one, a rule that holds until the
+place that forgets it: this panel, whose renderer control was blank against a list of lower-case
+names. Validation now normalises the spelling in place, silently, because nothing about the target
+changed — only how it is written down.
+
+**Verification.** `tests/StudioBuildPanelTests.cpp`: no project, a project that always has a target,
+the filtered renderer list, an axis edit reaching the *project* rather than the panel, the request
+matching the project's active profile, a subsystem reaching the CMake arguments, no phase violations
+across repeated frames, and the Build button refused on an unbuildable profile. Plus
+`CnaStudioShellPreviewBuildPanel`, which photographs it through the rasterizer
+
+### `STUDIO-07012` — Port the Validation panel
+
+**Acceptance.** Scene validation and broken asset references on the Studio UI, in one report, with
+a path from a finding to the thing at fault
+
+**Called Problems**, because that is the panel the shell already has and the word covers both
+reports. They stay in one list for the reason they were put there originally (legacy ED-310): a user
+whose model has the wrong material on it does not know in advance whether that is a structural
+problem or a broken reference, and asking them to look in two places to find out is asking them to
+know the answer first.
+
+**Its good state is emptiness, which is exactly what makes it easy to ship broken** — a panel that
+found nothing and a panel that never ran look identical. So both groups always show, each with a
+count that reads `none` rather than being absent, and the empty case is a test rather than the
+absence of one.
+
+**Severity is a colour, not a word.** The tree gained a per-row colour for its detail column, used
+here for `error` and `warning`. A list that says which in grey words is a list the eye has to read
+line by line, which defeats the point of a report.
+
+**Clearing a reference acts on the selection.** The ImGui panel puts a `Clear` button beside every
+broken asset: that reads fine with three and badly with thirty, and it has no keyboard path at all.
+Here the action sits above the list — the ordinary editor shape, reachable by Tab, and drawn
+disabled until a broken asset is selected rather than drawn enabled and then doing nothing.
+
+**Both repair paths are here.** Clearing goes through the command history like any other change to
+the scene, and dragging the right asset from the Content Browser onto the broken row relinks it —
+the same command either way, because clearing is relinking to nothing. The drag arrived with
+`STUDIO-03023`; the row declares `dropType` and the panel reports what landed on it.
+
+**Verification.** `tests/StudioProblemsPanelTests.cpp`: a clean scene saying so, a broken reference
+grouped with everything that refers to it, severity carried as a colour, clicking a finding asking
+for the entity at fault, the toolbar refused until a broken asset is selected and acting on it by id
+when one is, clicking a row selecting it, and no phase violations across repeated frames. Plus
+`CnaStudioShellPreviewProblemsPanel`
+
+### `STUDIO-07013` — Port the History panel
+
+**Acceptance.** The undo stack as a list, showing where the cursor is, what has been undone and
+where the document last agreed with the file on disk — and clicking a row goes there
+
+**Rows are positions, not entries.** Row *i* is the document after *i* commands, so there is one
+more row than there are entries. That extra row — the document as it was opened — is the one a user
+reaching for "put it back how it was" is actually aiming at, and a list of entries alone can take
+them everywhere except there. It is the first test in the file for that reason.
+
+**Navigating is undo and redo, not a jump.** Clicking a row runs the commands between here and
+there one at a time, through the same `CommandHistory` that Ctrl+Z uses. Setting the cursor directly
+would leave the document and the history describing different things, and a command that refused
+would be skipped silently instead of stopping the walk. The walk is bounded by the entry count on
+both sides, because `undo()` and `redo()` report failure rather than throwing and a loop that
+trusted the cursor to move would spin.
+
+**And it is reported rather than applied where it is found.** Navigating runs commands, which
+changes the very list being drawn: half the rows would describe one history and half another.
+
+**Undone entries are marked, not hidden**, because they are precisely what a user is trying to get
+back to — a list that hides them has no forward direction at all. The saved position is marked in
+its own colour: "where was this when I last saved it" is the question behind most uses of an undo
+list.
+
+**The panel is new to the native shell's layout**, docked beside Details and Material.
+
+**Verification.** `tests/StudioHistoryPanelTests.cpp`: the empty history still having the position
+it started from, one more row than commands, undone entries marked and muted, the saved position
+marked, navigating backwards and forwards one command at a time with the document following,
+navigating to where you already are running nothing, a click reporting rather than moving, and a
+click on the current position asking for nothing. Plus `CnaStudioShellPreviewHistoryPanel`
+
+### `STUDIO-07018` — Editors for the property kinds the Details panel shows read-only
+
+**Acceptance.** Every kind the schema declares gets a control rather than a summary, and the
+controls suit what the value *is* rather than what it is stored as
+
+**An enumeration is chosen, not typed.** It is a closed set the descriptor already names, and a text
+field over one is a field where every typo produces a scene the loader will refuse to open. The
+drop-down (`STUDIO-03036`) is what this was waiting for. An enumeration whose descriptor declares no
+options still falls back to typing, because a drop-down over nothing is a control that cannot be
+used at all.
+
+**A quaternion is edited as Euler degrees.** Its components are not numbers a person can reason
+about: nobody knows what to type into `w` to turn something thirty degrees, and four independent
+numbers is how you produce a value that is not a rotation at all. The conversion is
+`SceneTransform`'s, in XNA's own convention — an editor that agreed with itself but not with the
+runtime would show angles the game does not produce.
+
+**A colour gets a swatch and four channels**, in the 0..255 the value is stored in rather than a
+normalised range the user would have to convert to. Not a colour *picker*: that is its own control
+and its own task. The swatch is what makes a row of four numbers legible as a colour at all.
+
+**A reference gets a picker over what exists.** Nobody types a UUID, and a reference to something
+that is not there is exactly the state the Problems panel exists to report. `(none)` comes first,
+because clearing a reference is an ordinary thing to want; an entity is never offered itself; and a
+reference to something that has gone still shows its id rather than reading as `(none)`, which would
+look like the value had been cleared.
+
+**One loop draws every row of numbers.** A vector, a quaternion, a rectangle and a colour are all "a
+row of boxes with different letters on them", and writing that once is what keeps the column widths,
+the font, the select-all behaviour and the parsing identical across them. Six copies is how a
+property grid ends up with one field that commits per keystroke and five that do not.
+
+**What is still a summary**: lists and structures, which need nested editing rather than another
+control. The panel now *counts* what it could not edit (`readOnlyProperties`), so a kind falling
+through is a number a test asserts on rather than a line of grey text somebody has to notice — which
+is how a kind stays unimplemented long after the widget it needed arrived.
+
+**Verification.** `tests/StudioDetailsPanelTests.cpp`: a quaternion shown as angles, every declared
+kind getting a control with the fall-through count at zero, and the two that legitimately remain
+summaries still saying what they hold. Plus `CnaStudioShellPreviewDetailsPanel`, which photographs
+the panel with a sprite selected — asset picker, colour swatch, integer rectangle and enumeration
+all in one frame
+
+### `STUDIO-07019` — An undoable command for an entity's enabled flag
+
+**Acceptance.** Turning an entity off goes through the command history like every other edit
+
+**It was the one edit in the inspector Ctrl+Z could not reach**, and it is the one somebody does by
+accident: the flag decides whether an entity renders, ticks and answers queries at all.
+
+**A command that changes nothing is refused rather than executed.** An undo stack with no-ops in it
+makes Ctrl+Z appear to do nothing, which is worse than doing the wrong thing, because the user
+cannot tell how many more to press. Repeated flips merge under `MergeWithPrevious`, so dragging a
+checkbox back and forth is one step rather than twenty.
+
+**Verification.** `tests/StudioDetailsPanelTests.cpp`: the flag reaching the document and undo
+returning it, a no-op refused, a missing entity refused, and repeated flips merging into one step
+that undoes to where it started rather than to the intermediate state
+
+### `STUDIO-07011` — Port the Diagnostics panel
+
+**Acceptance.** What this Studio is running on, including what Studio's host contract made of the
+renderer, and a way to get it out of the window
+
+**It takes a snapshot, not a device.** The ImGui panel reaches through the application object into
+the viewport and asks the live graphics device what it can do — which is why it could never be
+tested without one, and why it could not exist in the CNA-free build at all. Here the *host* fills
+in a plain struct once a frame and the panel draws it. A build with no device fills in the honest
+empty answer and the panel says `unknown` rather than leaving cells blank: a blank reads as a panel
+that failed to draw.
+
+**It reports the host capability contract**, which the ImGui panel never could — `STUDIO-02022`
+landed after it. Each requirement's outcome is shown with its severity in colour, and the renderer's
+own words survive into the text report, because that is the part that answers *why*.
+
+**It exists to be pasted.** "Why does a model look different on that machine" is the first question
+of every graphics bug report, and a panel somebody has to transcribe by hand is a panel nobody puts
+in one. `Copy report` hands back exactly the text the rows show, through the same clipboard seam the
+Output Log uses, and degrades visibly where CNA's Devices module is off (gap G-02).
+
+**What is not carried over**: the live player input snapshot, which belongs with play mode in the
+native shell and has nothing to report until it exists there.
+
+**Verification.** `tests/StudioDiagnosticsPanelTests.cpp` — the cases a live device would have made
+untestable: no device at all, a renderer that fails the contract, no player builds, every known
+renderer listed with its host tier, the text report carrying the renderer's own reason, `Copy
+report` handing back that same text, and no phase violations across repeated frames. Plus
+`CnaStudioShellPreviewDiagnosticsPanel`
+
+### `STUDIO-07009` — Port the viewport container
+
+**Acceptance.** The scene on screen in the native shell, navigable, and a click in it selects what
+it hits
+
+**Done.** What holds: the scene is composited (`STUDIO-04012`), the wheel zooms about the
+pointer, the middle *or* right button pans, a click picks the topmost sprite and Ctrl adds to the
+selection, a click on nothing clears it, **all three manipulators drag** — translate axis-constrained,
+rotate about the ring, scale as a screen-space ratio — with Ctrl snapping to the project's step or
+the visible grid, **on one entity or on a whole selection**, **tiles paint** (below), and **the 3D
+view works** — `2` and `3` switch, a drag orbits, and a click picks along a ray (`STUDIO-11001`,
+`STUDIO-11002`, `STUDIO-11006`), and **a running game gets the pointer and the keys** (below).
+
+**Input reaches the game after the editor's own handling, not instead of it.** Play mode leaves the
+scene editable, and a drag that moves an entity is also a drag the game may want to know about.
+
+**Only the keys a game plays with**, and the pointer only while it is over the viewport. Forwarding
+every key the editor can name would send Ctrl+S to the game as an S, and a cursor resting on the
+inspector is not hovering the game — reporting its last position there would leave the game acting
+on a pointer that has not been near it for minutes. Both read as bugs in the game rather than in the
+editor that caused them.
+
+**A snapshot equal to the last is not re-sent, unless it carries a wheel notch.** The player answers
+every one, so sixty identical snapshots a second would be sixty round trips that told it nothing,
+doubled by the replies. The wheel is the exception because it is an event rather than a state: two
+notches running compare equal, and a rule of "equal" alone would swallow the second.
+
+The snapshot is filled in by the shell panels rather than by the viewport panel, because that is
+where the player lives: the viewport panel is arithmetic over a camera and a document, and giving it
+a process to talk to would give it a reason to need one. The part with the rules in it is a free
+function, which is what lets a test ask about it without starting a process.
+
+**A tool is not a mode, and a press under one does not select.** Painting resolves before the gizmo
+and before the selection, and returns. The tilemap being painted into has to *stay* selected for the
+next cell to land: a press that also selected would move the inspector out from under the user on
+every stroke, and paint into whatever they last clicked. The model was never the gap — the grid,
+`PaintTilesCommand` and its stroke merging have been shared and tested since the prototype had them
+— what was missing was a viewport that armed a tool and turned a press into a cell.
+
+**A stroke is one undo entry and two strokes are two.** The first cell of a stroke opens an entry and
+every later one merges into it, keyed by a counter the press bumps: forty tiles and forty Ctrl+Zs is
+a tool nobody uses twice, and without the counter the second stroke would merge into the first and
+one Ctrl+Z would jump back past a stroke the user had finished and accepted.
+
+**The eraser clears rather than writing zero, and the eyedropper goes back to painting.** Tile 0 is
+the first tile in every sheet anyone draws, so "empty" cannot be zero — an eraser that wrote it would
+paint with the first tile instead. And an eyedropper that left the user still holding the eyedropper
+is one they have to put down before they can use what it took; over an empty cell it takes nothing,
+because an empty cell is not a brush.
+
+**A fill commits on the release, as one entry**, so a drag can be adjusted before it lands, and
+either diagonal works: up and to the left is an ordinary way to drag, and a fill that only worked one
+way would be a tool that works for half its users.
+
+**Missing the tilemap says so once per press**, not sixty times a second. A brush over a sprite is a
+near miss, and a console that scrolls is one that stops being read.
+
+**A group drag is one gesture applied many times, not many gestures.** The three drags above compute
+*what the gesture is* — how far along an axis, through what angle, by what factor — and the
+multi-drag turns that one answer into an edit per entity. Two gesture implementations would be two
+chances for the group and the entity under the cursor to disagree. The manipulator sits at the
+average of the selection's positions, which is where the renderer already draws it, so hit-testing
+happens where the gizmo *is*; and the pivot is the one captured when the drag began, because the
+entities move as it proceeds and a centre recomputed from them chases itself.
+
+**Two group drags are two undo entries.** They share a merge-key shape, so without a counter
+distinguishing them the second would merge into the first and one Ctrl+Z would jump back past a
+gesture the user had already finished.
+
+**The whole drag is one undo entry.** The first frame opens it and every frame after merges into
+it. Sixty entries a second is an undo stack nobody can use: Ctrl+Z would rewind the gesture frame by
+frame, and nobody counts frames.
+
+**While a manipulator has the pointer, nothing else does.** The press that grabs an arm must not
+also pick — a user aiming at an arm lying over another sprite would select that sprite and lose the
+thing they were moving — and the drag must not also pan, or the camera would take the entity with
+it. The manipulator is therefore resolved before the camera and before the selection, and it returns
+immediately. That ordering was wrong when first written, and the test that catches it holds the
+middle button down through a gizmo drag.
+
+**A release ends it wherever the pointer is.** A drag that only ended when the release landed back
+inside the viewport would leave the gizmo stuck to the cursor the moment somebody let go over a
+panel.
+
+**And the toolbar's three transform buttons finally do something.** They have been drawing since
+the toolbar existed. They are checkable now, so the toolbar shows which manipulator is on — three
+buttons that look the same whichever is active is three buttons nobody trusts — and switching mode
+ends any drag in flight, because a half-finished translate would otherwise keep writing positions
+after the user reached for Rotate. The renderer is told the same mode, so the manipulator drawn is
+the one a drag will grab.
+
+**The panel draws nothing**, which is what makes this half testable at all. The scene arrives as a
+texture; this is the camera the pointer moves and what a click in it selects, and both are
+arithmetic over a camera and a document. So the tests drive it the way a user does — a pointer over
+a rectangle — with no graphics device anywhere.
+
+**Zoom is about the pointer and multiplicative.** About the centre makes a user chase the thing they
+were looking at across the screen; additive makes the first notch out of a close view do almost
+nothing and the first notch out of a far one leap.
+
+**Both pan buttons.** A trackpad has no middle button, and a viewport a laptop cannot pan is a
+viewport half the users cannot use. A pan that *started* outside the viewport does not move it: the
+pointer crosses the viewport during every drag of a splitter or a dock tab, and a camera that jumped
+whenever one passed over would be unusable.
+
+**A missed Ctrl-click does not clear the selection.** Clearing on a click that hits nothing is how a
+user deselects without a keyboard, and wiping a careful multi-selection because one additive click
+missed would be unforgivable.
+
+**Verification.** `tests/StudioViewportPanelTests.cpp`: the camera told its extent, zoom keeping the
+world point under the pointer, both pan buttons, a pan that began elsewhere ignored, picking,
+clearing, Ctrl adding, Ctrl-missing leaving the selection alone, the reported world position, and an
+empty rectangle doing nothing rather than dividing by it — plus the manipulators: a press on
+an arm dragging rather than selecting, an axis-constrained move, one undo entry for a whole drag
+that undoes to where it started, a release outside the viewport ending it, `GizmoMode::None`
+picking as before, the rotate and scale manipulators writing their own property, a drag that does
+not also pan, and the toolbar choosing the manipulator through the real shell
+
+### `STUDIO-07024` — Layers panel: the project's render layers and what is on each
+
+**Acceptance.** Every layer the project declares, in draw order, with what is on it — and clicking
+one selects everything there
+
+**New rather than ported**, which is why it has an id of its own. The native shell registered a
+`Layers` tab from the start and it has been an empty rectangle ever since; the prototype has no such
+panel at all, so there was nothing to port.
+
+**The order is the meaning.** A project's layers are a list rather than a set because index 0 draws
+first. Sorting them by name would read tidier and say nothing.
+
+**It answers the one question the outliner cannot.** The outliner is ordered by the hierarchy and a
+layer cuts across it, so "what is on the background" has no answer there. Clicking a layer selects
+everything on it, which is how a user turns "the background is wrong" into something they can edit.
+
+**An entity with no Layer component is on the first layer**, which is what the runtime does with
+one. Reporting it as belonging to nothing would hide every entity in a project that has never
+touched layers. And an empty layer is shown dimmed rather than hidden: hiding it would make a user
+wonder where the layer they just added went.
+
+**Verification.** `tests/StudioLayersPanelTests.cpp`: draw order preserved, the implicit first
+layer, an empty layer dimmed rather than hidden, entities listed under their layer, clicking a layer
+selecting all of it, clicking one entity selecting just that, and no project saying so. Plus
+`EveryPanelWithoutContentIsNamedRatherThanBeingAnEmptyRectangle`, which is the same discipline as
+the unimplemented-command guard: a panel that draws nothing is on a list with a reason, or the
+build fails
+
+### `STUDIO-07014` — Port the Comparison panel
+
+**Acceptance.** The Backends panel runs the open scene on every discovered player build and reports
+where the pictures disagree, from the native shell, with no Dear ImGui and no graphics device.
+
+**It reads a snapshot, not the run.** The legacy panel held its own `BackendComparison`, which is
+why it was never tested: showing it anything at all meant launching several games. Here the run is
+owned by `StudioShellPanels` — so it survives the tab being closed, which half an hour of launching
+games deserves — and the panel takes the entries, the state and the verdict as plain values. Every
+case a real run makes expensive to reach is then a unit test: a capture that never arrived, two
+frames of different sizes, a renderer that would not launch.
+
+**A row opens.** Two renderers disagreeing is the start of an investigation, not the end of one, so
+each row carries how many pixels, how far apart, and where on the picture. A band along one edge is
+a viewport or scissor problem; a scattering over one sprite is a filtering one — the rectangle
+usually is the diagnosis, and the legacy panel printed it as an indented line of text.
+
+**"Waiting" and "never arrived" are different sentences.** The same empty entry means be patient
+during a run and "this renderer produced nothing" after it, and a user cannot act on the second
+while it is worded as the first — so the run's state decides which is said, and the colour with it.
+
+**The tolerance is clamped, not trusted.** 255 calls every pair of images identical, which is a
+comparison that can never report anything: a control that can be set to "always agree" is worse than
+no control.
+
+**Verification.** `tests/StudioComparisonPanelTests.cpp`: the two empty states, Compare and Cancel
+never both offered, a problem said before the button and not hiding a run already in flight, the
+reference named on its own row, agreement and disagreement differing in words *and* colour, the
+bounding box present only where something differs, a collapsed renderer keeping its verdict, a
+missing capture reading differently during and after a run, a size mismatch not reported as a
+disagreement, a launch failure carrying its reason, the verdict withheld until the run finishes, and
+the tolerance clamped — checked by removing the clamp and watching it fail
+
+### `STUDIO-07040` — Add and remove a component from the native Details panel
+
+**Acceptance.** An entity created in the native shell can be given a component, and a component can
+be taken off again, both through the history.
+
+**The gap that stopped Dear ImGui being deleted.** The prototype's Inspector has had an Add
+Component control since it existed. The native Details panel had **no way to add a component at
+all** — so an entity created in the native shell could never be given anything to do, and the
+migration inventory said the migration was complete.
+
+**How it was found**, and this is the part worth keeping: by asking, before deleting the prototype,
+what the prototype's Inspector actually draws. It draws eight sections; the native panel had three.
+The inventory could not have caught it, because the inventory accounts for panels, menus, toolbar
+controls and shortcuts, and `Add Component` is a button *inside* a panel. `STUDIO-07041` is that
+level.
+
+**The type is remembered as a type id and resolved to an index every frame**, not kept as an index:
+the list shortens the moment a unique component is added, and a remembered index would then silently
+point at a different type. That is the prototype's reasoning and it is right.
+
+**Remove is on the component's own header** rather than in a context menu, because a component that
+can be added and not removed is a mistake a user cannot correct except through the history — and
+reaching for Undo to fix a click is not the same thing as a Remove. Whether a component *may* be
+removed is asked of `RemoveComponentCommand` rather than decided in the panel: a descriptor may mark
+one required, a transform is, and two places deciding that is one place that will eventually say
+something the other refuses.
+
+**Both are collected and applied after the loop**, because removing a component rebuilds the vector
+the loop is walking — the same reason the property edit below it breaks out of its own loop, and the
+same failure if it did not.
+
+**Verification.** `AComponentCanBeAddedToTheSelectedEntityAndUndone` and
+`AComponentIsRemovedFromItsOwnHeaderAndUndone`, both sweeping for the control rather than computing
+a pixel, like every other test in that file: a test that computes a coordinate becomes, the first
+time a metric changes, a test that clicks nothing and passes. The second asserts *which* component
+went — the sweep starts at the Transform's header, so a Remove that ignored `required` would have
+taken the Transform first, and asserting only the count would pass either way.
+
+### `STUDIO-07041` — Inventory the prototype's controls, not only its panels and menus
+
+**Acceptance.** Every section the prototype's Inspector draws is either recorded as answered, with
+the native file and the symbol that answers it, or recorded as a gap with the task that closes it —
+and a test checks both halves.
+
+**Why a level below the existing inventory.** `docs/MIGRATION-INVENTORY.md` and its tests check
+panels, menu items, toolbar controls and shortcuts, which is the level at which a *surface* can go
+missing. It is not the level at which a *capability* can: the Details panel was ✅ on every row of
+that inventory while missing five of the prototype Inspector's eight sections.
+
+**A list of names rather than a walk over the prototype's code**, deliberately. The prototype is
+being deleted and a test that read it would be deleted with it — and the point of this one is to
+outlive the thing it was written about. It checks the *native* side: a section recorded as answered
+must resolve to a file that still contains the symbol named, so an answer that is later removed or
+renamed fails the build.
+
+**It counts the gaps and asserts the number.** Closing the last one is then a deliberate edit to
+that number rather than something nobody notices, and Dear ImGui cannot be deleted while it is above
+zero — which is exactly the guarantee that was missing.
+
+### `STUDIO-07042` … `STUDIO-07046` — The five sections with no native answer
+
+Each is a section the prototype's Inspector draws that the native Details panel does not, found by
+`STUDIO-07041`. Prefab overrides and the material asset editor are the substantial ones; the two
+previews and the asset inspector are contained.
+
+**`STUDIO-07045` is done**, and it was not only a missing panel section. The native Content Browser
+wrote the clicked asset into a member of `StudioShellPanels`, while `StudioContext` had a
+`selectedAsset_` of its own that only the *prototype* ever wrote. So the native shell had two ideas
+of "the selected asset", neither of which could see the other, and the native Details panel's was
+permanently empty. It is the context's now, as the outliner's entity selection already was — which
+also brings the exclusivity rule with it: selecting an asset clears the entity selection, so the
+inspector shows one thing at a time.
+
+The inspector itself is identity (name with its kind's icon, path, type, id) and the importer's
+declared settings, edited through `SetImporterSettingCommand` with merging, like every other
+property field. An importer setting is persisted to a `.cnaasset` sidecar, which makes it the one
+edit in Studio that could plausibly have been written straight to disk; it goes through the history
+so `Ctrl+Z` reaches it.
+
+**The property editor is one function now, not two.** The component grid's editors — every kind
+from a checkbox to a quaternion edited as Euler angles to a drop-target asset picker — were 290
+lines inside `studioDetailsPanel`. They are `studioPropertyEditor`, used by both. A second copy for
+importer settings would have drifted, and a property grid that edited a float one way for a
+component and another way for an asset is a drift nobody notices until the two are looked at side by
+side, which is how three of this migration's gaps were found. `STUDIO-35033` wants the same seam.
+
+**Two smaller truths came out of looking at it.** A property the importer declares *read-only* used
+to render as "(not editable yet)", which is the answer for a kind with no editor and reads as an
+unimplemented feature — a texture's pixel size said that instead of `32, 32`. And a `.cnamaterial`
+said "No importer handles this file type", which is true and useless: a material is the editor's own
+document, and the honest answer names `STUDIO-07046`.
+
+**`STUDIO-07042` is done, and it was the last of the five.** The prefab section reports what an
+instance has changed, reverts it, and applies it back into the prefab file. Answered for the
+*instance* rather than for the entity: selecting a child of an instance still says what it is part
+of and still lets the user act on it.
+
+Three things about it are worth keeping. The report is a **comparison**, not a record, so it has to
+be run — which means the one panel in Studio that opens a file to draw itself. It runs on the input
+pass and packs its summary into the widget state for the draw pass, so the cost is one read a frame
+rather than two, and the rows drawn are exactly the rows the buttons were hit-tested against. The
+list shows **three overrides and a count**, because it exists to make the divergence recognisable
+rather than to enumerate it. And **Apply writes the prefab file**, which every other instance of
+that prefab is about to be compared against — so unlike every other control in this panel, a
+failure has to reach the Output Log rather than being a button that did nothing.
+
+**`STUDIO-07046` is done**, and it closed two things rather than one. The material editor is
+`studioMaterialEditor`: name, base colour, emissive, metallic, roughness and alpha over the
+`.cnamaterial` file, through `SetMaterialCommand` so undo replays the previous bytes. It is the one
+editor in Studio whose document is a *file* — not the scene, not the asset database — which is why
+a file this build cannot parse is refused rather than shown as defaults: an editable form over a
+file that did not load is an offer to overwrite it with less than it holds. The three failures are
+told apart, because a material whose file has gone, one that is not valid JSON and one written by a
+newer Studio are three different problems.
+
+The second thing is the **`material` panel**, registered since the shell existed and drawing
+nothing — a tab a user could raise onto a blank rectangle, which reads as a broken editor rather
+than an unfinished one. It shows the same editor over the selected material.
+`EveryPanelWithoutContentIsNamedRatherThanBeingAnEmptyRectangle`'s pending list is empty now, and
+Phase 19 grows a preview and texture slots in that panel rather than inventing a home for them.
+
+**And one reader, not two.** `StudioContext::makeMaterialProvider` had its own copy of "open it,
+parse it, load it, and decide what a failure means". Both call `loadMaterialDocument` now: the
+provider decides what the viewport draws while the editor decides what the user sees, and two
+copies of that logic is two chances to disagree about a material that is half-written.
+
+**The material one corrects the inventory.** `docs/MIGRATION-INVENTORY.md` said "there is no
+`.cnamaterial` editor to port; the `material` panel is registered and empty (Phase 19)". There is
+one: `InspectorPanel::drawMaterialAsset`. It is not a `.cnamaterial` *panel*, which is what the
+inventory was looking for — it is a section of the Inspector that appears when a material asset is
+selected, and it is a working editor.

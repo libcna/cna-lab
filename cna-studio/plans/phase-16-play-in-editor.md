@@ -1,0 +1,378 @@
+# Phase 16 — Play In Editor 2
+
+> **ARCHIVED — historical record. This file authorises no work.** It belongs to the
+> [archived programme roadmap](../docs/ROADMAP-ARCHIVE.md), whose scope was retired on 2026-09-22
+> by [ADR-001](../docs/ADR-001-SCOPE-REDUCTION.md). **A ⬜ below means *not built*. It no longer
+> means *planned*.** The one authoritative active roadmap is [`plan.md`](../plan.md).
+>
+> **Disposition of this phase:** Sufficient for the Core workflow and closed. The remaining rows are [conditional](../docs/ROADMAP-BACKLOG.md) or [out of scope](../docs/ROADMAP-OUT-OF-SCOPE.md).
+>
+> Ids in this phase are `STUDIO-16001` … `STUDIO-16999` and are never reused. Every id here still resolves, so a commit, test or code comment that cites
+> one keeps its meaning.
+
+**Purpose.** Expand the separate-player architecture into a complete play-test workflow.
+
+**Exit criteria.** Play, pause, step, stop, restart, live edits and crash isolation all work against a real game process.
+
+**Progress:** 10 of 18 complete `██████░░░░░░`
+
+| Id | Task | Status | Depends on |
+|----|------|:------:|------------|
+| `STUDIO-16001` | Play, Pause, Step, Stop, Restart over the bridge | ✅ | `STUDIO-06002` |
+| `STUDIO-16002` | Game logs routed into the Console with source attribution | ✅ | `STUDIO-07005` |
+| `STUDIO-16003` | Crash reporting when the player dies, without taking Studio with it | ✅ | `STUDIO-16001` |
+| `STUDIO-16004` | Live asset reload into the running player | ✅ | `STUDIO-16001` |
+| `STUDIO-16005` | Live property edits into the running player | ⬜ | `STUDIO-15011` |
+| `STUDIO-16006` | Scene reload | ✅ | `STUDIO-16004` |
+| `STUDIO-16007` | Selected-entity synchronisation where feasible | ⬜ | `STUDIO-16005` |
+| `STUDIO-16008` | Simulation mode | ⬜ | `STUDIO-16001` |
+| `STUDIO-16009` | Possession and eject workflow | ⬜ | `STUDIO-16008` |
+| `STUDIO-16010` | Screenshot and capture from the player | ✅ | `STUDIO-16001` |
+| `STUDIO-16011` | Renderer preview selection among the installed player builds | 🔄 | `STUDIO-02041` |
+| `STUDIO-16012` | Play and Stop from the native shell, with mutually exclusive enablement | ✅ | `STUDIO-06023`, `STUDIO-07017` |
+| `STUDIO-16013` | A player that cannot be launched is refused at the launch, not later | ✅ | `STUDIO-16012` |
+| `STUDIO-16014` | The player's ending read from its process status and reported once | ✅ | `STUDIO-16012` |
+| `STUDIO-16015` | Pause, Step and Restart from the native shell | ✅ | `STUDIO-16012` |
+| `STUDIO-16020` | Investigate displaying player output inside a Studio viewport | 🔬 | `STUDIO-16010` |
+| `STUDIO-16021` | Decide the native code reload strategy | 🔬 | `STUDIO-15008` |
+| `STUDIO-16022` | Implement the chosen reload strategy | ⬜ | `STUDIO-16021` |
+
+## Acceptance and verification
+
+Tasks whose completion condition is not obvious from the title.
+
+### `STUDIO-16001` — Play, Pause, Step, Stop, Restart over the bridge
+
+**Acceptance.** Carried forward from the prototype and retested through the Studio UI.
+
+**✅ Done, and this one really was already done** — which is worth stating plainly, because most of
+the rows audited this session were not. Both halves of the bridge are implemented and both are
+tested against a **real player process**, not a double.
+
+Studio's half sends `Pause`, `Resume` and `StepFrame`, and follows the player's state *only once the
+request is on the wire* — `StudioPlayService::setPaused` checks `player_.send` before moving
+`state_`, because a toolbar that says "Paused" over a game that never got the message is worse than
+one that did nothing, since the user then believes it. The player's half honours all three:
+`PlayerHost::tick` returns false while paused unless a step is pending, and a step while *running*
+is ignored rather than banked, because honouring it would make the game jump a frame ahead of where
+the user is looking.
+
+Restart is stop-then-start rather than a message asking the game to reload itself, and that is the
+right mechanism: the player reads the scene from disk when it starts, so stopping and starting is
+the whole of how a user sees the edits they have made since — which is what they mean by it.
+
+**One thing the audit checked and found already right, recorded because the obvious guess was
+wrong.** Stop-then-start means the stop happens before anything could know whether the start will
+work, so a Restart with no player build would cost the user their running session and hand them an
+error about launching. It does not, and the guard is not a precondition check inside the service: it
+is the **action's own enablement** (`STUDIO-12004`'s doctrine), so the gesture is refused before it
+can stop anything. The case for this was written the other way round first, on the assumption that
+the defect was there.
+
+A consequence worth naming: `start()`'s *"No player build was found"* is therefore a **backstop**
+rather than the message a user sees, because the button is disabled before the service is asked.
+That is the right order — a control that explains itself only after being pressed is a control that
+had to be pressed — and the message is still reached by the paths that do not go through a toolbar,
+so it is not dead code. The case asserts both.
+
+**Verification.** `tests/PlayerTests.cpp` — `PlayerHostHonoursPauseStepAndResume` and
+`PlayerHostIgnoresStepWhileRunning`, over the real `PlayerHost`. `tests/StudioPlayModeTests.cpp` —
+`PausingARealPlayerFollowsItRatherThanAnnouncingIt`, which drives Play → Pause → Step → Resume →
+Stop through the shell's own actions against a launched `cna-player` and checks the status bar says
+*which* of the two states it is in (a paused game and a running one look identical from the editor:
+the window is there either way); `RestartStopsWhatIsRunningAndStartsItAgain`, which counts *two*
+launches because a restart that only stopped would look identical from here; and
+`ARestartWithNothingToRestartWithIsRefusedRatherThanStopping`, added by this row.
+
+Checked by causing it: removing the build-list condition from Restart's enablement makes the refusal
+stop the running game and fail to start it — three assertions, which is the defect the case was
+written to look for.
+
+### `STUDIO-16002` — Game logs routed into the Console with source attribution
+
+**Acceptance.** What the game says reaches the editor, and a user can tell it from what the editor
+says.
+
+**✅ Done, and it was found by checking a sentence `STUDIO-16003` had just written.** That row's
+crash notification tells the user their game's output is in the Output Log. It was not.
+`ReportLog` arrived over the wire, was counted, and fell through the message switch's `default:` —
+so the Console showed everything Studio had to say *about* the player and nothing the player had to
+say for itself, which is the half a user actually needs when their game misbehaves. The player has
+been sending those lines the whole time; nobody was listening.
+
+**Attribution is a prefix, not a second panel, and that is the decision rather than the shortcut.**
+The Console is one stream and the two sources genuinely interleave: *"Player ready on opengles3."*
+and the game's first line belong next to each other in time, and splitting them into two panels
+would make a user correlate by hand what they are already reading in order. What they must be able
+to do is tell which is which **at a glance**, without reading the sentence — and a marker at the
+start of the line is what a glance lands on. Every line carries it, not just the errors: a user
+scanning for their own `printf` needs the ordinary chatter marked too.
+
+**An unknown severity word is heard, not dropped.** Both spellings of the two that have them
+(`warning`/`warn`, `trace`/`debug`) map, because the wire carries whatever the game's own logger
+calls them; anything else reads as `Info`. A player from a newer revision using a word this build
+does not know is still a player saying something, and silence would be the worst of the three
+answers — the same reasoning `MessageStreamDecoder` applies to a line it cannot parse.
+
+**Verification.** `tests/StudioPlayModeTests.cpp` —
+`TheGamesOwnOutputReachesTheConsoleMarkedAsTheGames`, which launches a real player and pauses it so
+the game emits a line of its own rather than one the test injected; and
+`APlayersSeverityWordBecomesTheEditorsAndAnUnknownOneIsStillHeard`, which sends one of each over a
+real channel, because a launched game cannot be made to emit one of each on demand.
+
+Checked by causing each: `ReportLog` falling through the switch again, and the unknown word mapping
+to `Trace` instead of `Info`.
+
+**What this row is not.** It does not give the Console a per-source filter. The prefix makes the
+distinction visible and searchable, which is what the acceptance asks for; a filter is the Console's
+own question and belongs with `STUDIO-27020`.
+
+**Superseded by `STUDIO-27020`, which took the deferral and then removed the prefix.** Adding the
+filter meant giving an entry a `LogSource` field, and once that field exists the prefix is a second
+copy of it written into the text — one that cannot be filtered without matching strings and stops
+being true the moment somebody rewords a message. The good half of the reasoning above, that the
+sources belong in *one* stream rather than three panels because they genuinely interleave, is
+intact and now lives on `LogSource` itself.
+
+### `STUDIO-16003` — Crash reporting when the player dies, without taking Studio with it
+
+**Acceptance.** A game that dies says *how*, and the editor carries on.
+
+**✅ Done. The second half was already true by construction; the first half said almost nothing.**
+
+The report was *"The game crashed"*, with a detail line reading *"Player exited: crashed."* — which
+repeats the title and adds no information. `PlayerExitReason::Crashed` covers three different bugs:
+a bad pointer, an assertion the game raised itself, and a game that returned a failure code on
+purpose. Those live in different files and send a user to different places, and the report could not
+tell them apart.
+
+**The status was read and then discarded**, which is the shape `STUDIO-31008` found three times in
+one row: a layer that had the answer replacing it with the fact. `PlayerProcess` already collected
+`WIFSIGNALED`/`WEXITSTATUS` — it has to, because the status can only be taken by whichever wait sees
+the child first — and kept only the boolean it needed to decide `Crashed`. It now keeps the signal
+number too, and `describeEnding()` turns it into a sentence.
+
+**Named as well as numbered**, from a short table rather than `strsignal`: `strsignal` is not
+available on every platform this builds for, and its text is **localised** — a report that reads
+differently depending on the editor's locale is one that cannot be searched for or pasted into an
+issue. `signal 11` is the part a user has to look up; `SIGSEGV` is the part that tells them which
+file to open, so the report carries both.
+
+**"Without taking Studio with it"** is the separate-player architecture and cannot fail the way an
+in-process game would. What it *can* do is leave the editor in a state a user has to work out how to
+escape — a Stop button over nothing, Pause still checked, Step offering to advance a game that is
+not there — so that is what the case asserts, along with the scene being untouched **byte for byte**:
+a crash in the game is not a reason to write to the user's document.
+
+**Verification.** `tests/StudioPlayModeTests.cpp` — `ACrashReportNamesHowTheGameDied`, which runs a
+real process that raises `SIGSEGV` and another that returns a failure code, and checks that the
+second is *not* described as a signal (saying "killed by" would send the user looking for a crash
+that never happened); and `AGameThatCrashesLeavesTheEditorAndItsDocumentAlone`, over `SIGABRT`
+through the full shell. Both poll the way the editor does rather than sleeping for a result: an exit
+is noticed by whatever asks next, and a poll is what asks.
+
+Checked by causing each: `describeEnding` returning nothing (five assertions), and the signal number
+discarded again, which makes every crash read as an exit code (four).
+
+**What this row is not.** It does not collect a stack trace, and there is no crash handler in the
+player for the reason `RecoveryStore` gives about the editor's own: code that serialises anything
+from inside `SIGSEGV` is calling `malloc` with a corrupted heap. What a user gets is the signal, the
+game's own output up to the moment it died, and an editor that still works — which is what lets them
+run it again under a debugger.
+
+### `STUDIO-16004` — Live asset reload into the running player
+
+**Acceptance.** A file changed on disk is the file the running game is using.
+
+**✅ Done, and the flow was whole; what was missing was the arithmetic.** The watcher notices the
+change, the editor drops the caches holding the old copy, the player is told, it rescans and records
+the reload for its graphics half to drain, and `ED-246` made that last step real — a texture changed
+on disk is visible in the running game rather than only in its log. A file that has *gone* is
+deliberately not forwarded, because a player told to reload a missing asset would drop the copy it
+is successfully drawing in exchange for nothing.
+
+**The defect was one message per changed asset.** `PlayerHost::handleReloadAsset` rescans the whole
+asset directory every time it is told about a reload — it has to, or the record it then looks up
+still carries the size and timestamp from before the change. So six files touched at once was six
+full scans inside the running game, and a texture export, a batch convert or a `git checkout` is
+exactly the moment a user has dozens change together.
+
+**The player already knew the answer.** Its own comment says: *"A nil id means 'everything', which
+is what a project-wide change is best reported as rather than as one message per asset."* Studio was
+the half not doing it — the fourth instance this session of a rule written down on one side of a
+boundary and not honoured on the other.
+
+Two things stay per-asset, and both deliberately. Every **editor** cache is still dropped one at a
+time: those are local, cheap, and dropping them wholesale would throw away art that did not change.
+And a **single** change is still named, because the player can then report *which* asset it
+reloaded, and "rescanned 400 assets" is a worse answer to "did my texture land?".
+
+**Verification.** `tests/StudioAssetReloadTests.cpp` —
+`ABatchOfChangesIsOneReloadMessageRatherThanOnePerAsset`, which changes six files in one poll and
+asserts six cache invalidations and **one** message carrying a nil id, then that a lone change is
+still named. Alongside the existing `AnEditedAssetDropsEveryCacheThatWasHoldingTheOldOne`,
+`AnAssetWhoseFileHasGoneIsReportedAndNotSentToThePlayer` and
+`AnAssetThatComesBackIsReportedAndReloadedLikeAnEdit`.
+
+Checked by causing it: the batch condition forced false sends six messages again.
+
+### `STUDIO-16006` — Scene reload
+
+**Acceptance.** The running game can be handed the scene as it now stands, without starting over.
+
+**✅ Done, and the half that was missing was Studio's.** `PlayerHost` has understood `LoadScene`
+since the bridge existed — resolving the path against the project, loading the document, reporting
+its warnings and the entity count. **Nothing in `src/` ever built one.** The message type, the
+factory and the handler were all there; the only caller was a test.
+
+So the only way to show a running game an edit was to Restart it, which begins the game again from
+the top. **Beside Restart rather than instead of it**, because they answer different questions: this
+lets the game *carry on*, which is what a level designer wants when the thing they are tuning is
+thirty seconds in and they have just moved a platform.
+
+It is also the bigger hammer `mirrorEdit` cannot be. A property edit mirrors as a property; an
+entity **added, deleted or reparented** has no such message, so the only way to show a running game
+a structural change is to hand it the document.
+
+**The player reads the scene from disk**, so this saves first — on the same bargain `start()`
+strikes and for the same reason: a scene that has never had a path is *refused* rather than written
+somewhere the user did not choose, and a dirty scene with one is written, because a user who asked
+for this asked for what is on their screen.
+
+**Every refusal names itself**, because the whole point of this action is that the game changes: a
+user who presses it and sees nothing has to be able to tell "Studio did not send it" from "the game
+did not load it". Studio says *"Sent the scene to the running game."*, the player says which scene
+and how many entities, and the two are deliberately different sentences.
+
+**Verification.** `tests/StudioPlayModeTests.cpp` —
+`TheRunningGameCanBeHandedTheSceneWithoutRestarting`, which launches a real player, makes a
+**structural** edit through a command, sends, and waits for the *game's own* report of the entity
+count to match what the editor just wrote — the assertion that makes it end-to-end rather than a
+check that a message was posted — and then that the session is still playing rather than restarted.
+And `ASceneReloadThatCannotHappenSaysWhichReasonItIs`.
+
+**A vacuous assertion caught by the gate-verification**, and it is the second of this shape this
+session. The refusal case first checked that the menu row was disabled on a *stopped* editor — which
+it is, for a different reason, so removing the path condition entirely did not fail it. The state
+that actually exercises it is reachable and is now what the case builds: Play requires a saved
+scene, and `File > New Scene` then clears the path out from under a running game.
+
+Checked by causing each: the `LoadScene` send removed (the game never reports a load), and both
+unsaved-scene guards removed at once.
+
+### `STUDIO-16010` — Screenshot and capture from the player
+
+**Acceptance.** A user can ask the running game for the frame it is showing, and get a file.
+
+**✅ Done, and it is the third row in this phase whose mechanism was already whole with nobody
+calling it.** The player has queued screenshot requests for its graphics half since the backend
+comparison needed them — queued rather than answered on the spot, because a frame can only be read
+where a frame is being drawn — and `BackendComparison` was the only caller. A user could not take a
+picture of their own game.
+
+**Into the project, not the user's state directory.** That is the one exception to `STUDIO-09015`'s
+rule, and it is an exception because a capture **is not derived data**: nothing can regenerate the
+frame the game was showing when you pressed the button. It is something you keep, attach to an
+issue, or paste into a message, which is the test that rule applies.
+
+**Named for the scene and numbered, not stamped with the clock.** A timestamp sorts by a number
+nobody recognises and cannot be read back to *which run this was*; the scene's name is what the user
+was looking at, and the index is the only part they need to tell two apart. The search for a free
+name is bounded, because an unbounded scan over a directory somebody filled by hand is a frame the
+editor spends in a loop it cannot leave.
+
+**The answer is reported either way**, and that is the half a mechanism built for a comparison tool
+did not need: a user who pressed Capture and was told nothing cannot distinguish a slow write from a
+failed one. Studio says it asked, the player says whether it wrote — two sentences, deliberately,
+because a user watching a folder that stayed empty needs to know which half stopped.
+
+**F12**, which is what every game and every launcher already binds. A shortcut a user does not have
+to learn is worth more than one that is internally consistent, and the key model gains it the way
+every other key was added: appended, with a stored shortcut being text rather than an ordinal, so
+nothing a user saved moves.
+
+**Verification.** `tests/StudioPlayModeTests.cpp` —
+`TheRunningGameCanBeAskedForTheFrameItIsShowing`, which launches a real player, asks, checks the
+folder is the project's and is created, and waits for the player's *answer* — either answer, because
+a headless player has no frame to read and **which** answer arrives is the player's business while
+**that** one arrives is this side's. And `ACaptureThatCannotHappenSaysWhichReasonItIs`.
+
+Checked by causing each: the `Screenshot` message never sent (no answer ever arrives), and captures
+directed outside the project (two assertions, including the pure directory function).
+
+### `STUDIO-16011` — Renderer preview selection among the installed player builds
+
+**Acceptance.** The user chooses which of the discovered `cna-player-<renderer>` builds Play
+launches, and the choice survives a restart.
+
+**In progress.** The choice is currently made *for* the user: Play takes the build matching the
+active target profile's renderer, and falls back to whatever was discovered when no player for it
+was built. That is the right default and it is not yet a selection — refusing to play because the
+preferred renderer is missing would help nobody, but neither does a user who wants to check a
+second backend having to edit the target profile to do it.
+
+### `STUDIO-16015` — Pause, Step and Restart from the native shell
+
+**Acceptance.** A running game can be paused and resumed, advanced one frame at a time while
+paused, and restarted; the editor follows the player's state rather than announcing it, and every
+control is offered only when it does something.
+
+**The protocol was always there.** `PlayerHost` has honoured `Pause`, `Resume` and `StepFrame`
+since play mode existed, with its own tests (`PlayerHostHonoursPauseStepAndResume`). What was
+missing was an editor that sent them: the native shell had Play and Stop and nothing else, so the
+inventory's toolbar table listed Pause, Resume and Step as unanswered.
+
+**Follow, do not announce.** The editor's state changes only once `send` has put the request on the
+wire. A toolbar that says "Paused" over a game that never got the message is worse than one that did
+nothing, because the user then believes it.
+
+**One checkable Pause answers two of the prototype's rows.** A button that renames itself between
+Pause and Resume is one a user cannot find twice, and a toolbar has to *show* whether the game is
+paused: the window is there either way, so nothing else says which. Step is enabled only while
+paused, because the player ignores it otherwise and a control that is live and does nothing is how
+a user learns to distrust a toolbar.
+
+**Restart is new rather than ported.** The prototype has none. It is a stop and a start, not a
+message asking the game to reload itself: the player reads the scene from disk when it starts, so
+that is how a user sees the edits they have made since pressing Play. Offered before anything is
+running too, so one intention is one button whatever the state.
+
+### `STUDIO-16012` — Play and Stop from the native shell, with mutually exclusive enablement
+
+**Acceptance.** `studio.play.play` and `studio.play.stop` are bound in the native shell, are
+never both available, and Play is greyed out with no project, with no discovered player build, or
+while a game is already running. Playing an unsaved scene is refused rather than saved silently:
+the player is a separate process reading the scene from disk, and a user who has not saved
+deliberately would otherwise find their file overwritten by pressing Play.
+
+### `STUDIO-16013` — A player that cannot be launched is refused at the launch, not later
+
+**Acceptance.** `PlayerProcess::start` returns false, with the path in the error, for a player
+binary that is missing or cannot be executed — on POSIX as well as on Windows.
+
+**Why it needed doing.** `fork` succeeds and `execv` fails in the *child*, which has nothing left
+to return the failure to, so a missing binary used to look exactly like a player that started and
+exited at once. The editor showed Play succeeding, put up a Stop button, and waited for a
+connection that would never arrive. The child now reports `errno` back over a close-on-exec pipe,
+which is empty on success precisely because the descriptor closes itself on exec.
+
+### `STUDIO-16014` — The player's ending read from its process status and reported once
+
+**Acceptance.** A player that finishes is reported as having exited and one that dies as having
+crashed, decided by its wait status rather than by whether the socket happened to drop first; and
+the report arrives exactly once however many times the editor asked whether it was still running.
+
+**Why it needed doing.** Collecting a child is one-shot: whichever call waits on it first gets the
+status and every later one gets nothing. The toolbar asks `isRunning()` every frame to decide
+whether Stop is available, so the toolbar was consuming the exit and the poll that was supposed to
+report it saw nothing to report — the editor was at its most likely to lose the message exactly
+when it was doing its job.
+
+### `STUDIO-16020` — Investigate displaying player output inside a Studio viewport
+
+**Acceptance.** An efficient, process-safe mechanism, or a recorded decision not to. The separate-process architecture is not compromised to get an embedded image quickly
+
+### `STUDIO-16021` — Decide the native code reload strategy
+
+**Acceptance.** A recorded decision among restart-after-build, module reload in the player, and process replacement with state preservation. Reliability outweighs speed: the first shipped answer may simply be save, incremental compile, restart player, restore scene and camera context
+

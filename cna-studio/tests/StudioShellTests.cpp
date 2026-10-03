@@ -1,0 +1,1035 @@
+// SPDX-License-Identifier: MS-PL
+/**
+ * @file StudioShellTests.cpp
+ * @brief Layout, geometry, batching and golden-image tests for the CNA Studio shell.
+ *
+ * The whole file runs with no GPU, no window and no CNA. The shell's appearance is tested by
+ * rasterising the same geometry the CNA renderer will draw (see `UiSoftwareRasterizer`), which is
+ * what lets visual regressions be caught now rather than once graphical CI exists.
+ */
+
+#include "TestHarness.hpp"
+
+#include "CNA/Studio/Core/ImageDiff.hpp"
+#include "CNA/Studio/UiCore/StudioDrawList.hpp"
+#include "CNA/Studio/UiCore/StudioShellLayout.hpp"
+#include "CNA/Studio/UiCore/StudioIcons.hpp"
+#include "CNA/Studio/UiCore/StudioShell.hpp"
+#include "CNA/Studio/UiCore/StudioTheme.hpp"
+#include "CNA/Studio/UiCore/UiRect.hpp"
+#include "CNA/Studio/UiCore/UiSoftwareRasterizer.hpp"
+
+#include <cstdlib>
+#include <filesystem>
+#include <memory>
+#include <map>
+#include <string>
+
+using namespace CNA::Studio;
+
+namespace
+{
+    /** @brief One frame of the real shell: its geometry, its totals and its resolved regions. */
+    struct ShellRender
+    {
+        /**
+         * @brief The shell that produced this frame, kept alive deliberately.
+         *
+         * `UiDrawData` carries texture requests whose pixels are *borrowed* from whoever produced
+         * them -- the font atlas, here -- and are valid only while that owner lives. Copying the
+         * draw data out of a shell that then went out of scope left the atlas pointer dangling,
+         * and because every primitive now samples the atlas's white texel, the result was a frame
+         * rasterised entirely from freed memory. Holding the shell is the fix; the contract is
+         * documented on `UiTextureRequest::pixels` and is easy to overlook exactly once.
+         */
+        std::shared_ptr<StudioShell> owner;
+
+        UiDrawData data;
+        std::size_t vertices = 0;
+        std::size_t commands = 0;
+        StudioShellLayout layout;
+        std::size_t phaseViolations = 0;
+        UiRect viewportBounds;
+        UiRect outlinerBounds;
+    };
+
+    /**
+     * @brief Renders the default shell at a size and scale through the real application frame.
+     *
+     * Drives `StudioShell` rather than a draw-only function, so these tests measure what a user
+     * actually sees. The pointer is deliberately outside the window: this is the shell at rest,
+     * which is the state a golden image should pin.
+     */
+    ShellRender renderShell(float width, float height, float scale = 1.0f,
+                            const std::vector<std::string>& closedPanels = {})
+    {
+        StudioTheme theme = StudioTheme::dark();
+        theme.setScale(scale);
+
+        auto shell = std::make_shared<StudioShell>(theme);
+        for (const std::string& panel : closedPanels) { shell->dockTree().removePanel(panel); }
+
+        UiInputState input;
+        input.displayWidth = width;
+        input.displayHeight = height;
+        input.mouseInWindow = false;
+        shell->renderFrame(input);
+
+        ShellRender result;
+        result.owner = shell;
+        result.data = shell->drawData();
+        result.layout = shell->layout();
+        result.phaseViolations = shell->frame().phaseViolations();
+        result.viewportBounds = shell->panelBounds("viewport");
+        result.outlinerBounds = shell->panelBounds("outliner");
+        for (const UiDrawList& list : result.data.lists)
+        {
+            result.vertices += list.vertices.size();
+            result.commands += list.commands.size();
+        }
+        return result;
+    }
+
+    /** @brief Where golden images and failure artefacts are written. */
+    std::string artifactDirectory()
+    {
+        const char* fromEnv = std::getenv("CNA_STUDIO_TEST_ARTIFACTS");
+        return fromEnv != nullptr ? std::string{fromEnv} : std::string{};
+    }
+} // namespace
+
+// ------------------------------------------------------------------------------------------------
+// Geometry primitives (STUDIO-03011)
+// ------------------------------------------------------------------------------------------------
+
+CNA_STUDIO_TEST(SplittingARectangleConsumesItExactly)
+{
+    UiRect area{0.0f, 0.0f, 100.0f, 50.0f};
+    const UiRect top = area.splitTop(10.0f);
+
+    CNA_STUDIO_EXPECT(top == UiRect(0.0f, 0.0f, 100.0f, 10.0f));
+    CNA_STUDIO_EXPECT(area == UiRect(0.0f, 10.0f, 100.0f, 40.0f));
+    CNA_STUDIO_EXPECT_EQ(top.height + area.height, 50.0f);
+}
+
+CNA_STUDIO_TEST(SplittingMoreThanThereIsLeavesNothingRatherThanANegativeRemainder)
+{
+    // A window dragged smaller than its own chrome must produce empty panels, not panels drawn at
+    // negative sizes -- which rasterise as garbage across the whole window.
+    UiRect area{0.0f, 0.0f, 100.0f, 20.0f};
+    const UiRect taken = area.splitTop(500.0f);
+
+    CNA_STUDIO_EXPECT_EQ(taken.height, 20.0f);
+    CNA_STUDIO_EXPECT_EQ(area.height, 0.0f);
+    CNA_STUDIO_EXPECT(area.isEmpty());
+}
+
+CNA_STUDIO_TEST(EverySplitDirectionPartitionsWithoutOverlap)
+{
+    for (int direction = 0; direction < 4; ++direction)
+    {
+        UiRect area{10.0f, 20.0f, 100.0f, 80.0f};
+        const UiRect whole = area;
+        UiRect slice;
+        switch (direction)
+        {
+            case 0: slice = area.splitTop(30.0f); break;
+            case 1: slice = area.splitBottom(30.0f); break;
+            case 2: slice = area.splitLeft(30.0f); break;
+            default: slice = area.splitRight(30.0f); break;
+        }
+        CNA_STUDIO_EXPECT(slice.intersect(area).isEmpty());
+        CNA_STUDIO_EXPECT(whole.intersect(slice) == slice);
+        CNA_STUDIO_EXPECT(whole.intersect(area) == area);
+    }
+}
+
+CNA_STUDIO_TEST(InsettingPastTheSizeYieldsAnEmptyRectangleNotAnInvertedOne)
+{
+    const UiRect small{0.0f, 0.0f, 10.0f, 10.0f};
+    const UiRect inset = small.inset(20.0f);
+    CNA_STUDIO_EXPECT(inset.isEmpty());
+    CNA_STUDIO_EXPECT(inset.width >= 0.0f);
+    CNA_STUDIO_EXPECT(inset.height >= 0.0f);
+}
+
+CNA_STUDIO_TEST(PixelSnappingPreservesEdgesRatherThanSizes)
+{
+    // Rounding position and size independently makes a 1px rule two pixels wide at one position
+    // and zero at another, which reads as the rule flickering as a panel is dragged.
+    const UiRect r{10.4f, 20.6f, 100.3f, 1.2f};
+    const UiRect snapped = r.pixelSnapped();
+    CNA_STUDIO_EXPECT_EQ(snapped.left(), 10.0f);
+    CNA_STUDIO_EXPECT_EQ(snapped.top(), 21.0f);
+    CNA_STUDIO_EXPECT_EQ(snapped.right(), 111.0f);
+    CNA_STUDIO_EXPECT_EQ(snapped.bottom(), 22.0f);
+}
+
+// ------------------------------------------------------------------------------------------------
+// Shell layout (STUDIO-06003, STUDIO-06006, STUDIO-06007)
+// ------------------------------------------------------------------------------------------------
+
+CNA_STUDIO_TEST(TheShellLayoutIsWellFormedAtEveryCommonResolution)
+{
+    // The invariant a docking layout must never violate: nothing escapes the window, nothing
+    // overlaps. Checked directly rather than inferred from a screenshot.
+    const StudioTheme theme = StudioTheme::dark();
+    const std::pair<float, float> resolutions[] = {
+        {1280.0f, 720.0f}, {1600.0f, 900.0f}, {1920.0f, 1080.0f},
+        {2560.0f, 1440.0f}, {3440.0f, 1440.0f}};
+
+    for (const auto& [width, height] : resolutions)
+    {
+        const StudioShellLayout layout = computeStudioShellLayout(width, height, theme);
+        if (!layout.isWellFormed())
+        {
+            CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                "shell layout is malformed at " + std::to_string(static_cast<int>(width))
+                + "x" + std::to_string(static_cast<int>(height)));
+        }
+        CNA_STUDIO_EXPECT(layout.isWellFormed());
+        CNA_STUDIO_EXPECT(!layout.dockArea.isEmpty());
+        CNA_STUDIO_EXPECT(!layout.menuBar.isEmpty());
+        CNA_STUDIO_EXPECT(!layout.statusBar.isEmpty());
+    }
+}
+
+CNA_STUDIO_TEST(TheShellLayoutIsWellFormedAtEveryDpiScale)
+{
+    for (const float scale : {1.0f, 1.25f, 1.5f, 1.75f, 2.0f})
+    {
+        StudioTheme theme = StudioTheme::dark();
+        theme.setScale(scale);
+        const StudioShellLayout layout = computeStudioShellLayout(1920.0f, 1080.0f, theme);
+        CNA_STUDIO_EXPECT(layout.isWellFormed());
+        CNA_STUDIO_EXPECT(!layout.dockArea.isEmpty());
+    }
+}
+
+CNA_STUDIO_TEST(ChromeHeightScalesWithDpi)
+{
+    StudioTheme theme = StudioTheme::dark();
+    const StudioShellLayout at100 = computeStudioShellLayout(1920.0f, 1080.0f, theme);
+    theme.setScale(2.0f);
+    const StudioShellLayout at200 = computeStudioShellLayout(1920.0f, 1080.0f, theme);
+
+    CNA_STUDIO_EXPECT_EQ(at200.menuBar.height, at100.menuBar.height * 2.0f);
+    CNA_STUDIO_EXPECT_EQ(at200.toolbar.height, at100.toolbar.height * 2.0f);
+    CNA_STUDIO_EXPECT_EQ(at200.statusBar.height, at100.statusBar.height * 2.0f);
+}
+
+CNA_STUDIO_TEST(AWindowTooSmallForItsChromeDegradesRatherThanBreaking)
+{
+    const StudioTheme theme = StudioTheme::dark();
+    for (const float size : {1.0f, 20.0f, 60.0f, 120.0f})
+    {
+        const StudioShellLayout layout = computeStudioShellLayout(size, size, theme);
+        if (!layout.isWellFormed())
+        {
+            CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                "layout malformed at " + std::to_string(static_cast<int>(size)) + "px square");
+        }
+        CNA_STUDIO_EXPECT(layout.isWellFormed());
+
+        // Every region stays non-negative: an inverted rectangle rasterises across the window.
+        for (const UiRect* r : {&layout.menuBar, &layout.toolbar, &layout.statusBar,
+                                &layout.dockArea})
+        {
+            CNA_STUDIO_EXPECT(r->width >= 0.0f);
+            CNA_STUDIO_EXPECT(r->height >= 0.0f);
+        }
+    }
+}
+
+CNA_STUDIO_TEST(ClosingEveryOtherPanelGivesTheViewportTheWholeDockArea)
+{
+    StudioShell shell;
+    UiInputState input;
+    input.displayWidth = 1920.0f;
+    input.displayHeight = 1080.0f;
+    shell.renderFrame(input);
+
+    const UiRect before = shell.panelBounds("viewport");
+    CNA_STUDIO_EXPECT(!before.isEmpty());
+
+    // Every registered panel except the viewport, read from the shell rather than listed here: a
+    // hand-written list stops meaning "everything else" the moment a panel is added, and the test
+    // then passes while proving less than it says.
+    for (const StudioPanelDescriptor& descriptor : shell.registeredPanels())
+    {
+        if (descriptor.id != "viewport") { shell.dockTree().removePanel(descriptor.id); }
+    }
+    shell.renderFrame(input);
+
+    const UiRect after = shell.panelBounds("viewport");
+    CNA_STUDIO_EXPECT(after.width > before.width);
+    CNA_STUDIO_EXPECT(after.height > before.height);
+    CNA_STUDIO_EXPECT(shell.dockTree().isWellFormed());
+    CNA_STUDIO_EXPECT_EQ(shell.dockTree().leaves().size(), std::size_t{1});
+}
+
+CNA_STUDIO_TEST(TheChromeAndTheDockAreaTileTheWindowExactly)
+{
+    // The dock area is what is left after the chrome, and "what is left" must be exactly that:
+    // a gap is a strip of app background nobody can use, and an overlap is a panel drawn over a bar.
+    const StudioTheme theme = StudioTheme::dark();
+    const StudioShellLayout layout = computeStudioShellLayout(1920.0f, 1080.0f, theme);
+
+    CNA_STUDIO_EXPECT_EQ(layout.menuBar.top(), layout.window.top());
+    CNA_STUDIO_EXPECT_EQ(layout.toolbar.top(), layout.menuBar.bottom());
+    CNA_STUDIO_EXPECT_EQ(layout.dockArea.top(), layout.toolbar.bottom());
+    CNA_STUDIO_EXPECT_EQ(layout.dockArea.bottom(), layout.statusBar.top());
+    CNA_STUDIO_EXPECT_EQ(layout.statusBar.bottom(), layout.window.bottom());
+    CNA_STUDIO_EXPECT_EQ(layout.dockArea.width, layout.window.width);
+}
+
+// ------------------------------------------------------------------------------------------------
+// Draw list and batching (STUDIO-04003, STUDIO-04004)
+// ------------------------------------------------------------------------------------------------
+
+CNA_STUDIO_TEST(ConsecutiveUntexturedPrimitivesBatchIntoOneDrawCall)
+{
+    // STUDIO-04003's requirement, asserted rather than assumed: a panel of flat rectangles costs
+    // one draw call, not one per rectangle.
+    StudioDrawList list;
+    list.begin(200.0f, 200.0f);
+    for (int i = 0; i < 50; ++i)
+    {
+        list.fillRect(UiRect{0.0f, static_cast<float>(i) * 4.0f, 200.0f, 3.0f},
+                      StudioColor{100, 100, 100, 255});
+    }
+    list.end();
+
+    CNA_STUDIO_EXPECT_EQ(list.commandCount(), std::size_t{1});
+    CNA_STUDIO_EXPECT_EQ(list.vertexCount(), std::size_t{200});
+}
+
+CNA_STUDIO_TEST(AClipChangeStartsANewDrawCall)
+{
+    StudioDrawList list;
+    list.begin(200.0f, 200.0f);
+    list.fillRect(UiRect{0.0f, 0.0f, 10.0f, 10.0f}, StudioColor{255, 0, 0, 255});
+    list.pushClip(UiRect{0.0f, 0.0f, 50.0f, 50.0f});
+    list.fillRect(UiRect{0.0f, 0.0f, 10.0f, 10.0f}, StudioColor{0, 255, 0, 255});
+    list.popClip();
+    list.end();
+
+    CNA_STUDIO_EXPECT_EQ(list.commandCount(), std::size_t{2});
+}
+
+CNA_STUDIO_TEST(NestedClipsCompose)
+{
+    // A scroll area inside a panel inside a dock cannot draw outside any of them.
+    StudioDrawList list;
+    list.begin(200.0f, 200.0f);
+    list.pushClip(UiRect{0.0f, 0.0f, 100.0f, 100.0f});
+    list.pushClip(UiRect{50.0f, 50.0f, 100.0f, 100.0f});
+
+    const UiRect clip = list.currentClip();
+    CNA_STUDIO_EXPECT(clip == UiRect(50.0f, 50.0f, 50.0f, 50.0f));
+
+    list.popClip();
+    list.popClip();
+    list.end();
+}
+
+CNA_STUDIO_TEST(PoppingPastTheRootClipLeavesTheDisplayClip)
+{
+    StudioDrawList list;
+    list.begin(200.0f, 100.0f);
+    list.popClip();
+    list.popClip();
+    CNA_STUDIO_EXPECT(list.currentClip() == UiRect(0.0f, 0.0f, 200.0f, 100.0f));
+    list.end();
+}
+
+CNA_STUDIO_TEST(FullyTransparentPrimitivesEmitNoGeometry)
+{
+    StudioDrawList list;
+    list.begin(100.0f, 100.0f);
+    list.fillRect(UiRect{0.0f, 0.0f, 50.0f, 50.0f}, StudioColor{255, 0, 0, 0});
+    list.end();
+    CNA_STUDIO_EXPECT_EQ(list.vertexCount(), std::size_t{0});
+}
+
+CNA_STUDIO_TEST(AnEmptyRectangleEmitsNoGeometry)
+{
+    StudioDrawList list;
+    list.begin(100.0f, 100.0f);
+    list.fillRect(UiRect{10.0f, 10.0f, 0.0f, 50.0f}, StudioColor{255, 0, 0, 255});
+    list.fillRect(UiRect{10.0f, 10.0f, 50.0f, -5.0f}, StudioColor{255, 0, 0, 255});
+    list.end();
+    CNA_STUDIO_EXPECT_EQ(list.vertexCount(), std::size_t{0});
+}
+
+CNA_STUDIO_TEST(ARoundedRectangleWithAnAbsurdRadiusDoesNotFoldThroughItself)
+{
+    // Corner arcs that overlap produce self-intersecting geometry which rasterises as a dark
+    // smear. Clamping keeps a pill shape at the limit.
+    StudioDrawList list;
+    list.begin(100.0f, 100.0f);
+    list.fillRoundedRect(UiRect{10.0f, 10.0f, 40.0f, 20.0f}, StudioColor{200, 200, 200, 255}, 500.0f);
+    list.end();
+
+    CNA_STUDIO_EXPECT(list.vertexCount() > 0);
+    for (const UiVertex& v : list.drawData().lists.front().vertices)
+    {
+        CNA_STUDIO_EXPECT(v.x >= 9.0f && v.x <= 51.0f);
+        CNA_STUDIO_EXPECT(v.y >= 9.0f && v.y <= 31.0f);
+    }
+}
+
+CNA_STUDIO_TEST(TheShellProducesAWellFormedFrame)
+{
+    const ShellRender shell = renderShell(1920.0f, 1080.0f);
+    const UiDrawData& data = shell.data;
+
+    CNA_STUDIO_EXPECT(!data.lists.empty());
+    CNA_STUDIO_EXPECT(shell.vertices > 0);
+    CNA_STUDIO_EXPECT(shell.commands > 0);
+    CNA_STUDIO_EXPECT_EQ(shell.phaseViolations, std::size_t{0});
+
+    // Every index must address a vertex that exists: an out-of-range index is a GPU crash on a
+    // real renderer and silently wrong pixels here.
+    for (const UiDrawList& drawList : data.lists)
+    {
+        for (const UiDrawCommand& command : drawList.commands)
+        {
+            CNA_STUDIO_EXPECT(command.indexOffset + command.indexCount <= drawList.indices.size());
+            CNA_STUDIO_EXPECT_EQ(command.indexCount % 3, std::uint32_t{0});
+        }
+        for (const std::uint16_t index : drawList.indices)
+        {
+            CNA_STUDIO_EXPECT(index < drawList.vertices.size());
+        }
+    }
+}
+
+CNA_STUDIO_TEST(TheShellDrawsNothingOutsideItsWindow)
+{
+    const ShellRender shell = renderShell(800.0f, 600.0f);
+    for (const UiVertex& v : shell.data.lists.front().vertices)
+    {
+        CNA_STUDIO_EXPECT(v.x >= -1.0f && v.x <= 801.0f);
+        CNA_STUDIO_EXPECT(v.y >= -1.0f && v.y <= 601.0f);
+    }
+}
+
+CNA_STUDIO_TEST(TheShellFrameCostsABoundedNumberOfDrawCalls)
+{
+    // Not a performance micro-optimisation: an unbatched UI issues a draw call per rectangle, and
+    // the number climbing quietly is exactly how that regresses.
+    const ShellRender shell = renderShell(1920.0f, 1080.0f);
+    CNA_STUDIO_EXPECT(shell.commands < 32);
+}
+
+// ------------------------------------------------------------------------------------------------
+// Golden image (STUDIO-33011)
+// ------------------------------------------------------------------------------------------------
+
+CNA_STUDIO_TEST(TheShellRasterisesToAStableImage)
+{
+    // The first screenshot test for the Studio shell, and it needs no GPU: the geometry the CNA
+    // renderer will draw is rasterised on the CPU instead. A clean process exit cannot tell a
+    // working shell from one that drew nothing; this can.
+    const ShellRender shell = renderShell(640.0f, 360.0f);
+    const ImageBuffer image = rasterizeUiDrawData(shell.data, StudioColor{0, 0, 0, 255});
+
+    CNA_STUDIO_EXPECT(image.isWellFormed());
+    CNA_STUDIO_EXPECT_EQ(image.width, 640);
+    CNA_STUDIO_EXPECT_EQ(image.height, 360);
+
+    // Rendering twice must be byte-identical. Without determinism a golden image is a coin toss.
+    const ShellRender again = renderShell(640.0f, 360.0f);
+    const ImageBuffer second = rasterizeUiDrawData(again.data, StudioColor{0, 0, 0, 255});
+    CNA_STUDIO_EXPECT(image.pixels == second.pixels);
+}
+
+CNA_STUDIO_TEST(TheSecondFrameOfAStaticShellLooksExactlyLikeTheFirst)
+{
+    // The bug this pins was invisible to every test above, because every one of them renders a
+    // single frame -- and a `UiDrawData` carries a texture *request* only on the frame the texture
+    // changed. The font atlas is rasterised once, so from frame two onwards the draw data names an
+    // atlas it does not carry. A rasterizer that rebuilt its texture table per frame therefore had
+    // no font, and every glyph drew as a solid rectangle: text as a row of blocks, in every
+    // multi-frame capture, for as long as `--shell-preview` has existed.
+    //
+    // Nothing caught it because the golden images render one frame and the real CNA renderer keeps
+    // its uploads. This is the assertion that would have: a shell nobody touched must look the
+    // same on its second frame as on its first.
+    auto shell = std::make_shared<StudioShell>(StudioTheme::dark());
+
+    UiInputState input;
+    input.displayWidth = 640.0f;
+    input.displayHeight = 360.0f;
+    input.mouseInWindow = false;
+
+    UiTextureTable textures;
+
+    shell->renderFrame(input);
+    const ImageBuffer first = rasterizeUiDrawData(shell->drawData(), StudioColor{0, 0, 0, 255},
+                                                  textures);
+
+    shell->renderFrame(input);
+    const ImageBuffer second = rasterizeUiDrawData(shell->drawData(), StudioColor{0, 0, 0, 255},
+                                                   textures);
+
+    CNA_STUDIO_EXPECT(first.isWellFormed());
+    CNA_STUDIO_EXPECT(first.pixels == second.pixels);
+
+    // And the table is what makes it so. Rasterising the second frame from its own requests alone
+    // -- which is what the single-argument overload does -- produces a different image, because
+    // the atlas is not in it. If this ever stops differing, the request has started being re-sent
+    // every frame and something is uploading four megabytes per frame.
+    const ImageBuffer withoutTheAtlas =
+        rasterizeUiDrawData(shell->drawData(), StudioColor{0, 0, 0, 255});
+    CNA_STUDIO_EXPECT(withoutTheAtlas.pixels != second.pixels);
+
+    // Concretely: without the atlas every glyph is a filled box, so strictly more of the image is
+    // covered. That is the shape of the failure, not merely that it differs.
+    const auto litPixels = [](const ImageBuffer& image) {
+        std::size_t lit = 0;
+        for (std::size_t i = 0; i + 3 < image.pixels.size(); i += 4)
+        {
+            if (image.pixels[i] > 128 && image.pixels[i + 1] > 128 && image.pixels[i + 2] > 128)
+            {
+                ++lit;
+            }
+        }
+        return lit;
+    };
+    CNA_STUDIO_EXPECT(litPixels(withoutTheAtlas) > litPixels(second));
+}
+
+CNA_STUDIO_TEST(ATextureTableKeepsWhatItIsGivenAndForgetsWhatIsDestroyed)
+{
+    // The table is the rasterizer's standing in for what a renderer keeps between frames, so the
+    // two halves of that -- remembering an upload and honouring a destroy -- are worth pinning
+    // without a shell in the way.
+    UiTextureTable table;
+    CNA_STUDIO_EXPECT_EQ(table.size(), std::size_t{0});
+
+    std::vector<std::uint8_t> pixels(4 * 4 * 4, 255);
+
+    UiDrawData upload;
+    UiTextureRequest create;
+    create.action = UiTextureAction::Create;
+    create.texture = 7;
+    create.width = 4;
+    create.height = 4;
+    create.pitch = 16;
+    create.pixels = pixels.data();
+    upload.textureRequests.push_back(create);
+
+    table.apply(upload);
+    CNA_STUDIO_EXPECT(table.contains(7));
+    CNA_STUDIO_EXPECT(table.find(7) != nullptr);
+    CNA_STUDIO_EXPECT_EQ(table.find(7)->width, 4);
+
+    // A frame carrying no requests changes nothing -- which is the whole point.
+    const UiDrawData quiet;
+    table.apply(quiet);
+    CNA_STUDIO_EXPECT(table.contains(7));
+
+    UiDrawData destroy;
+    UiTextureRequest remove;
+    remove.action = UiTextureAction::Destroy;
+    remove.texture = 7;
+    destroy.textureRequests.push_back(remove);
+
+    table.apply(destroy);
+    CNA_STUDIO_EXPECT(!table.contains(7));
+    CNA_STUDIO_EXPECT(table.find(7) == nullptr);
+}
+
+CNA_STUDIO_TEST(TheShellActuallyDrawsSomethingRatherThanClearing)
+{
+    // The failure a clean exit cannot distinguish: a window that opened and drew nothing. The
+    // clear colour is one no theme uses, so any pixel still holding it was never covered.
+    const ShellRender shell = renderShell(640.0f, 360.0f);
+    const StudioColor sentinel{255, 0, 255, 255};
+    const ImageBuffer image = rasterizeUiDrawData(shell.data, sentinel);
+
+    std::size_t untouched = 0;
+    for (std::size_t i = 0; i < image.pixels.size(); i += 4)
+    {
+        if (image.pixels[i] == sentinel.r && image.pixels[i + 1] == sentinel.g
+            && image.pixels[i + 2] == sentinel.b)
+        {
+            ++untouched;
+        }
+    }
+    CNA_STUDIO_EXPECT_EQ(untouched, std::size_t{0});
+}
+
+CNA_STUDIO_TEST(EveryShellRegionIsVisiblyDistinct)
+{
+    // A layered UI whose layers all resolve to the same pixel value is a UI with no depth. Sampling
+    // the middle of each region catches a theme or a draw order that flattened them.
+    const ShellRender shell = renderShell(1280.0f, 720.0f);
+    const StudioShellLayout& layout = shell.layout;
+    const ImageBuffer image = rasterizeUiDrawData(shell.data, StudioColor{0, 0, 0, 255});
+    const auto sample = [&image](const UiRect& r) {
+        const int x = std::clamp(static_cast<int>(r.centerX()), 0, image.width - 1);
+        const int y = std::clamp(static_cast<int>(r.centerY()), 0, image.height - 1);
+        const std::size_t i = (static_cast<std::size_t>(y) * image.width + x) * 4;
+        return std::string{std::to_string(image.pixels[i]) + ","
+                         + std::to_string(image.pixels[i + 1]) + ","
+                         + std::to_string(image.pixels[i + 2])};
+    };
+
+    const std::string menuBar = sample(layout.menuBar);
+    const std::string viewport = sample(shell.viewportBounds);
+    const std::string outliner = sample(shell.outlinerBounds);
+
+    CNA_STUDIO_EXPECT(!shell.viewportBounds.isEmpty());
+    CNA_STUDIO_EXPECT(!shell.outlinerBounds.isEmpty());
+    CNA_STUDIO_EXPECT(menuBar != viewport);
+    CNA_STUDIO_EXPECT(outliner != viewport);
+}
+
+CNA_STUDIO_TEST(TheShellRendersAtEveryTestedResolutionAndScale)
+{
+    struct Case { float width; float height; float scale; const char* name; };
+    // Every DPI scale Studio supports as a matter of policy, not only the round ones: 125% and
+    // 175% are where a layout that only ever rounded cleanly at 150% and 200% comes apart.
+    const Case cases[] = {
+        {1280.0f, 720.0f,  1.0f,  "1280x720@100"},
+        {1600.0f, 900.0f,  1.0f,  "1600x900@100"},
+        {1920.0f, 1080.0f, 1.0f,  "1920x1080@100"},
+        {1920.0f, 1080.0f, 1.25f, "1920x1080@125"},
+        {2560.0f, 1440.0f, 1.5f,  "2560x1440@150"},
+        {2560.0f, 1440.0f, 1.75f, "2560x1440@175"},
+        {3440.0f, 1440.0f, 1.0f,  "3440x1440@100"},
+        {1920.0f, 1080.0f, 2.0f,  "1920x1080@200"},
+    };
+
+    const std::string artifacts = artifactDirectory();
+    for (const Case& c : cases)
+    {
+        const ShellRender rendered = renderShell(c.width, c.height, c.scale);
+        const ImageBuffer image = rasterizeUiDrawData(rendered.data, StudioColor{255, 0, 255, 255});
+
+        if (!image.isWellFormed())
+        {
+            CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                std::string{"shell produced no image at "} + c.name);
+            continue;
+        }
+        CNA_STUDIO_EXPECT(image.isWellFormed());
+
+        // Written for CI to collect, so a visual regression can be looked at rather than inferred
+        // from a failed comparison (STUDIO-33015).
+        if (!artifacts.empty())
+        {
+            std::error_code ec;
+            std::filesystem::create_directories(artifacts, ec);
+            (void) writeImageAsPng(image, artifacts + "/shell-" + c.name + ".png");
+        }
+    }
+}
+
+CNA_STUDIO_TEST(TwoRendersOfDifferentContentDifferMeasurably)
+{
+    // Guards the golden comparison itself: if compareImages reported everything as matching, every
+    // visual test above would pass vacuously.
+    const ShellRender wide = renderShell(640.0f, 360.0f);
+    const ShellRender narrow = renderShell(640.0f, 360.0f, 1.0f, {"outliner", "layers"});
+
+    const ImageBuffer a = rasterizeUiDrawData(wide.data, StudioColor{0, 0, 0, 255});
+    const ImageBuffer b = rasterizeUiDrawData(narrow.data, StudioColor{0, 0, 0, 255});
+
+    const ImageDifference difference = compareImages(a, b, 8);
+    CNA_STUDIO_EXPECT(difference.comparable);
+    CNA_STUDIO_EXPECT(difference.differingPixels > 0);
+}
+
+CNA_STUDIO_TEST(ABlankFrameAndARealOneAreTellableApartByTheirColours)
+{
+    // The assertion the graphical smoke tests were missing (STUDIO-04015). They check draw-call
+    // and triangle counts, which separates a shell that submitted geometry from one that submitted
+    // none -- and says nothing about a frame whose geometry rendered to nothing. A wrong blend
+    // state, a clip rectangle that excludes the window, a vertex colour with no alpha, or a
+    // renderer quietly dropping the calls all report every draw call and produce a blank picture.
+    //
+    // This is the arithmetic behind `--screenshot-min-colors`, tested here where a blank frame can
+    // be constructed rather than waited for.
+    ImageBuffer blank;
+    blank.width = 64;
+    blank.height = 48;
+    blank.pixels.assign(blank.getPixelCount() * 4, 0);
+    for (std::size_t i = 0; i < blank.pixels.size(); i += 4) { blank.pixels[i + 3] = 255; }
+    CNA_STUDIO_EXPECT_EQ(countDistinctColors(blank, 16), std::size_t{1});
+
+    // Cleared to one colour with a border in another -- still blank, and the shape a window that
+    // opened and drew nothing actually takes.
+    for (int x = 0; x < blank.width; ++x)
+    {
+        blank.pixels[static_cast<std::size_t>(x) * 4] = 40;
+    }
+    CNA_STUDIO_EXPECT_EQ(countDistinctColors(blank, 16), std::size_t{2});
+
+    const ShellRender shell = renderShell(640.0f, 360.0f);
+    const ImageBuffer drawn = rasterizeUiDrawData(shell.data, StudioColor{0, 0, 0, 255});
+    CNA_STUDIO_EXPECT_EQ(countDistinctColors(drawn, 16), std::size_t{16});
+
+    // The count stops where it is told to, so a caller asking "more than sixteen?" of a
+    // 1920x1080 frame does not pay for a full census of it.
+    CNA_STUDIO_EXPECT_EQ(countDistinctColors(drawn, 4), std::size_t{4});
+    CNA_STUDIO_EXPECT_EQ(countDistinctColors(drawn, 0), std::size_t{0});
+    CNA_STUDIO_EXPECT_EQ(countDistinctColors(ImageBuffer{}, 16), std::size_t{0});
+}
+
+CNA_STUDIO_TEST(APngIsWrittenAndIsReadableAsOne)
+{
+    const ShellRender shell = renderShell(64.0f, 48.0f);
+    const ImageBuffer image = rasterizeUiDrawData(shell.data, StudioColor{0, 0, 0, 255});
+    const std::vector<std::uint8_t> png = encodeImageAsPng(image);
+
+    CNA_STUDIO_EXPECT(png.size() > 8);
+    const std::uint8_t signature[8] = {0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A};
+    for (std::size_t i = 0; i < 8; ++i) { CNA_STUDIO_EXPECT_EQ(png[i], signature[i]); }
+
+    // IHDR immediately after the signature, and IEND at the end: a file missing either is not a
+    // PNG, however convincingly it starts.
+    CNA_STUDIO_EXPECT_EQ(std::string(reinterpret_cast<const char*>(png.data()) + 12, 4),
+                         std::string{"IHDR"});
+    CNA_STUDIO_EXPECT_EQ(std::string(reinterpret_cast<const char*>(png.data()) + png.size() - 8, 4),
+                         std::string{"IEND"});
+}
+
+CNA_STUDIO_TEST(RasterisationRespectsClipping)
+{
+    StudioDrawList list;
+    list.begin(64.0f, 64.0f);
+    list.pushClip(UiRect{0.0f, 0.0f, 32.0f, 64.0f});
+    list.fillRect(UiRect{0.0f, 0.0f, 64.0f, 64.0f}, StudioColor{255, 255, 255, 255});
+    list.popClip();
+    list.end();
+
+    const ImageBuffer image = rasterizeUiDrawData(list.drawData(), StudioColor{0, 0, 0, 255});
+    const auto pixelAt = [&image](int x, int y) {
+        return image.pixels[(static_cast<std::size_t>(y) * image.width + x) * 4];
+    };
+
+    CNA_STUDIO_EXPECT_EQ(pixelAt(10, 32), std::uint8_t{255});
+    CNA_STUDIO_EXPECT_EQ(pixelAt(50, 32), std::uint8_t{0});
+}
+
+CNA_STUDIO_TEST(RasterisationBlendsAlphaRatherThanReplacing)
+{
+    StudioDrawList list;
+    list.begin(16.0f, 16.0f);
+    list.fillRect(UiRect{0.0f, 0.0f, 16.0f, 16.0f}, StudioColor{0, 0, 0, 255});
+    list.fillRect(UiRect{0.0f, 0.0f, 16.0f, 16.0f}, StudioColor{255, 255, 255, 128});
+    list.end();
+
+    const ImageBuffer image = rasterizeUiDrawData(list.drawData(), StudioColor{0, 0, 0, 255});
+    const std::uint8_t value = image.pixels[0];
+    CNA_STUDIO_EXPECT(value > 100 && value < 160);
+}
+
+// ------------------------------------------------------------------------------------------------
+// Icons (STUDIO-04008)
+// ------------------------------------------------------------------------------------------------
+
+CNA_STUDIO_TEST(EveryIconDrawsSomethingAndNoTwoAreTheSamePicture)
+{
+    // Drawn as vector paths rather than sampled from an atlas, so the failure mode is not a missing
+    // file but a `case` somebody forgot: a new icon that compiles, is referenced from a toolbar,
+    // and draws nothing at all. Nothing else would notice -- a blank button looks like a button.
+    //
+    // The second half is the one that matters more. Two icons that happen to draw the same shape
+    // are worse than one that draws nothing, because the user learns to trust a picture that is
+    // lying about which command it runs.
+    const StudioTheme theme = StudioTheme::dark();
+    const StudioColor ink = theme.color(StudioColorRole::TextPrimary);
+
+    std::map<std::string, std::string> shapes;
+    std::size_t empty = 0;
+    std::size_t duplicates = 0;
+
+    for (int value = static_cast<int>(StudioIcon::None) + 1;
+         value < static_cast<int>(StudioIcon::Count); ++value)
+    {
+        const auto icon = static_cast<StudioIcon>(value);
+
+        StudioFrame frame{theme};
+        UiInputState input;
+        input.displayWidth = 64.0f;
+        input.displayHeight = 64.0f;
+        input.mouseInWindow = false;
+
+        runStudioFrame(frame, input, [&](StudioFrame& f) {
+            studioDrawIcon(f, UiRect{0.0f, 0.0f, 64.0f, 64.0f}, icon, ink);
+        });
+
+        // The geometry itself, as a comparable string. Two icons with identical vertices are
+        // literally the same picture however differently they were written.
+        std::string signature;
+        for (const UiDrawList& list : frame.drawData().lists)
+        {
+            for (const UiVertex& vertex : list.vertices)
+            {
+                signature += std::to_string(static_cast<int>(std::lround(vertex.x * 4.0f)));
+                signature += ',';
+                signature += std::to_string(static_cast<int>(std::lround(vertex.y * 4.0f)));
+                signature += ';';
+            }
+        }
+
+        const std::string name{studioIconName(icon)};
+        if (signature.empty())
+        {
+            ++empty;
+            CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                "the '" + name + "' icon drew nothing. A blank button looks like a button, so "
+                "nothing else will notice.");
+            continue;
+        }
+
+        const auto existing = shapes.find(signature);
+        if (existing != shapes.end())
+        {
+            ++duplicates;
+            CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                "the '" + name + "' and '" + existing->second + "' icons draw the same shape.");
+        }
+        else
+        {
+            shapes[signature] = name;
+        }
+    }
+
+    CNA_STUDIO_EXPECT_EQ(empty, std::size_t{0});
+    CNA_STUDIO_EXPECT_EQ(duplicates, std::size_t{0});
+    CNA_STUDIO_EXPECT(shapes.size() >= std::size_t{20});
+}
+
+CNA_STUDIO_TEST(AnIconNamesRoundTripAndTheTableCoversTheEnumeration)
+{
+    // The names reach preferences and tests, so a table that had drifted from the enumeration
+    // would silently rename somebody's toolbar customisation.
+    std::size_t checked = 0;
+    for (int value = 0; value < static_cast<int>(StudioIcon::Count); ++value)
+    {
+        const auto icon = static_cast<StudioIcon>(value);
+        const std::string_view name = studioIconName(icon);
+        CNA_STUDIO_EXPECT(!name.empty());
+
+        StudioIcon parsed = StudioIcon::Count;
+        CNA_STUDIO_EXPECT(parseStudioIcon(name, parsed));
+        CNA_STUDIO_EXPECT(parsed == icon);
+        ++checked;
+    }
+    CNA_STUDIO_EXPECT_EQ(checked, static_cast<std::size_t>(StudioIcon::Count));
+
+    StudioIcon unknown = StudioIcon::Save;
+    CNA_STUDIO_EXPECT(!parseStudioIcon("no-such-icon", unknown));
+    CNA_STUDIO_EXPECT(unknown == StudioIcon::Save);
+}
+
+CNA_STUDIO_TEST(TheToolbarsCommandsHaveIconsAndTheMappingNamesRealActions)
+{
+    // A mapping naming an action nobody registered is an icon that never appears, and a toolbar
+    // command with no icon is a square of empty space once the labels are gone.
+    const StudioShell shell{StudioTheme::dark()};
+
+    std::size_t missing = 0;
+    for (const std::string& entry : shell.toolbar())
+    {
+        if (entry == kStudioMenuSeparatorId) { continue; }
+        if (studioIconForAction(entry) == StudioIcon::None)
+        {
+            ++missing;
+            CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                "the toolbar shows '" + entry + "', which has no icon, so it draws as an empty "
+                "square once the labels come off.");
+        }
+    }
+    CNA_STUDIO_EXPECT_EQ(missing, std::size_t{0});
+
+    // And an unmapped id is reported as having none rather than silently taking the first entry.
+    CNA_STUDIO_EXPECT(studioIconForAction("studio.no.such.action") == StudioIcon::None);
+    CNA_STUDIO_EXPECT(studioIconForAction("") == StudioIcon::None);
+}
+
+CNA_STUDIO_TEST(TheViewportCompositesASceneWhenOneIsHandedToItAndTheGridWhenNot)
+{
+    // The CNA-free half of STUDIO-04012. The shell cannot render a scene and must not try; what it
+    // must do is draw whatever texture it is given across the viewport body, and fall back to the
+    // placeholder when there is none -- because a build with no device has to show *something*.
+    StudioShell shell;
+    shell.resetLayout();
+
+    UiInputState input;
+    input.displayWidth = 1600.0f;
+    input.displayHeight = 900.0f;
+    shell.renderFrame(input);
+
+    const UiRect body = shell.panelBounds("viewport");
+    CNA_STUDIO_EXPECT(!body.isEmpty());
+    CNA_STUDIO_EXPECT_EQ(shell.viewportImage(), kUiTextureNone);
+
+    const std::size_t placeholderIndices = shell.drawData().getTotalIndexCount();
+    CNA_STUDIO_EXPECT(placeholderIndices > 0);
+
+    // A texture the shell knows nothing about, which is the point: it composites an id.
+    constexpr UiTextureId kScene = 4242;
+    shell.setViewportImage(kScene, /*flipVertically=*/true);
+    shell.renderFrame(input);
+
+    CNA_STUDIO_EXPECT_EQ(shell.viewportImage(), kScene);
+
+    // The scene's texture is in the frame, and the grid it replaced is not: the placeholder is a
+    // fallback, not a backdrop drawn underneath every scene.
+    bool sawScene = false;
+    for (const UiDrawList& list : shell.drawData().lists)
+    {
+        for (const UiDrawCommand& command : list.commands)
+        {
+            if (command.texture == kScene) { sawScene = true; }
+        }
+    }
+    CNA_STUDIO_EXPECT(sawScene);
+    CNA_STUDIO_EXPECT(shell.drawData().getTotalIndexCount() < placeholderIndices);
+
+    shell.setViewportImage(kUiTextureNone);
+    shell.renderFrame(input);
+    CNA_STUDIO_EXPECT_EQ(shell.drawData().getTotalIndexCount(), placeholderIndices);
+}
+
+// ------------------------------------------------------------------------------------------------
+// `plan.md` CORE-07 — resizing changes what is on screen and nothing else
+// ------------------------------------------------------------------------------------------------
+
+CNA_STUDIO_TEST(AResizeFillsTheNewWindowRatherThanStretchingTheOldFrame)
+{
+    // Every step of the Core workflow happens inside a window somebody resizes, and the failure
+    // this rules out is the one that looks like a rendering bug and is a *sizing* bug: a frame
+    // laid out for the old window and scaled into the new one, or drawn at the old size and left
+    // with a band of nothing along two edges.
+    //
+    // Rasterised rather than measured, because both failures are visible and neither is
+    // detectable from the draw data alone: a stretched frame has exactly the geometry a correct
+    // one has.
+    auto shell = std::make_shared<StudioShell>(StudioTheme::dark());
+    shell->resetLayout();
+
+    const auto frameAt = [&shell](float width, float height) {
+        UiInputState input;
+        input.displayWidth = width;
+        input.displayHeight = height;
+        input.mouseX = -1.0f;
+        input.mouseY = -1.0f;
+        input.deltaSeconds = 1.0f / 60.0f;
+        shell->renderFrame(input);
+        return rasterizeUiDrawData(shell->drawData(), StudioColor{255, 0, 255, 255});
+    };
+
+    // A frame at the old size, then one frame at the new size. *One*: the assertion is that the
+    // resize is right on the frame it happens, not that it settles afterwards.
+    (void)frameAt(900.0f, 600.0f);
+    const ImageBuffer resized = frameAt(1280.0f, 720.0f);
+
+    CNA_STUDIO_EXPECT(resized.isWellFormed());
+    CNA_STUDIO_EXPECT_EQ(resized.width, 1280);
+    CNA_STUDIO_EXPECT_EQ(resized.height, 720);
+    if (!resized.isWellFormed()) { return; }
+
+    // The clear colour is magenta and nothing in the theme is, so any of it left on screen is a
+    // pixel the shell did not draw -- which is what a frame laid out for a 900-wide window inside
+    // a 1280-wide one leaves down its right-hand side.
+    const auto isClear = [&resized](int x, int y) {
+        const std::size_t at = (static_cast<std::size_t>(y) * static_cast<std::size_t>(resized.width)
+                                + static_cast<std::size_t>(x)) * 4u;
+        return resized.pixels[at] == 255 && resized.pixels[at + 1] == 0
+            && resized.pixels[at + 2] == 255;
+    };
+
+    std::size_t undrawn = 0;
+    for (int y = 0; y < resized.height; ++y)
+    {
+        for (int x = 0; x < resized.width; ++x)
+        {
+            if (isClear(x, y)) { ++undrawn; }
+        }
+    }
+
+    if (undrawn > 0)
+    {
+        CnaStudioTest::reportFailure(__FILE__, __LINE__,
+            std::to_string(undrawn) + " pixels of the 1280x720 frame were never drawn on the "
+            "frame the window was resized. The shell laid itself out for the size it used to be "
+            "(plan.md CORE-07).");
+    }
+
+    // And the frame is identical to one rendered at that size from the start: a resize must leave
+    // no trace of what the window used to be. This is the assertion a stretched frame fails --
+    // its geometry is right and its pixels are not.
+    auto fresh = std::make_shared<StudioShell>(StudioTheme::dark());
+    fresh->resetLayout();
+
+    UiInputState input;
+    input.displayWidth = 1280.0f;
+    input.displayHeight = 720.0f;
+    input.mouseX = -1.0f;
+    input.mouseY = -1.0f;
+    input.deltaSeconds = 1.0f / 60.0f;
+    // Two frames, as the resized shell had. The font atlas is rasterised on the frame it is first
+    // needed and named by the draw data only then, so a one-frame shell and a two-frame one differ
+    // in a way that has nothing to do with resizing -- which is the comparison this case would
+    // otherwise be making.
+    fresh->renderFrame(input);
+    fresh->renderFrame(input);
+
+    const ImageBuffer never = rasterizeUiDrawData(fresh->drawData(), StudioColor{255, 0, 255, 255});
+    CNA_STUDIO_EXPECT(never.isWellFormed());
+    CNA_STUDIO_EXPECT_EQ(resized.pixels.size(), never.pixels.size());
+    CNA_STUDIO_EXPECT(resized.pixels == never.pixels);
+}
+
+CNA_STUDIO_TEST(TheLayoutIsAvailableBeforeTheFrameThatDrawsIt)
+{
+    // `plan.md` CORE-07, and the half that shows only on a CNA build. The viewport's scene goes
+    // into an offscreen texture that the shell then draws, so the host has to size that texture
+    // *before* describing the frame -- and it used to read the panel rectangle as of the previous
+    // one. On the frame a window was resized that is a texture of the old size drawn into a
+    // rectangle of the new: a scene stretched for a frame.
+    //
+    // `prepareLayout` is what the host calls first. The claim is that it answers with the same
+    // rectangle the frame is about to use, which is the only thing that makes it worth calling.
+    auto shell = std::make_unique<StudioShell>(StudioTheme::dark());
+    shell->resetLayout();
+
+    UiInputState input;
+    input.displayWidth = 900.0f;
+    input.displayHeight = 600.0f;
+    input.mouseX = -1.0f;
+    input.mouseY = -1.0f;
+    input.deltaSeconds = 1.0f / 60.0f;
+    shell->renderFrame(input);
+
+    const UiRect before = shell->panelBounds("viewport");
+    CNA_STUDIO_EXPECT(!before.isEmpty());
+
+    // The window grows. What the host would have used without `prepareLayout` is `before`.
+    input.displayWidth = 1280.0f;
+    input.displayHeight = 720.0f;
+
+    shell->prepareLayout(input.displayWidth, input.displayHeight);
+    const UiRect prepared = shell->panelBounds("viewport");
+
+    shell->renderFrame(input);
+    const UiRect drawn = shell->panelBounds("viewport");
+
+    CNA_STUDIO_EXPECT(!prepared.isEmpty());
+    CNA_STUDIO_EXPECT_EQ(prepared.x, drawn.x);
+    CNA_STUDIO_EXPECT_EQ(prepared.y, drawn.y);
+    CNA_STUDIO_EXPECT_EQ(prepared.width, drawn.width);
+    CNA_STUDIO_EXPECT_EQ(prepared.height, drawn.height);
+
+    // And it is genuinely different from the stale answer, or the case above holds for a resize
+    // that changed nothing.
+    CNA_STUDIO_EXPECT(prepared.width != before.width);
+}

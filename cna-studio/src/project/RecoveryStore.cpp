@@ -1,0 +1,201 @@
+// SPDX-License-Identifier: MS-PL
+#include "CNA/Studio/Project/RecoveryStore.hpp"
+#include "CNA/Studio/Core/StudioFileWrite.hpp"
+
+#include "CNA/Studio/Core/UserPaths.hpp"
+
+#include <algorithm>
+#include <cstdlib>
+#include <ctime>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <system_error>
+
+namespace CNA::Studio
+{
+    namespace
+    {
+        /** @brief Reads a whole file, or returns an empty optional. */
+        std::optional<std::string> readWholeFile(const std::filesystem::path& path)
+        {
+            std::ifstream stream{path, std::ios::binary};
+            if (!stream) { return std::nullopt; }
+
+            std::ostringstream buffer;
+            buffer << stream.rdbuf();
+            return buffer.str();
+        }
+
+        /** @brief Parses one snapshot file, or returns an empty optional when it is unusable. */
+        std::optional<RecoverySnapshot> readSnapshot(const std::filesystem::path& path)
+        {
+            const std::optional<std::string> text = readWholeFile(path);
+            if (!text) { return std::nullopt; }
+
+            const JsonParseResult parsed = Json::parse(*text);
+            if (!parsed.succeeded || !parsed.value.isObject()) { return std::nullopt; }
+
+            // The gate and the upgrade in one place (`plan.md` STUDIO-31005). The refusal it
+            // replaces was right and the migrator makes the same one: a snapshot from a newer
+            // build is skipped rather than guessed at, because restoring a document this build
+            // cannot fully understand would quietly discard whatever it did not read and the user
+            // would have no way to know which parts. What was missing was the other direction --
+            // a snapshot from an *older* build had no route forward, and this is the one file
+            // whose loss costs the most.
+            JsonValue document = parsed.value;
+            if (!getRecoveryFormatMigrator().migrate(document).succeeded)
+            {
+                return std::nullopt;
+            }
+
+            RecoverySnapshot snapshot;
+            snapshot.filePath = path.generic_string();
+            snapshot.projectPath = document["projectPath"].asString();
+            snapshot.scenePath = document["scenePath"].asString();
+            snapshot.sceneName = document["sceneName"].asString();
+            snapshot.sceneId = Uuid::parse(document["sceneId"].asString());
+            snapshot.savedAtSeconds = static_cast<std::int64_t>(document["savedAt"].asNumber(0.0));
+            snapshot.scene = document["scene"];
+
+            if (!snapshot.scene.isObject()) { return std::nullopt; }
+            return snapshot;
+        }
+    }
+
+    const FormatMigrator& getRecoveryFormatMigrator()
+    {
+        static const FormatMigrator migrator{"recovery snapshot", RecoveryStore::kFormatVersion};
+        return migrator;
+    }
+
+    bool RecoveryStore::write(const RecoverySnapshot& snapshot, std::string* errorMessage) const
+    {
+        const auto fail = [&](std::string reason) {
+            if (errorMessage != nullptr) { *errorMessage = std::move(reason); }
+            return false;
+        };
+
+        if (directory_.empty()) { return fail("no recovery directory is configured"); }
+        if (!snapshot.sceneId.isValid()) { return fail("the scene has no id to file the snapshot under"); }
+
+        std::error_code errorCode;
+        const std::filesystem::path directory{directory_};
+        std::filesystem::create_directories(directory, errorCode);
+        if (errorCode) { return fail("cannot create '" + directory_ + "': " + errorCode.message()); }
+
+        JsonValue document = JsonValue::makeObject();
+        document.set("formatVersion", JsonValue{kFormatVersion});
+        document.set("projectPath", JsonValue{snapshot.projectPath});
+        document.set("scenePath", JsonValue{snapshot.scenePath});
+        document.set("sceneName", JsonValue{snapshot.sceneName});
+        document.set("sceneId", JsonValue{snapshot.sceneId.toString()});
+        document.set("savedAt", JsonValue{snapshot.savedAtSeconds});
+        document.set("scene", snapshot.scene);
+
+        const std::filesystem::path target = directory / (snapshot.sceneId.toString() + kExtension);
+
+        // Rename over the old snapshot rather than truncating it in place. A crash during a
+        // snapshot then leaves the *previous* one intact, which is the whole point: a half-written
+        // recovery file fails to load at the one moment it is needed, having already convinced the
+        // user their work was safe.
+        //
+        // This file stated that rule first and followed it alone for a long time, while every
+        // document it was protecting truncated in place. `STUDIO-31003` moved the procedure into
+        // `studioWriteFileAtomically` and gave the rest of the editor the same guarantee; what is
+        // left here is the call and the reason.
+        const StudioFileWriteResult wrote =
+            studioWriteFileAtomically(target, Json::write(document, true));
+        if (!wrote.succeeded) { return fail(wrote.error); }
+
+        return true;
+    }
+
+    bool RecoveryStore::discard(const Uuid& sceneId) const
+    {
+        if (directory_.empty() || !sceneId.isValid()) { return false; }
+
+        std::error_code errorCode;
+        const std::filesystem::path target =
+            std::filesystem::path{directory_} / (sceneId.toString() + kExtension);
+        return std::filesystem::remove(target, errorCode) && !errorCode;
+    }
+
+    std::vector<RecoverySnapshot> RecoveryStore::list() const
+    {
+        std::vector<RecoverySnapshot> snapshots;
+        if (directory_.empty()) { return snapshots; }
+
+        std::error_code errorCode;
+        std::filesystem::directory_iterator entries{directory_, errorCode};
+        if (errorCode) { return snapshots; }
+
+        for (const std::filesystem::directory_entry& entry : entries)
+        {
+            if (!entry.is_regular_file(errorCode) || errorCode) { continue; }
+            if (entry.path().extension() != kExtension) { continue; }
+
+            // An unreadable file is skipped, not reported as an error. Recovery is a best-effort
+            // path by construction; one corrupt snapshot must not hide the others.
+            if (std::optional<RecoverySnapshot> snapshot = readSnapshot(entry.path()))
+            {
+                snapshots.push_back(std::move(*snapshot));
+            }
+        }
+
+        std::sort(snapshots.begin(), snapshots.end(),
+                  [](const RecoverySnapshot& lhs, const RecoverySnapshot& rhs) {
+                      if (lhs.savedAtSeconds != rhs.savedAtSeconds)
+                      {
+                          return lhs.savedAtSeconds > rhs.savedAtSeconds;
+                      }
+                      // Ties broken by file name so the order is total and testable: two snapshots
+                      // written in the same second are otherwise ordered by whatever the directory
+                      // iterator happened to hand back.
+                      return lhs.filePath < rhs.filePath;
+                  });
+        return snapshots;
+    }
+
+    std::optional<RecoverySnapshot> RecoveryStore::findForProject(const std::string& projectPath) const
+    {
+        for (RecoverySnapshot& snapshot : list())
+        {
+            if (snapshot.projectPath == projectPath) { return std::move(snapshot); }
+        }
+        return std::nullopt;
+    }
+
+    std::string getDefaultRecoveryDirectory()
+    {
+        // State, not configuration: a recovery snapshot is a thing Studio can recreate by the user
+        // working again, and a machine that sweeps it between reboots has done nothing wrong. The
+        // resolution itself lives in CNA/Studio/Core/UserPaths.hpp, so the layout store and this
+        // agree about where a user's files go rather than each deciding separately.
+        const std::string base = getStudioStateDirectory();
+        if (base.empty()) { return {}; }
+        return (std::filesystem::path{base} / "recovery").generic_string();
+    }
+}
+
+namespace CNA::Studio
+{
+    std::string formatRecoveryTime(std::int64_t unixSeconds)
+    {
+        const std::time_t stamp = static_cast<std::time_t>(unixSeconds);
+
+        std::tm broken{};
+#if defined(_WIN32)
+        if (localtime_s(&broken, &stamp) != 0) { return "an unknown time"; }
+#else
+        if (localtime_r(&stamp, &broken) == nullptr) { return "an unknown time"; }
+#endif
+
+        char text[32] = {};
+        if (std::strftime(text, sizeof(text), "%Y-%m-%d %H:%M", &broken) == 0)
+        {
+            return "an unknown time";
+        }
+        return text;
+    }
+}

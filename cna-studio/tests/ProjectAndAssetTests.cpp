@@ -1,0 +1,2691 @@
+// SPDX-License-Identifier: MS-PL
+/**
+ * @file ProjectAndAssetTests.cpp
+ * @brief Tests for the project format, the backend table, the asset database and the wire protocol.
+ */
+
+#include "TestHarness.hpp"
+#include <algorithm>
+#include <set>
+
+#include "CNA/Studio/Project/RendererCatalog.hpp"
+
+#include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <thread>
+#include <sstream>
+
+#include "CNA/Studio/Assets/AssetCommands.hpp"
+#include "CNA/Studio/StudioContext.hpp"
+#include "CNA/Studio/Assets/AssetDatabase.hpp"
+#include "CNA/Studio/Assets/MaterialDocument.hpp"
+#include "CNA/Studio/Assets/AssetImporters.hpp"
+#include "CNA/Studio/Assets/AssetReimport.hpp"
+#include "CNA/Studio/Assets/AssetTree.hpp"
+#include "CNA/Studio/Assets/AssetWatcher.hpp"
+#include "CNA/Studio/Scene/BuiltinComponents.hpp"
+#include "CNA/Studio/Scene/MissingReferences.hpp"
+#include "CNA/Studio/Scene/SceneCommands.hpp"
+#include "CNA/Studio/Plugins/Plugin.hpp"
+#include "CNA/Studio/Project/BuildRunner.hpp"
+#include "CNA/Studio/Project/Cpp/CppToolchain.hpp"
+#include "CNA/Studio/Project/Project.hpp"
+#include "CNA/Studio/ProjectCommands.hpp"
+#include "CNA/Studio/Project/RecoveryStore.hpp"
+#include "CNA/Studio/RuntimeBridge/StudioProtocol.hpp"
+
+using namespace CNA::Studio;
+
+namespace
+{
+    /**
+     * @brief Finds the load warning mentioning @p needle, or nullptr.
+     *
+     * A load reports everything it found, so tests assert that the *right* thing was said rather
+     * than counting how many things were. Counting makes a suite that discourages diagnostics:
+     * every new warning breaks tests that had nothing to do with it.
+     */
+    const std::string* warningMentioning(const ProjectLoadResult& result, std::string_view needle)
+    {
+        for (const std::string& warning : result.warnings)
+        {
+            if (warning.find(needle) != std::string::npos) { return &warning; }
+        }
+        return nullptr;
+    }
+
+    std::filesystem::path makeScratchDirectory(const std::string& name)
+    {
+        const std::filesystem::path directory =
+            std::filesystem::temp_directory_path() / ("cna-studio-tests-" + name + "-" + Uuid::generate().toString());
+        std::filesystem::create_directories(directory);
+        return directory;
+    }
+
+    void writeFile(const std::filesystem::path& path, std::string_view contents)
+    {
+        std::filesystem::create_directories(path.parent_path());
+        std::ofstream stream{path, std::ios::binary | std::ios::trunc};
+        stream << contents;
+    }
+}
+
+CNA_STUDIO_TEST(ProjectRoundTripsThroughAFile)
+{
+    const std::filesystem::path directory = makeScratchDirectory("project");
+    const std::string path = (directory / "MyGame.cnaproject").generic_string();
+
+    Project original = Project::createDefault("MyGame", directory.generic_string());
+    original.setDefaultGraphicsBackend("vulkan");
+    original.setModules({"cna-core", "cna-graphics-2d", "cna-audio"});
+    original.setTargetPlatforms({"linux-x64", "windows-x64"});
+
+    std::string errorMessage;
+    CNA_STUDIO_EXPECT(original.saveToFile(path, &errorMessage));
+    CNA_STUDIO_EXPECT_EQ(errorMessage, std::string{});
+
+    Project restored;
+    const ProjectLoadResult result = restored.loadFromFile(path);
+    CNA_STUDIO_EXPECT(result.succeeded);
+    CNA_STUDIO_EXPECT_EQ(result.warnings.size(), std::size_t{0});
+    CNA_STUDIO_EXPECT_EQ(restored.getName(), std::string{"MyGame"});
+    CNA_STUDIO_EXPECT(restored.getKind() == ProjectKind::CnaNative);
+    CNA_STUDIO_EXPECT_EQ(restored.getDefaultGraphicsBackend(), std::string{"vulkan"});
+    CNA_STUDIO_EXPECT_EQ(restored.getModules().size(), std::size_t{3});
+    CNA_STUDIO_EXPECT_EQ(restored.getStartupScene(), std::string{"Scenes/MainMenu.cnascene"});
+    CNA_STUDIO_EXPECT_EQ(restored.getRootPath(), directory.generic_string());
+
+    std::filesystem::remove_all(directory);
+}
+
+CNA_STUDIO_TEST(ProjectWarnsAboutAnUnknownBackend)
+{
+    JsonValue json = JsonValue::makeObject();
+    json.set("formatVersion", JsonValue{Project::kFormatVersion});
+    json.set("name", JsonValue{"MyGame"});
+    // Not "glide": that WAS this test's example of an unknown renderer, and CNA has one now. A
+    // test whose fixture quietly becomes valid stops testing anything, so the name here is one no
+    // renderer registry will ever contain.
+    json.set("defaultGraphicsBackend", JsonValue{"no-such-renderer"});
+
+    Project project;
+    const ProjectLoadResult result = project.loadFromJson(json);
+    CNA_STUDIO_EXPECT(result.succeeded);
+    // Asserted by content, not by count: a load reports everything it found, and a test that
+    // counts breaks the next time anything else is worth reporting -- which is how a suite ends up
+    // discouraging diagnostics.
+    CNA_STUDIO_EXPECT(warningMentioning(result, "no-such-renderer") != nullptr);
+}
+
+CNA_STUDIO_TEST(ALegacyRendererNameIsMigratedAndTheChangeIsReported)
+{
+    // `.cnaproject` files written by the CNA Editor prototype name renderers CNA no longer has.
+    // They are migrated rather than rejected -- but never silently, because substituting a
+    // renderer changes what the user's game ships on.
+    JsonValue json = JsonValue::makeObject();
+    json.set("formatVersion", JsonValue{Project::kFormatVersion});
+    json.set("name", JsonValue{"OldGame"});
+    json.set("defaultGraphicsBackend", JsonValue{"easygl"});
+
+    Project project;
+    const ProjectLoadResult result = project.loadFromJson(json);
+    CNA_STUDIO_EXPECT(result.succeeded);
+    const std::string* migration = warningMentioning(result, "easygl");
+    CNA_STUDIO_EXPECT(migration != nullptr);
+    CNA_STUDIO_EXPECT(migration != nullptr && migration->find("OPENGLES3") != std::string::npos);
+
+    // And the migration actually took effect, rather than only being described.
+    CNA_STUDIO_EXPECT_EQ(project.getDefaultGraphicsBackend(), std::string{"OPENGLES3"});
+    CNA_STUDIO_EXPECT(findRenderer(project.getDefaultGraphicsBackend()) != nullptr);
+}
+
+CNA_STUDIO_TEST(ARemovedRendererIsReportedRatherThanSilentlySubstituted)
+{
+    // ASCII is not a renderer any more and has no equivalent. Picking one for the user would be a
+    // guess about how their game should look.
+    JsonValue json = JsonValue::makeObject();
+    json.set("formatVersion", JsonValue{Project::kFormatVersion});
+    json.set("name", JsonValue{"AsciiGame"});
+    json.set("defaultGraphicsBackend", JsonValue{"ascii"});
+
+    Project project;
+    const ProjectLoadResult result = project.loadFromJson(json);
+    CNA_STUDIO_EXPECT(result.succeeded);
+    CNA_STUDIO_EXPECT(warningMentioning(result, "removed") != nullptr);
+    CNA_STUDIO_EXPECT_EQ(project.getDefaultGraphicsBackend(), std::string{"ascii"});
+}
+
+CNA_STUDIO_TEST(EveryLegacyAliasPointsAtSomethingRealOrAtNothingDeliberately)
+{
+    for (const RendererAlias& alias : getLegacyRendererAliases())
+    {
+        CNA_STUDIO_EXPECT(!alias.legacyName.empty());
+        // A migration with no explanation is one a user cannot evaluate.
+        CNA_STUDIO_EXPECT(!alias.reason.empty());
+        // The legacy name must not also be a current identity, or the alias would never be reached.
+        CNA_STUDIO_EXPECT(findRenderer(alias.legacyName) == nullptr);
+        if (!alias.replacement.empty())
+        {
+            CNA_STUDIO_EXPECT(findRenderer(alias.replacement) != nullptr);
+        }
+    }
+}
+
+CNA_STUDIO_TEST(ANewProjectDefaultsToARendererCnaActuallyHas)
+{
+    Project project;
+    CNA_STUDIO_EXPECT(findRenderer(project.getDefaultGraphicsBackend()) != nullptr);
+}
+
+CNA_STUDIO_TEST(XnaCompatibleProjectWarnsAboutAStartupScene)
+{
+    // An XNA-style game owns its own object model. Declaring a scene the editor will never load
+    // is a real mismatch worth surfacing, not something to silently honour.
+    JsonValue json = JsonValue::makeObject();
+    json.set("formatVersion", JsonValue{Project::kFormatVersion});
+    json.set("name", JsonValue{"PortedGame"});
+    json.set("kind", JsonValue{"XnaCompatible"});
+    json.set("startupScene", JsonValue{"Scenes/Main.cnascene"});
+
+    Project project;
+    const ProjectLoadResult result = project.loadFromJson(json);
+    CNA_STUDIO_EXPECT(result.succeeded);
+    CNA_STUDIO_EXPECT(project.getKind() == ProjectKind::XnaCompatible);
+    CNA_STUDIO_EXPECT_EQ(result.warnings.size(), std::size_t{1});
+}
+
+CNA_STUDIO_TEST(TheRendererCatalogueClassifiesEveryAuditedCnaRenderer)
+{
+    // Note what this does NOT assert: a count. The prototype's version of this test pinned the
+    // table at fourteen entries, which is exactly the "hard-code today's renderer count" the
+    // architecture forbids -- it made the number the contract, so growing the table meant editing
+    // the assertion, and the assertion could be edited without anyone classifying anything.
+    //
+    // The contract is coverage: every renderer identity CNA registers must have a Studio
+    // classification. That is checked against the audited snapshot here, and against CNA's live
+    // inventory in the CNA-enabled build.
+    for (const std::string_view identity : getAuditedCnaRendererIdentities())
+    {
+        const RendererInfo* renderer = findRenderer(identity);
+        if (renderer == nullptr)
+        {
+            CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                "CNA renderer '" + std::string{identity} + "' has no Studio classification. "
+                "Add it to src/project/RendererCatalog.cpp.");
+        }
+        CNA_STUDIO_EXPECT(renderer != nullptr);
+    }
+}
+
+CNA_STUDIO_TEST(TheRendererCatalogueClaimsNothingCnaDoesNotHave)
+{
+    // The other direction, which catches a typo in the catalogue: an entry Studio classifies but
+    // CNA has never heard of would silently offer a user a renderer that cannot be built.
+    const std::vector<std::string_view>& audited = getAuditedCnaRendererIdentities();
+    for (const RendererInfo& renderer : getKnownRenderers())
+    {
+        const bool known = std::find(audited.begin(), audited.end(), renderer.cnaIdentity)
+                        != audited.end();
+        if (!known)
+        {
+            CnaStudioTest::reportFailure(__FILE__, __LINE__,
+                "Studio classifies '" + std::string{renderer.cnaIdentity}
+                + "', which is not a CNA renderer identity at the audited commit "
+                + std::string{getAuditedCnaCommit()});
+        }
+        CNA_STUDIO_EXPECT(known);
+    }
+}
+
+CNA_STUDIO_TEST(RendererIdentitiesAndCommandLineNamesAreUnique)
+{
+    std::set<std::string_view> identities;
+    std::set<std::string_view> names;
+    for (const RendererInfo& renderer : getKnownRenderers())
+    {
+        CNA_STUDIO_EXPECT(identities.insert(renderer.cnaIdentity).second);
+        CNA_STUDIO_EXPECT(names.insert(renderer.commandLineName).second);
+        // A classification with no reasoning is a classification nobody can review or revise.
+        CNA_STUDIO_EXPECT(!renderer.note.empty());
+        CNA_STUDIO_EXPECT(!renderer.displayName.empty());
+    }
+}
+
+CNA_STUDIO_TEST(RendererLookupIsCaseInsensitiveOverBothSpellings)
+{
+    CNA_STUDIO_EXPECT(findRenderer("vulkan") != nullptr);
+    CNA_STUDIO_EXPECT(findRenderer("VULKAN") != nullptr);
+    CNA_STUDIO_EXPECT(findRenderer("Vulkan") != nullptr);
+    CNA_STUDIO_EXPECT(findRenderer("SDL_RENDERER") != nullptr);
+    CNA_STUDIO_EXPECT(findRenderer("sdlrenderer") != nullptr);
+    CNA_STUDIO_EXPECT(findRenderer("no-such-renderer") == nullptr);
+}
+
+CNA_STUDIO_TEST(StudioHostSupportIsAStricterQuestionThanRunningAGame)
+{
+    // A renderer that cannot host Studio is still a perfectly good game target. Conflating the two
+    // would deny a 2D game a 2D renderer because Studio's own viewport happens to be 3D.
+    CNA_STUDIO_EXPECT(findRenderer("vulkan")->hostSupport == RendererHostSupport::StudioHost);
+    CNA_STUDIO_EXPECT(findRenderer("opengl33")->hostSupport == RendererHostSupport::StudioHost);
+
+    // 2D-only: it can draw the UI but not the 3D viewport, so it cannot host Studio -- and it is
+    // still a first-class target for a 2D game.
+    CNA_STUDIO_EXPECT(findRenderer("sdlrenderer")->hostSupport == RendererHostSupport::PreviewOnly);
+
+    // A CPU rasterizer is a fine reference renderer and a hopeless interactive host.
+    CNA_STUDIO_EXPECT(findRenderer("software")->hostSupport == RendererHostSupport::PreviewOnly);
+
+    // Historical and browser-only renderers are exactly why the player is a separate process.
+    CNA_STUDIO_EXPECT(findRenderer("directx3")->hostSupport == RendererHostSupport::PreviewOnly);
+    CNA_STUDIO_EXPECT(findRenderer("canvas")->hostSupport == RendererHostSupport::RuntimeOnly);
+    CNA_STUDIO_EXPECT(findRenderer("headless")->hostSupport == RendererHostSupport::RuntimeOnly);
+}
+
+CNA_STUDIO_TEST(AtLeastOneRendererCanHostStudioOnEachMajorDesktopPlatform)
+{
+    // If this ever fails, Studio cannot be run at all on some platform -- which is worth failing
+    // loudly for rather than discovering when someone tries to build it there.
+    CNA_STUDIO_EXPECT(findRenderer("vulkan")->hostSupport == RendererHostSupport::StudioHost);
+    CNA_STUDIO_EXPECT(findRenderer("directx12")->hostSupport == RendererHostSupport::StudioHost);
+    CNA_STUDIO_EXPECT(findRenderer("metal")->hostSupport == RendererHostSupport::StudioHost);
+}
+
+CNA_STUDIO_TEST(ThePlatformCatalogueSeparatesPlatformFromRenderer)
+{
+    // Current CNA models these as separate axes and rejects invalid combinations. The prototype
+    // had one flat "backend" concept, which cannot express "SDL3 windowing, Vulkan rendering".
+    CNA_STUDIO_EXPECT(findPlatform("SDL3") != nullptr);
+    CNA_STUDIO_EXPECT(findPlatform("sdl3")->status == PlatformStatus::Implemented);
+    CNA_STUDIO_EXPECT(findPlatform("sdl3")->canHostStudio);
+
+    // Headless and terminal provide no surface a GPU renderer can draw into.
+    CNA_STUDIO_EXPECT(!findPlatform("headless")->canHostStudio);
+    CNA_STUDIO_EXPECT(!findPlatform("terminal")->canHostStudio);
+}
+
+CNA_STUDIO_TEST(ReservedPlatformsAreListedRatherThanHidden)
+{
+    // CNA makes selecting one a hard error rather than falling back to the default. Studio lists
+    // them so a user who asks is told it does not exist yet, instead of silently getting SDL3.
+    for (const char* reserved : {"SDL12", "WIN32", "EMSCRIPTEN"})
+    {
+        const PlatformInfo* platform = findPlatform(reserved);
+        CNA_STUDIO_EXPECT(platform != nullptr);
+        if (platform != nullptr)
+        {
+            CNA_STUDIO_EXPECT(platform->status == PlatformStatus::Reserved);
+            CNA_STUDIO_EXPECT(!platform->canHostStudio);
+        }
+    }
+}
+
+CNA_STUDIO_TEST(TheAuditRecordsWhichCnaItWasTakenFrom)
+{
+    // A snapshot with no provenance cannot be re-verified, and a stale one is indistinguishable
+    // from a current one. This is how the prototype's table became wrong without anyone noticing.
+    CNA_STUDIO_EXPECT(!getAuditedCnaCommit().empty());
+    CNA_STUDIO_EXPECT_EQ(getAuditedCnaCommit().size(), std::size_t{40});
+    CNA_STUDIO_EXPECT(!getAuditedCnaBranch().empty());
+    CNA_STUDIO_EXPECT(getAuditedCnaRendererIdentities().size() > 40);
+}
+
+CNA_STUDIO_TEST(AssetDatabaseAssignsStableIdsAndWritesSidecars)
+{
+    const std::filesystem::path directory = makeScratchDirectory("assets");
+    writeFile(directory / "Assets" / "Textures" / "player.png", "not-a-real-png");
+    writeFile(directory / "Assets" / "Sounds" / "click.wav", "not-a-real-wav");
+
+    AssetDatabase database;
+    database.setProjectRoot(directory.generic_string());
+
+    const AssetScanResult first = database.scan("Assets");
+    CNA_STUDIO_EXPECT(first.succeeded);
+    CNA_STUDIO_EXPECT_EQ(first.discoveredCount, std::size_t{2});
+    CNA_STUDIO_EXPECT_EQ(first.newCount, std::size_t{2});
+    CNA_STUDIO_EXPECT_EQ(database.getCount(), std::size_t{2});
+
+    const AssetRecord* texture = database.findByPath("Assets/Textures/player.png");
+    CNA_STUDIO_EXPECT(texture != nullptr);
+    CNA_STUDIO_EXPECT(texture->type == AssetType::Texture2D);
+    CNA_STUDIO_EXPECT_EQ(texture->importerId, std::string{"CNA.TextureImporter"});
+    const Uuid textureId = texture->id;
+
+    // The sidecar must be on disk, so the id survives a restart.
+    CNA_STUDIO_EXPECT(std::filesystem::exists(
+        (directory / "Assets" / "Textures" / "player.png.cnaasset").generic_string()));
+
+    // A second scan from a fresh database must recover the same ids, not mint new ones.
+    AssetDatabase reopened;
+    reopened.setProjectRoot(directory.generic_string());
+    const AssetScanResult second = reopened.scan("Assets");
+    CNA_STUDIO_EXPECT(second.succeeded);
+    CNA_STUDIO_EXPECT_EQ(second.newCount, std::size_t{0});
+    CNA_STUDIO_EXPECT(reopened.find(textureId) != nullptr);
+
+    std::filesystem::remove_all(directory);
+}
+
+CNA_STUDIO_TEST(AssetDatabaseKeepsIdentityAcrossAMove)
+{
+    // This is the entire reason assets are referenced by id and not by path: moving a file must
+    // not touch a single scene.
+    const std::filesystem::path directory = makeScratchDirectory("assetmove");
+    writeFile(directory / "Assets" / "player.png", "pixels");
+
+    AssetDatabase database;
+    database.setProjectRoot(directory.generic_string());
+    CNA_STUDIO_EXPECT(database.scan("Assets").succeeded);
+
+    const Uuid originalId = database.findByPath("Assets/player.png")->id;
+
+    std::filesystem::create_directories(directory / "Assets" / "Characters");
+    std::filesystem::rename(directory / "Assets" / "player.png",
+                            directory / "Assets" / "Characters" / "player.png");
+    std::filesystem::rename(directory / "Assets" / "player.png.cnaasset",
+                            directory / "Assets" / "Characters" / "player.png.cnaasset");
+
+    AssetDatabase rescanned;
+    rescanned.setProjectRoot(directory.generic_string());
+    const AssetScanResult result = rescanned.scan("Assets");
+    CNA_STUDIO_EXPECT(result.succeeded);
+    CNA_STUDIO_EXPECT_EQ(result.newCount, std::size_t{0});
+
+    const AssetRecord* moved = rescanned.find(originalId);
+    CNA_STUDIO_EXPECT(moved != nullptr);
+    CNA_STUDIO_EXPECT_EQ(moved->sourcePath, std::string{"Assets/Characters/player.png"});
+    CNA_STUDIO_EXPECT(rescanned.findByPath("Assets/player.png") == nullptr);
+
+    std::filesystem::remove_all(directory);
+}
+
+CNA_STUDIO_TEST(AssetDatabaseReportsMissingSourcesRatherThanDroppingThem)
+{
+    const std::filesystem::path directory = makeScratchDirectory("assetmissing");
+    writeFile(directory / "Assets" / "gone.png", "pixels");
+
+    AssetDatabase database;
+    database.setProjectRoot(directory.generic_string());
+    CNA_STUDIO_EXPECT(database.scan("Assets").succeeded);
+
+    const Uuid id = database.findByPath("Assets/gone.png")->id;
+    std::filesystem::remove(directory / "Assets" / "gone.png");
+
+    // The record survives: a file that is gone today may be one git checkout away from returning,
+    // and deleting the record would break every reference to it permanently.
+    CNA_STUDIO_EXPECT(database.find(id) != nullptr);
+
+    // Not yet, and that is the strategy rather than a bug (STUDIO-30012). `isMissing` reads a
+    // cache, because the Content Browser asks it once per row per pass; a file removed by
+    // something outside Studio becomes visible at the watcher's next poll or on an explicit
+    // refresh. Asking the filesystem on every call is what used to happen and is what made the
+    // panel cost 23 ms a frame at 1 500 assets.
+    CNA_STUDIO_EXPECT(!database.isMissing(id));
+
+    CNA_STUDIO_EXPECT_EQ(database.refreshPresence(), std::size_t{1});
+    CNA_STUDIO_EXPECT(database.isMissing(id));
+    CNA_STUDIO_EXPECT_EQ(database.getMissingAssets().size(), std::size_t{1});
+    CNA_STUDIO_EXPECT_EQ(database.getMissingCount(), std::size_t{1});
+
+    // And a second refresh finds nothing new to say, so a Refresh that changed nothing reports
+    // nothing rather than a line per asset.
+    CNA_STUDIO_EXPECT_EQ(database.refreshPresence(), std::size_t{0});
+
+    std::filesystem::remove_all(directory);
+}
+
+CNA_STUDIO_TEST(AssetDatabaseTolerationOfAnAbsentAssetDirectory)
+{
+    const std::filesystem::path directory = makeScratchDirectory("assetempty");
+
+    AssetDatabase database;
+    database.setProjectRoot(directory.generic_string());
+
+    // A brand-new project has no Assets directory yet; that is normal, not an error.
+    const AssetScanResult result = database.scan("Assets");
+    CNA_STUDIO_EXPECT(result.succeeded);
+    CNA_STUDIO_EXPECT_EQ(result.warnings.size(), std::size_t{1});
+    CNA_STUDIO_EXPECT_EQ(database.getCount(), std::size_t{0});
+
+    std::filesystem::remove_all(directory);
+}
+
+CNA_STUDIO_TEST(AssetSidecarStampSurvivesAJsonRoundTrip)
+{
+    // Regression: the stamp was originally the filesystem clock's native tick count -- around
+    // 4.6e18 nanoseconds -- which is past the range a double represents exactly. JSON numbers are
+    // doubles, so it came back changed and every asset looked modified on every scan.
+    const std::filesystem::path directory = makeScratchDirectory("assetstamp");
+    writeFile(directory / "Assets" / "stamped.png", "pixels");
+
+    AssetDatabase database;
+    database.setProjectRoot(directory.generic_string());
+    CNA_STUDIO_EXPECT(database.scan("Assets").succeeded);
+
+    const std::int64_t stamp = database.findByPath("Assets/stamped.png")->sourceModifiedTime;
+    CNA_STUDIO_EXPECT(stamp != 0);
+
+    AssetDatabase reopened;
+    reopened.setProjectRoot(directory.generic_string());
+    CNA_STUDIO_EXPECT(reopened.scan("Assets").succeeded);
+    CNA_STUDIO_EXPECT_EQ(reopened.findByPath("Assets/stamped.png")->sourceModifiedTime, stamp);
+
+    // And the sidecar itself must hold a plain integer, not scientific notation.
+    std::ifstream sidecar{(directory / "Assets" / "stamped.png.cnaasset").generic_string()};
+    std::string text{std::istreambuf_iterator<char>{sidecar}, std::istreambuf_iterator<char>{}};
+    const std::size_t fieldOffset = text.find("\"modifiedTime\"");
+    CNA_STUDIO_EXPECT(fieldOffset != std::string::npos);
+    const std::size_t valueOffset = text.find(':', fieldOffset) + 1;
+    const std::string writtenValue = text.substr(valueOffset, text.find('\n', valueOffset) - valueOffset);
+    CNA_STUDIO_EXPECT(writtenValue.find('e') == std::string::npos);
+    CNA_STUDIO_EXPECT(writtenValue.find('E') == std::string::npos);
+
+    std::filesystem::remove_all(directory);
+}
+
+CNA_STUDIO_TEST(AssetTypeGuessingCoversTheCommonExtensions)
+{
+    CNA_STUDIO_EXPECT(AssetDatabase::guessTypeFromExtension("a/b/c.PNG") == AssetType::Texture2D);
+    CNA_STUDIO_EXPECT(AssetDatabase::guessTypeFromExtension("x.wav") == AssetType::SoundEffect);
+    CNA_STUDIO_EXPECT(AssetDatabase::guessTypeFromExtension("x.ogg") == AssetType::Song);
+    CNA_STUDIO_EXPECT(AssetDatabase::guessTypeFromExtension("x.gltf") == AssetType::Model);
+    CNA_STUDIO_EXPECT(AssetDatabase::guessTypeFromExtension("x.cnj") == AssetType::Model);
+    CNA_STUDIO_EXPECT(AssetDatabase::guessTypeFromExtension("x.cnascene") == AssetType::Scene);
+    CNA_STUDIO_EXPECT(AssetDatabase::guessTypeFromExtension("x.zzz") == AssetType::Unknown);
+}
+
+CNA_STUDIO_TEST(ProtocolMessagesRoundTripThroughTheWire)
+{
+    const StudioMessage original = StudioMessage::makeLoadScene("Scenes/Level01.cnascene");
+    const std::string encoded = original.encode();
+
+    // The framing is the newline, so the body must contain exactly one and it must be last.
+    CNA_STUDIO_EXPECT_EQ(encoded.back(), '\n');
+    CNA_STUDIO_EXPECT_EQ(encoded.find('\n'), encoded.size() - 1);
+
+    const std::optional<StudioMessage> decoded = StudioMessage::decode(encoded.substr(0, encoded.size() - 1));
+    CNA_STUDIO_EXPECT(decoded.has_value());
+    CNA_STUDIO_EXPECT(decoded->type == StudioMessageType::LoadScene);
+    CNA_STUDIO_EXPECT_EQ(decoded->payload["scenePath"].asString(), std::string{"Scenes/Level01.cnascene"});
+}
+
+CNA_STUDIO_TEST(ProtocolSetPropertyCarriesItsOwnType)
+{
+    const Uuid entityId = Uuid::generate();
+    const StudioMessage message = StudioMessage::makeSetProperty(
+        entityId, "CNA.Transform", "position", PropertyValue{StudioVector3{1.0f, 2.0f, 3.0f}});
+
+    // Unlike a scene file, the wire must be self-describing: the player's component registry may
+    // not match the editor's after a plugin reload.
+    CNA_STUDIO_EXPECT_EQ(message.payload["valueType"].asString(), std::string{"vector3"});
+    CNA_STUDIO_EXPECT_EQ(message.payload["entityId"].asString(), entityId.toString());
+
+    const PropertyValue restored =
+        PropertyValue::fromJson(message.payload["value"],
+                                parsePropertyType(message.payload["valueType"].asString()));
+    CNA_STUDIO_EXPECT_EQ(restored.get<StudioVector3>().y, 2.0f);
+}
+
+CNA_STUDIO_TEST(MessageDecoderReassemblesSplitMessages)
+{
+    // A stream socket delivers arbitrary chunks. A reader that assumes one recv() equals one
+    // message works until a message straddles a packet boundary, and then fails unreproducibly.
+    const std::string wire = StudioMessage::makeHello("/tmp/MyGame").encode()
+                           + StudioMessage::makeReportLog("info", "ready").encode();
+
+    MessageStreamDecoder decoder;
+    std::vector<StudioMessage> messages;
+    for (std::size_t offset = 0; offset < wire.size(); offset += 7)
+    {
+        const std::vector<StudioMessage> batch = decoder.feed(std::string_view{wire}.substr(offset, 7));
+        messages.insert(messages.end(), batch.begin(), batch.end());
+    }
+
+    CNA_STUDIO_EXPECT_EQ(messages.size(), std::size_t{2});
+    CNA_STUDIO_EXPECT(messages[0].type == StudioMessageType::Hello);
+    CNA_STUDIO_EXPECT_EQ(messages[0].payload["protocolVersion"].asInt(), kStudioProtocolVersion);
+    CNA_STUDIO_EXPECT(messages[1].type == StudioMessageType::ReportLog);
+    CNA_STUDIO_EXPECT_EQ(decoder.getDroppedCount(), std::uint64_t{0});
+}
+
+CNA_STUDIO_TEST(MessageDecoderSkipsGarbageWithoutLosingTheStream)
+{
+    MessageStreamDecoder decoder;
+    const std::string wire = "this is not json\n"
+                           + StudioMessage::makeHello("/tmp/MyGame").encode()
+                           + "{\"type\":\"somethingFromTheFuture\"}\n"
+                           + StudioMessage::makeReportLog("warn", "still here").encode();
+
+    const std::vector<StudioMessage> messages = decoder.feed(wire);
+
+    // A peer from a newer revision sending something unrecognised must not kill a play session.
+    CNA_STUDIO_EXPECT_EQ(messages.size(), std::size_t{2});
+    CNA_STUDIO_EXPECT_EQ(decoder.getDroppedCount(), std::uint64_t{2});
+}
+
+CNA_STUDIO_TEST(PluginHostRejectsIncompatibleManifestsWithoutLoadingThem)
+{
+    const std::filesystem::path directory = makeScratchDirectory("plugins");
+
+    writeFile(directory / "good" / "plugin.json",
+              R"({"id":"org.openeggbert.mc3","name":"MC3 Tools","version":"0.1.0",)"
+              R"("editorApiVersion":1,"library":"libmc3.so"})");
+    writeFile(directory / "good" / "libmc3.so", "not-a-real-library");
+
+    writeFile(directory / "stale" / "plugin.json",
+              R"({"id":"org.example.stale","editorApiVersion":0,"library":"libstale.so"})");
+
+    writeFile(directory / "broken" / "plugin.json", "{ this is not json");
+
+    PluginHost host;
+    const std::vector<LoadedPlugin> plugins = host.discover(directory.generic_string());
+    CNA_STUDIO_EXPECT_EQ(plugins.size(), std::size_t{3});
+
+    std::size_t apiMismatchCount = 0;
+    std::size_t malformedCount = 0;
+    std::size_t acceptedCount = 0;
+    for (const LoadedPlugin& plugin : plugins)
+    {
+        if (plugin.error.find("Studio plugin API version") != std::string::npos) { ++apiMismatchCount; }
+        if (plugin.error.find("malformed") != std::string::npos) { ++malformedCount; }
+        if (plugin.loaded) { ++acceptedCount; }
+
+        // Rejected or accepted, *nothing has been opened*: `loaded` means the manifest passed
+        // every check that can be made without running the plugin's code. An ABI mismatch that
+        // reaches dlopen is a crash rather than an error message (D-11), so the gate comes first.
+        CNA_STUDIO_EXPECT(!plugin.active);
+    }
+    CNA_STUDIO_EXPECT_EQ(apiMismatchCount, std::size_t{1});
+    CNA_STUDIO_EXPECT_EQ(malformedCount, std::size_t{1});
+    CNA_STUDIO_EXPECT_EQ(acceptedCount, std::size_t{1});
+
+    // And the accepted one still does not *open*: its "library" is a text file. That is the whole
+    // reason `loaded` and `active` are two flags -- a manifest a user can fix and a build a user
+    // can fix are different problems, and telling them apart is the point.
+    StudioContext context;
+    CNA_STUDIO_EXPECT_EQ(host.loadAll(context), std::size_t{0});
+    for (const LoadedPlugin& plugin : host.getPlugins())
+    {
+        CNA_STUDIO_EXPECT(!plugin.active);
+    }
+
+    std::filesystem::remove_all(directory);
+}
+
+CNA_STUDIO_TEST(MissingReferencesFindsBrokenAssetSlots)
+{
+    ComponentRegistry registry;
+    registerBuiltinComponents(registry);
+
+    // A real project on disk, so "tracked and present" and "tracked but the file is gone" are
+    // genuinely different states rather than both resolving to absent.
+    const std::filesystem::path directory = makeScratchDirectory("missingrefs");
+    writeFile(directory / "Textures" / "Present.png", "not really a png");
+
+    AssetDatabase assets;
+    assets.setProjectRoot(directory.generic_string());
+
+    const Uuid presentId = Uuid::generate();
+    AssetRecord present;
+    present.id = presentId;
+    present.sourcePath = "Textures/Present.png";
+    present.type = AssetType::Texture2D;
+    assets.add(std::move(present));
+
+    const Uuid strandedId = Uuid::generate();
+    AssetRecord stranded;
+    stranded.id = strandedId;
+    stranded.sourcePath = "Textures/Deleted.png";
+    stranded.type = AssetType::Texture2D;
+    assets.add(std::move(stranded));
+
+    SceneDocument scene;
+    const Uuid goneId = Uuid::generate();
+
+    const auto addSprite = [&](const std::string& name, const Uuid& textureId) {
+        StudioEntity entity{Uuid::generate(), name};
+        StudioComponent transform{BuiltinComponentIds::kTransform};
+        transform.applyDefaults(*registry.find(BuiltinComponentIds::kTransform));
+        entity.addComponent(std::move(transform));
+
+        StudioComponent sprite{BuiltinComponentIds::kSpriteRenderer};
+        sprite.applyDefaults(*registry.find(BuiltinComponentIds::kSpriteRenderer));
+        sprite.setProperty("texture", PropertyValue{PropertyValue::AssetReference{textureId}});
+        entity.addComponent(std::move(sprite));
+        return scene.addEntity(std::move(entity));
+    };
+
+    addSprite("Good", presentId);
+    addSprite("BrokenA", goneId);
+    addSprite("BrokenB", goneId);
+    addSprite("Stranded", strandedId);
+    addSprite("Empty", Uuid{});
+
+    const std::vector<MissingReference> missing = findMissingReferences(scene, assets);
+
+    // The resolvable one is fine, and an empty slot is an ordinary state rather than a fault --
+    // a sprite that has not been given a texture yet is not broken.
+    CNA_STUDIO_EXPECT_EQ(missing.size(), std::size_t{3});
+
+    std::size_t notInDatabase = 0;
+    std::size_t fileMissing = 0;
+    for (const MissingReference& reference : missing)
+    {
+        CNA_STUDIO_EXPECT_EQ(reference.propertyName, std::string{"texture"});
+        if (reference.reason == MissingReference::Reason::NotInDatabase)
+        {
+            ++notInDatabase;
+            CNA_STUDIO_EXPECT_EQ(reference.assetId.toString(), goneId.toString());
+        }
+        else
+        {
+            ++fileMissing;
+            CNA_STUDIO_EXPECT_EQ(reference.assetId.toString(), strandedId.toString());
+        }
+    }
+
+    // The two reasons are genuinely different and both matter: an id deleted from the database is
+    // invisible to AssetDatabase::getMissingAssets(), and a tracked asset whose file vanished is
+    // invisible to a check that only looks the id up.
+    CNA_STUDIO_EXPECT_EQ(notInDatabase, std::size_t{2});
+    CNA_STUDIO_EXPECT_EQ(fileMissing, std::size_t{1});
+
+    // Grouped by id, because a broken reference is almost always one asset that many entities
+    // point at, and the fix is the same for all of them.
+    CNA_STUDIO_EXPECT_EQ(collectMissingAssetIds(missing).size(), std::size_t{2});
+
+    std::filesystem::remove_all(directory);
+}
+
+CNA_STUDIO_TEST(MissingReferencesChecksComponentsWithNoDescriptor)
+{
+    // A component whose plugin failed to load keeps its data and must still have its references
+    // checked -- that scene is the one most likely to be broken.
+    AssetDatabase assets;
+    SceneDocument scene;
+
+    StudioEntity entity{Uuid::generate(), "Exotic"};
+    StudioComponent unknown{"ThirdParty.Decal"};
+    unknown.setProperty("atlas", PropertyValue{PropertyValue::AssetReference{Uuid::generate()}});
+    entity.addComponent(std::move(unknown));
+    scene.addEntity(std::move(entity));
+
+    const std::vector<MissingReference> missing = findMissingReferences(scene, assets);
+    CNA_STUDIO_EXPECT_EQ(missing.size(), std::size_t{1});
+    CNA_STUDIO_EXPECT_EQ(missing.front().componentTypeId, std::string{"ThirdParty.Decal"});
+}
+
+CNA_STUDIO_TEST(RelinkingRewritesEveryReferenceAsOneUndoEntry)
+{
+    ComponentRegistry registry;
+    registerBuiltinComponents(registry);
+
+    SceneDocument scene;
+    CommandHistory history;
+
+    const Uuid goneId = Uuid::generate();
+    const Uuid replacementId = Uuid::generate();
+
+    std::vector<Uuid> sprites;
+    for (int index = 0; index < 3; ++index)
+    {
+        StudioEntity entity{Uuid::generate(), "Sprite" + std::to_string(index)};
+        StudioComponent sprite{BuiltinComponentIds::kSpriteRenderer};
+        sprite.applyDefaults(*registry.find(BuiltinComponentIds::kSpriteRenderer));
+        sprite.setProperty("texture", PropertyValue{PropertyValue::AssetReference{goneId}});
+        entity.addComponent(std::move(sprite));
+        sprites.push_back(scene.addEntity(std::move(entity)));
+    }
+
+    auto command = std::make_unique<RelinkAssetCommand>(scene, goneId, replacementId);
+    CNA_STUDIO_EXPECT(command->isValid());
+    CNA_STUDIO_EXPECT_EQ(command->getReferenceCount(), std::size_t{3});
+    history.execute(std::move(command));
+
+    const auto textureOf = [&](const Uuid& entityId) {
+        return scene.findEntity(entityId)->findComponent(BuiltinComponentIds::kSpriteRenderer)
+            ->getProperty("texture").get<PropertyValue::AssetReference>().id;
+    };
+
+    for (const Uuid& id : sprites) { CNA_STUDIO_EXPECT_EQ(textureOf(id).toString(), replacementId.toString()); }
+
+    // One entry, not three. Undoing a relink of forty sprites must not be forty presses.
+    CNA_STUDIO_EXPECT_EQ(history.getCount(), std::size_t{1});
+    CNA_STUDIO_EXPECT(history.undo());
+    for (const Uuid& id : sprites) { CNA_STUDIO_EXPECT_EQ(textureOf(id).toString(), goneId.toString()); }
+
+    // Redo rewrites the same set the undo restored, because the targets were found once at
+    // construction. Re-scanning in execute() would find nothing the second time.
+    CNA_STUDIO_EXPECT(history.redo());
+    for (const Uuid& id : sprites) { CNA_STUDIO_EXPECT_EQ(textureOf(id).toString(), replacementId.toString()); }
+}
+
+CNA_STUDIO_TEST(RelinkingToNilClearsTheReferences)
+{
+    ComponentRegistry registry;
+    registerBuiltinComponents(registry);
+
+    SceneDocument scene;
+    const Uuid goneId = Uuid::generate();
+
+    StudioEntity entity{Uuid::generate(), "Sprite"};
+    StudioComponent sprite{BuiltinComponentIds::kSpriteRenderer};
+    sprite.applyDefaults(*registry.find(BuiltinComponentIds::kSpriteRenderer));
+    sprite.setProperty("texture", PropertyValue{PropertyValue::AssetReference{goneId}});
+    entity.addComponent(std::move(sprite));
+    const Uuid entityId = scene.addEntity(std::move(entity));
+
+    RelinkAssetCommand clear{scene, goneId, Uuid{}};
+    CNA_STUDIO_EXPECT(clear.isValid());
+    clear.execute();
+
+    // Clearing is the right answer when the asset is simply gone and nothing should replace it.
+    CNA_STUDIO_EXPECT(!scene.findEntity(entityId)->findComponent(BuiltinComponentIds::kSpriteRenderer)
+                           ->getProperty("texture").get<PropertyValue::AssetReference>().id.isValid());
+}
+
+CNA_STUDIO_TEST(RelinkingRefusesWhenNothingRefersToTheOldId)
+{
+    SceneDocument scene;
+    RelinkAssetCommand nothing{scene, Uuid::generate(), Uuid::generate()};
+
+    // A command that would do nothing must not reach the undo stack.
+    CNA_STUDIO_EXPECT(!nothing.isValid());
+
+    RelinkAssetCommand sameId{scene, Uuid{}, Uuid{}};
+    CNA_STUDIO_EXPECT(!sameId.isValid());
+}
+
+CNA_STUDIO_TEST(TheTextureImporterDeclaresItsSettings)
+{
+    ComponentRegistry importers;
+    registerBuiltinImporters(importers);
+
+    const ComponentDescriptor* texture = importers.find(ImporterIds::kTexture);
+    CNA_STUDIO_EXPECT(texture != nullptr);
+
+    const auto property = [&](const std::string& name) -> const PropertyDescriptor* {
+        for (const PropertyDescriptor& candidate : texture->properties)
+        {
+            if (candidate.name == name) { return &candidate; }
+        }
+        return nullptr;
+    };
+
+    // Premultiplied by default, because XNA's SpriteBatch blends that way -- an importer that
+    // defaulted the other way would halo the edge of every sprite in a default project.
+    CNA_STUDIO_EXPECT(property("premultiplyAlpha") != nullptr);
+    CNA_STUDIO_EXPECT(property("premultiplyAlpha")->defaultValue.get<bool>());
+
+    // Mipmaps off, because most 2D art is drawn at its native size and they cost a third more
+    // memory for nothing.
+    CNA_STUDIO_EXPECT(!property("generateMipmaps")->defaultValue.get<bool>());
+
+    // The pixel size is a fact about the file, not a choice about it.
+    CNA_STUDIO_EXPECT(property("pixelSize")->readOnly);
+
+    CNA_STUDIO_EXPECT_EQ(property("wrapMode")->enumOptions.size(), std::size_t{3});
+}
+
+CNA_STUDIO_TEST(ImporterSettingsSurviveTheSidecarAndUndoBackToAbsent)
+{
+    const std::filesystem::path directory = makeScratchDirectory("importsettings");
+    writeFile(directory / "Textures" / "Hero.png", "not really a png");
+
+    AssetDatabase assets;
+    assets.setProjectRoot(directory.generic_string());
+    assets.scan("Textures");
+
+    CNA_STUDIO_EXPECT_EQ(assets.getCount(), std::size_t{1});
+    const Uuid assetId = assets.getAll().front()->id;
+    CNA_STUDIO_EXPECT_EQ(assets.find(assetId)->importerId, std::string{ImporterIds::kTexture});
+
+    CommandHistory history;
+    auto command = std::make_unique<SetImporterSettingCommand>(assets, assetId, "generateMipmaps",
+                                                               PropertyValue{true});
+    CNA_STUDIO_EXPECT(command->isValid());
+    history.execute(std::move(command));
+
+    CNA_STUDIO_EXPECT(assets.find(assetId)->importerSettings["generateMipmaps"].asBoolean(false));
+
+    // Written through, not merely held in memory: a setting that lived only in the session would
+    // be lost on the next scan, and the user could not tell that from it having no effect.
+    AssetDatabase reopened;
+    reopened.setProjectRoot(directory.generic_string());
+    reopened.scan("Textures");
+    CNA_STUDIO_EXPECT(reopened.find(assetId) != nullptr);
+    CNA_STUDIO_EXPECT(reopened.find(assetId)->importerSettings["generateMipmaps"].asBoolean(false));
+
+    // Undo takes the field back out rather than writing a default in its place: a sidecar that
+    // accumulated every field anyone glanced at would make its every diff noise.
+    CNA_STUDIO_EXPECT(history.undo());
+    CNA_STUDIO_EXPECT(assets.find(assetId)->importerSettings["generateMipmaps"].isNull());
+
+    AssetDatabase afterUndo;
+    afterUndo.setProjectRoot(directory.generic_string());
+    afterUndo.scan("Textures");
+    CNA_STUDIO_EXPECT(afterUndo.find(assetId)->importerSettings["generateMipmaps"].isNull());
+
+    std::filesystem::remove_all(directory);
+}
+
+CNA_STUDIO_TEST(ImporterSettingEditsMergeIntoOneUndoEntry)
+{
+    const std::filesystem::path directory = makeScratchDirectory("importmerge");
+    writeFile(directory / "Audio" / "Jump.wav", "not really a wav");
+
+    AssetDatabase assets;
+    assets.setProjectRoot(directory.generic_string());
+    assets.scan("Audio");
+
+    const Uuid assetId = assets.getAll().front()->id;
+    CommandHistory history;
+
+    for (const float volume : {0.9f, 0.8f, 0.7f, 0.6f})
+    {
+        auto command = std::make_unique<SetImporterSettingCommand>(assets, assetId, "importVolume",
+                                                                   PropertyValue{volume});
+        history.execute(std::move(command), MergePolicy::MergeWithPrevious);
+    }
+
+    // One entry for the drag, undoing to where it started -- the same policy the scene's own
+    // property fields use.
+    CNA_STUDIO_EXPECT_EQ(history.getCount(), std::size_t{1});
+    CNA_STUDIO_EXPECT(history.undo());
+    CNA_STUDIO_EXPECT(assets.find(assetId)->importerSettings["importVolume"].isNull());
+
+    std::filesystem::remove_all(directory);
+}
+
+CNA_STUDIO_TEST(JsonRemoveTakesAFieldBackOut)
+{
+    JsonValue object = JsonValue::makeObject();
+    object.set("kept", JsonValue{1});
+    object.set("dropped", JsonValue{2});
+
+    CNA_STUDIO_EXPECT(object.remove("dropped"));
+    CNA_STUDIO_EXPECT(object["dropped"].isNull());
+    CNA_STUDIO_EXPECT_EQ(object["kept"].asInt(0), 1);
+
+    // Removing what is not there is not an error, and removing from a non-object is not a crash.
+    CNA_STUDIO_EXPECT(!object.remove("dropped"));
+    JsonValue scalar{5};
+    CNA_STUDIO_EXPECT(!scalar.remove("anything"));
+}
+
+CNA_STUDIO_TEST(ImageSizeIsReadFromThePngHeader)
+{
+    const std::filesystem::path directory = makeScratchDirectory("imagesize");
+
+    // A 3x2 PNG header: the 8-byte signature, then the IHDR length and tag, then the dimensions
+    // big-endian. Only the header matters -- nothing here decodes the image.
+    std::string png;
+    const unsigned char signature[] = {0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A,
+                                       0x00, 0x00, 0x00, 0x0D, 'I', 'H', 'D', 'R',
+                                       0x00, 0x00, 0x00, 0x03,
+                                       0x00, 0x00, 0x00, 0x02,
+                                       0x08, 0x06, 0x00, 0x00, 0x00};
+    png.assign(reinterpret_cast<const char*>(signature), sizeof(signature));
+    writeFile(directory / "Tiny.png", png);
+
+    const std::optional<ImageSize> size = readImageSize((directory / "Tiny.png").generic_string());
+    CNA_STUDIO_EXPECT(size.has_value());
+    CNA_STUDIO_EXPECT_EQ(size->width, 3);
+    CNA_STUDIO_EXPECT_EQ(size->height, 2);
+
+    // JPEG: no fixed offset to read from. The size lives in a start-of-frame segment that sits
+    // after a chain of others -- here an APP0 and a quantisation table -- each of which has to be
+    // stepped over by its own length.
+    static const unsigned char kJpeg[] = {
+        0xFF, 0xD8,
+        0xFF, 0xE0, 0x00, 0x10, 'J', 'F', 'I', 'F', 0x00, 0x01, 0x01, 0x00,
+        0x00, 0x01, 0x00, 0x01, 0x00, 0x00,
+        0xFF, 0xDB, 0x00, 0x04, 0x00, 0x00,
+        // SOF0: precision 8, height 0x0040, width 0x0060 -- height first, which is the reverse of
+        // PNG's order and the classic way to get this wrong.
+        0xFF, 0xC0, 0x00, 0x11, 0x08, 0x00, 0x40, 0x00, 0x60, 0x03,
+        0x01, 0x11, 0x00, 0x02, 0x11, 0x01, 0x03, 0x11, 0x01};
+    writeFile(directory / "Photo.jpg",
+              std::string{reinterpret_cast<const char*>(kJpeg), sizeof(kJpeg)});
+
+    const std::optional<ImageSize> jpeg = readImageSize((directory / "Photo.jpg").generic_string());
+    CNA_STUDIO_EXPECT(jpeg.has_value());
+    CNA_STUDIO_EXPECT_EQ(jpeg->width, 96);
+    CNA_STUDIO_EXPECT_EQ(jpeg->height, 64);
+
+    // A format the editor cannot measure is unknown, not zero -- the caller has to be able to tell
+    // "I could not read this" from "this image is empty". A truncated JPEG is the same answer: the
+    // walk runs off the end of the file rather than reading whatever happens to be there.
+    writeFile(directory / "Broken.jpg", "\xFF\xD8\xFF\xE0 not really a jpeg but long enough to read");
+    CNA_STUDIO_EXPECT(!readImageSize((directory / "Broken.jpg").generic_string()).has_value());
+    CNA_STUDIO_EXPECT(!readImageSize((directory / "Absent.png").generic_string()).has_value());
+
+    std::filesystem::remove_all(directory);
+}
+
+CNA_STUDIO_TEST(ImporterFactsAreWrittenOnceAndNotRewrittenOnEveryScan)
+{
+    const std::filesystem::path directory = makeScratchDirectory("importerfacts");
+
+    std::string png;
+    const unsigned char signature[] = {0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A,
+                                       0x00, 0x00, 0x00, 0x0D, 'I', 'H', 'D', 'R',
+                                       0x00, 0x00, 0x00, 0x20,
+                                       0x00, 0x00, 0x00, 0x10,
+                                       0x08, 0x06, 0x00, 0x00, 0x00};
+    png.assign(reinterpret_cast<const char*>(signature), sizeof(signature));
+    writeFile(directory / "Textures" / "Hero.png", png);
+
+    AssetDatabase assets;
+    assets.setProjectRoot(directory.generic_string());
+    assets.scan("Textures");
+
+    CNA_STUDIO_EXPECT_EQ(applyImporterFacts(assets), std::size_t{1});
+
+    const Uuid assetId = assets.getAll().front()->id;
+    const StudioVector2 size =
+        PropertyValue::fromJson(assets.find(assetId)->importerSettings["pixelSize"], PropertyType::Vector2)
+            .get<StudioVector2>();
+    CNA_STUDIO_EXPECT_EQ(size.x, 32.0f);
+    CNA_STUDIO_EXPECT_EQ(size.y, 16.0f);
+
+    // Nothing changed, so nothing is rewritten. A scan that touched every sidecar on every open
+    // would show up as a repository full of spurious diffs.
+    CNA_STUDIO_EXPECT_EQ(applyImporterFacts(assets), std::size_t{0});
+
+    std::filesystem::remove_all(directory);
+}
+
+CNA_STUDIO_TEST(TheWatcherNoticesAnExternalEditExactlyOnce)
+{
+    const std::filesystem::path directory = makeScratchDirectory("watchedit");
+    writeFile(directory / "Textures" / "Hero.png", "first contents");
+
+    AssetDatabase assets;
+    assets.setProjectRoot(directory.generic_string());
+    assets.scan("Textures");
+    const Uuid assetId = assets.getAll().front()->id;
+
+    AssetWatcher watcher;
+    watcher.setInterval(1.0);
+
+    // Nothing has changed and no interval has elapsed, so nothing is polled and nothing reported.
+    CNA_STUDIO_EXPECT(!watcher.poll(assets, 0.1).polled);
+    CNA_STUDIO_EXPECT(!watcher.poll(assets, 2.0).hasChanges());
+
+    writeFile(directory / "Textures" / "Hero.png", "second contents, a different length entirely");
+
+    const AssetWatchResult first = watcher.poll(assets, 2.0);
+    CNA_STUDIO_EXPECT_EQ(first.changed.size(), std::size_t{1});
+    CNA_STUDIO_EXPECT_EQ(first.changed.front().toString(), assetId.toString());
+
+    // Reported once. The stamp is updated as it is reported, so a console does not fill with the
+    // same line twice a second until something else happens to fix it.
+    CNA_STUDIO_EXPECT(!watcher.poll(assets, 2.0).hasChanges());
+
+    std::filesystem::remove_all(directory);
+}
+
+CNA_STUDIO_TEST(TheWatcherReportsDisappearanceAndReturnSeparately)
+{
+    const std::filesystem::path directory = makeScratchDirectory("watchgone");
+    writeFile(directory / "Textures" / "Hero.png", "contents");
+
+    AssetDatabase assets;
+    assets.setProjectRoot(directory.generic_string());
+    assets.scan("Textures");
+    const Uuid assetId = assets.getAll().front()->id;
+
+    AssetWatcher watcher;
+    watcher.setInterval(0.0);
+
+    std::filesystem::remove(directory / "Textures" / "Hero.png");
+
+    const AssetWatchResult gone = watcher.poll(assets, 0.0);
+    CNA_STUDIO_EXPECT_EQ(gone.removed.size(), std::size_t{1});
+    CNA_STUDIO_EXPECT_EQ(gone.removed.front().toString(), assetId.toString());
+    CNA_STUDIO_EXPECT(gone.changed.empty());
+
+    // Once, not on every poll for the rest of the session.
+    CNA_STUDIO_EXPECT(!watcher.poll(assets, 0.0).hasChanges());
+
+    writeFile(directory / "Textures" / "Hero.png", "contents are back");
+
+    // A file returning is worth telling apart from one being edited: the first fixes a broken
+    // reference, the second means reloading something already on screen.
+    const AssetWatchResult back = watcher.poll(assets, 0.0);
+    CNA_STUDIO_EXPECT_EQ(back.restored.size(), std::size_t{1});
+    CNA_STUDIO_EXPECT_EQ(back.restored.front().toString(), assetId.toString());
+    CNA_STUDIO_EXPECT(back.changed.empty());
+    CNA_STUDIO_EXPECT(!watcher.poll(assets, 0.0).hasChanges());
+
+    std::filesystem::remove_all(directory);
+}
+
+CNA_STUDIO_TEST(ASweepIsSpreadOverPollsRatherThanStallingOneFrame)
+{
+    // `plan.md` STUDIO-30031. At a hundred thousand assets a poll stated every tracked file in one
+    // go and cost half a second **on the frame**, twice a second. Six files and a budget of two
+    // stand in for that here: what matters is that one call does not visit them all, and that the
+    // lap still gets all the way round.
+    const std::filesystem::path directory = makeScratchDirectory("watchsweep");
+    for (int i = 0; i < 6; ++i)
+    {
+        writeFile(directory / "Textures" / ("Asset" + std::to_string(i) + ".png"), "contents");
+    }
+
+    AssetDatabase assets;
+    assets.setProjectRoot(directory.generic_string());
+    assets.scan("Textures");
+    CNA_STUDIO_EXPECT_EQ(assets.getAll().size(), std::size_t{6});
+
+    AssetWatcher watcher;
+    watcher.setInterval(1.0);
+    watcher.setMaxRecordsPerPoll(2);
+
+    // The *last* file in path order, so nothing but a complete lap can find it. A sweep that
+    // quietly stopped after its first slice would report this one as unchanged forever.
+    writeFile(directory / "Textures" / "Asset5.png", "much longer contents than before");
+
+    const AssetWatchResult first = watcher.poll(assets, 2.0);
+    CNA_STUDIO_EXPECT(first.polled);
+    CNA_STUDIO_EXPECT(!first.sweepComplete);
+    CNA_STUDIO_EXPECT(!first.hasChanges());
+
+    // No clock advance at all between slices. The interval gates the start of a lap, not each step
+    // of one -- waiting it between slices would take a large project minutes to get round once.
+    const AssetWatchResult second = watcher.poll(assets, 0.0);
+    CNA_STUDIO_EXPECT(second.polled);
+    CNA_STUDIO_EXPECT(!second.sweepComplete);
+
+    const AssetWatchResult third = watcher.poll(assets, 0.0);
+    CNA_STUDIO_EXPECT(third.sweepComplete);
+    CNA_STUDIO_EXPECT_EQ(third.changed.size(), std::size_t{1});
+
+    // And the lap that follows waits for the interval again, rather than running every frame for
+    // the rest of the session.
+    CNA_STUDIO_EXPECT(!watcher.poll(assets, 0.0).polled);
+
+    std::filesystem::remove_all(directory);
+}
+
+CNA_STUDIO_TEST(ARecordDeletedMidSweepDoesNotMakeTheLapSkipTheNextOne)
+{
+    // The reason the cursor is a path and not an index (`plan.md` STUDIO-30031). Removing a record
+    // the sweep has already passed shifts every later record down by one position, so an index
+    // cursor would resume one place too far along and never look at the file it stepped over.
+    const std::filesystem::path directory = makeScratchDirectory("watchcursor");
+    for (int i = 0; i < 4; ++i)
+    {
+        writeFile(directory / "Textures" / ("Asset" + std::to_string(i) + ".png"), "contents");
+    }
+
+    AssetDatabase assets;
+    assets.setProjectRoot(directory.generic_string());
+    assets.scan("Textures");
+
+    AssetWatcher watcher;
+    watcher.setInterval(0.0);
+    watcher.setMaxRecordsPerPoll(2);
+
+    const AssetRecord* third = assets.findByPath("Textures/Asset2.png");
+    CNA_STUDIO_EXPECT(third != nullptr);
+    const Uuid thirdId = third->id;
+
+    // Slice one covers Asset0 and Asset1 and stops. Asset2 is the next record the lap owes.
+    CNA_STUDIO_EXPECT(!watcher.poll(assets, 1.0).sweepComplete);
+
+    // Now the edit, and then a removal from *behind* the cursor.
+    writeFile(directory / "Textures" / "Asset2.png", "much longer contents than before");
+    CNA_STUDIO_EXPECT(assets.removeRecord(assets.findByPath("Textures/Asset0.png")->id));
+
+    const AssetWatchResult rest = watcher.poll(assets, 1.0);
+    CNA_STUDIO_EXPECT(rest.sweepComplete);
+    CNA_STUDIO_EXPECT_EQ(rest.changed.size(), std::size_t{1});
+    CNA_STUDIO_EXPECT_EQ(rest.changed.front().toString(), thirdId.toString());
+
+    std::filesystem::remove_all(directory);
+}
+
+CNA_STUDIO_TEST(APollNeverStatesMoreThanItsBudgetHoweverManyAssetsThereAre)
+{
+    const std::filesystem::path directory = makeScratchDirectory("watchbudget");
+    for (int i = 0; i < 20; ++i)
+    {
+        writeFile(directory / "Textures" / ("Asset" + std::to_string(i) + ".png"), "contents");
+    }
+
+    AssetDatabase assets;
+    assets.setProjectRoot(directory.generic_string());
+    assets.scan("Textures");
+
+    AssetWatcher watcher;
+    watcher.setInterval(0.0);
+    watcher.setMaxRecordsPerPoll(3);
+
+    // Every file changed at once -- the shape of a project someone has just pulled. The budget is
+    // what bounds the frame, so no single poll may report more than it.
+    for (int i = 0; i < 20; ++i)
+    {
+        writeFile(directory / "Textures" / ("Asset" + std::to_string(i) + ".png"),
+                  "much longer contents than before");
+    }
+
+    std::size_t reported = 0;
+    int polls = 0;
+    for (; polls < 100; ++polls)
+    {
+        const AssetWatchResult result = watcher.poll(assets, 1.0);
+        CNA_STUDIO_EXPECT(result.changed.size() <= watcher.getMaxRecordsPerPoll());
+        reported += result.changed.size();
+        if (result.sweepComplete) { break; }
+    }
+
+    // All twenty, none twice, and it took the seven polls a budget of three implies rather than
+    // one poll that quietly ignored the budget.
+    CNA_STUDIO_EXPECT_EQ(reported, std::size_t{20});
+    CNA_STUDIO_EXPECT_EQ(polls, 6);
+
+    // A budget of zero would be a watcher that never finishes a lap, which is worse than one that
+    // costs too much, so it is clamped rather than honoured.
+    watcher.setMaxRecordsPerPoll(0);
+    CNA_STUDIO_EXPECT_EQ(watcher.getMaxRecordsPerPoll(), std::size_t{1});
+
+    std::filesystem::remove_all(directory);
+}
+
+CNA_STUDIO_TEST(TheWatcherHonoursItsInterval)
+{
+    const std::filesystem::path directory = makeScratchDirectory("watchinterval");
+    writeFile(directory / "Textures" / "Hero.png", "contents");
+
+    AssetDatabase assets;
+    assets.setProjectRoot(directory.generic_string());
+    assets.scan("Textures");
+
+    AssetWatcher watcher;
+    watcher.setInterval(10.0);
+
+    writeFile(directory / "Textures" / "Hero.png", "much longer contents than before");
+
+    // A change that has happened is not reported until a poll is due: the whole point of the
+    // interval is that a frame does not cost one stat call per asset.
+    for (int frame = 0; frame < 5; ++frame)
+    {
+        CNA_STUDIO_EXPECT(!watcher.poll(assets, 1.0).polled);
+    }
+
+    // Unless something asks for one now, which is what a manual "Refresh" would do.
+    watcher.requestImmediatePoll();
+    CNA_STUDIO_EXPECT_EQ(watcher.poll(assets, 0.0).changed.size(), std::size_t{1});
+
+    std::filesystem::remove_all(directory);
+}
+
+CNA_STUDIO_TEST(MovingAnAssetKeepsItsIdAndTakesItsSidecarAlong)
+{
+    const std::filesystem::path directory = makeScratchDirectory("assetmove");
+    writeFile(directory / "Assets" / "Textures" / "Hero.png", "contents");
+
+    AssetDatabase assets;
+    assets.setProjectRoot(directory.generic_string());
+    assets.scan("Assets");
+
+    const Uuid assetId = assets.getAll().front()->id;
+    CNA_STUDIO_EXPECT(std::filesystem::exists(directory / "Assets" / "Textures" / "Hero.png.cnaasset"));
+
+    std::string error;
+    CNA_STUDIO_EXPECT(assets.moveAsset(assetId, "Assets/Sprites/Player.png", &error));
+
+    // The id is the identity, so nothing that references it needs to know anything moved (D-08).
+    CNA_STUDIO_EXPECT(assets.find(assetId) != nullptr);
+    CNA_STUDIO_EXPECT_EQ(assets.find(assetId)->sourcePath, std::string{"Assets/Sprites/Player.png"});
+    CNA_STUDIO_EXPECT(assets.findByPath("Assets/Textures/Hero.png") == nullptr);
+    CNA_STUDIO_EXPECT(assets.findByPath("Assets/Sprites/Player.png") != nullptr);
+
+    // The sidecar travels with the file. An orphaned source file would be given a fresh id by the
+    // next scan, silently breaking every reference to it.
+    CNA_STUDIO_EXPECT(std::filesystem::exists(directory / "Assets" / "Sprites" / "Player.png"));
+    CNA_STUDIO_EXPECT(std::filesystem::exists(directory / "Assets" / "Sprites" / "Player.png.cnaasset"));
+    CNA_STUDIO_EXPECT(!std::filesystem::exists(directory / "Assets" / "Textures" / "Hero.png"));
+    CNA_STUDIO_EXPECT(!std::filesystem::exists(directory / "Assets" / "Textures" / "Hero.png.cnaasset"));
+
+    // Rescanning finds the same asset with the same id, which is the proof the move was complete.
+    AssetDatabase reopened;
+    reopened.setProjectRoot(directory.generic_string());
+    const AssetScanResult rescan = reopened.scan("Assets");
+    CNA_STUDIO_EXPECT_EQ(reopened.getCount(), std::size_t{1});
+    CNA_STUDIO_EXPECT(reopened.find(assetId) != nullptr);
+    CNA_STUDIO_EXPECT_EQ(rescan.newCount, std::size_t{0});
+
+    std::filesystem::remove_all(directory);
+}
+
+CNA_STUDIO_TEST(MovingAnAssetDoesNotTouchAnySceneFile)
+{
+    const std::filesystem::path directory = makeScratchDirectory("assetmovescene");
+    writeFile(directory / "Assets" / "Textures" / "Hero.png", "contents");
+
+    AssetDatabase assets;
+    assets.setProjectRoot(directory.generic_string());
+    assets.scan("Assets");
+    const Uuid assetId = assets.getAll().front()->id;
+
+    ComponentRegistry registry;
+    registerBuiltinComponents(registry);
+
+    SceneDocument scene;
+    StudioEntity entity{Uuid::generate(), "Player"};
+    StudioComponent sprite{BuiltinComponentIds::kSpriteRenderer};
+    sprite.applyDefaults(*registry.find(BuiltinComponentIds::kSpriteRenderer));
+    sprite.setProperty("texture", PropertyValue{PropertyValue::AssetReference{assetId}});
+    entity.addComponent(std::move(sprite));
+    scene.addEntity(std::move(entity));
+
+    const std::filesystem::path scenePath = directory / "Scenes" / "Level01.cnascene";
+    std::string errorMessage;
+    CNA_STUDIO_EXPECT(scene.saveToFile(scenePath.generic_string(), &errorMessage));
+
+    std::ifstream before{scenePath, std::ios::binary};
+    const std::string beforeContents{std::istreambuf_iterator<char>{before},
+                                     std::istreambuf_iterator<char>{}};
+
+    CNA_STUDIO_EXPECT(assets.moveAsset(assetId, "Assets/Sprites/Player.png"));
+
+    std::ifstream after{scenePath, std::ios::binary};
+    const std::string afterContents{std::istreambuf_iterator<char>{after},
+                                    std::istreambuf_iterator<char>{}};
+
+    // Byte for byte. An editor that rewrote every scene on a rename would turn tidying an asset
+    // folder into a review of the whole project.
+    CNA_STUDIO_EXPECT_EQ(afterContents, beforeContents);
+
+    // And the reference still resolves, because it was never a path in the first place.
+    CNA_STUDIO_EXPECT(findMissingReferences(scene, assets).empty());
+
+    std::filesystem::remove_all(directory);
+}
+
+CNA_STUDIO_TEST(MovingAnAssetRefusesRatherThanOverwriting)
+{
+    const std::filesystem::path directory = makeScratchDirectory("assetmoverefuse");
+    writeFile(directory / "Assets" / "A.png", "first");
+    writeFile(directory / "Assets" / "B.png", "second");
+
+    AssetDatabase assets;
+    assets.setProjectRoot(directory.generic_string());
+    assets.scan("Assets");
+    CNA_STUDIO_EXPECT_EQ(assets.getCount(), std::size_t{2});
+
+    const Uuid firstId = assets.findByPath("Assets/A.png")->id;
+
+    std::string error;
+    CNA_STUDIO_EXPECT(!assets.moveAsset(firstId, "Assets/B.png", &error));
+    CNA_STUDIO_EXPECT(!error.empty());
+
+    // Both files are still there, with their contents intact. Silently overwriting one asset with
+    // another is the one outcome a move must never have.
+    CNA_STUDIO_EXPECT(std::filesystem::exists(directory / "Assets" / "A.png"));
+    CNA_STUDIO_EXPECT(std::filesystem::exists(directory / "Assets" / "B.png"));
+    CNA_STUDIO_EXPECT_EQ(assets.find(firstId)->sourcePath, std::string{"Assets/A.png"});
+
+    // Nor may a destination climb out of the project: the sidecar's relative path would stop
+    // meaning anything.
+    CNA_STUDIO_EXPECT(!assets.moveAsset(firstId, "../Escaped.png", &error));
+    CNA_STUDIO_EXPECT(!assets.moveAsset(firstId, "", &error));
+
+    std::filesystem::remove_all(directory);
+}
+
+CNA_STUDIO_TEST(MovingAnAssetIsUndoable)
+{
+    const std::filesystem::path directory = makeScratchDirectory("assetmoveundo");
+    writeFile(directory / "Assets" / "Textures" / "Hero.png", "contents");
+
+    AssetDatabase assets;
+    assets.setProjectRoot(directory.generic_string());
+    assets.scan("Assets");
+    const Uuid assetId = assets.getAll().front()->id;
+
+    CommandHistory history;
+    auto command = std::make_unique<MoveAssetCommand>(assets, assetId, "Assets/Sprites/Player.png");
+    CNA_STUDIO_EXPECT(command->isValid());
+    history.execute(std::move(command));
+
+    CNA_STUDIO_EXPECT_EQ(assets.find(assetId)->sourcePath, std::string{"Assets/Sprites/Player.png"});
+
+    CNA_STUDIO_EXPECT(history.undo());
+    CNA_STUDIO_EXPECT_EQ(assets.find(assetId)->sourcePath, std::string{"Assets/Textures/Hero.png"});
+    CNA_STUDIO_EXPECT(std::filesystem::exists(directory / "Assets" / "Textures" / "Hero.png"));
+
+    CNA_STUDIO_EXPECT(history.redo());
+    CNA_STUDIO_EXPECT_EQ(assets.find(assetId)->sourcePath, std::string{"Assets/Sprites/Player.png"});
+
+    std::filesystem::remove_all(directory);
+}
+
+namespace
+{
+    /** @brief Registers @p paths as tracked assets, without touching the filesystem. */
+    void trackPaths(AssetDatabase& assets, const std::vector<std::string>& paths)
+    {
+        for (const std::string& path : paths)
+        {
+            AssetRecord record;
+            record.id = Uuid::generate();
+            record.sourcePath = path;
+            record.type = AssetDatabase::guessTypeFromExtension(path);
+            assets.add(std::move(record));
+        }
+    }
+}
+
+CNA_STUDIO_TEST(TheAssetTreeIsDerivedFromThePathsAndOrdered)
+{
+    AssetDatabase assets;
+    trackPaths(assets, {"Assets/Textures/hero.png", "Assets/Textures/enemy.png",
+                        "Assets/Audio/jump.wav", "Assets/Textures/ui/button.png",
+                        "readme.txt"});
+
+    const AssetFolder root = buildAssetTree(assets);
+
+    CNA_STUDIO_EXPECT_EQ(root.getTotalAssetCount(), std::size_t{5});
+
+    // A file with no directory part sits at the root rather than inventing a folder for itself.
+    CNA_STUDIO_EXPECT_EQ(root.assets.size(), std::size_t{1});
+
+    CNA_STUDIO_EXPECT_EQ(root.folders.size(), std::size_t{1});
+    const AssetFolder& assetsFolder = root.folders.front();
+    CNA_STUDIO_EXPECT_EQ(assetsFolder.name, std::string{"Assets"});
+    CNA_STUDIO_EXPECT_EQ(assetsFolder.path, std::string{"Assets"});
+
+    // Ordered by name, so the tree reads the same every frame.
+    CNA_STUDIO_EXPECT_EQ(assetsFolder.folders.size(), std::size_t{2});
+    CNA_STUDIO_EXPECT_EQ(assetsFolder.folders[0].name, std::string{"Audio"});
+    CNA_STUDIO_EXPECT_EQ(assetsFolder.folders[1].name, std::string{"Textures"});
+
+    const AssetFolder& textures = assetsFolder.folders[1];
+    CNA_STUDIO_EXPECT_EQ(textures.assets.size(), std::size_t{2});
+    CNA_STUDIO_EXPECT_EQ(textures.getTotalAssetCount(), std::size_t{3});
+    CNA_STUDIO_EXPECT_EQ(textures.folders.size(), std::size_t{1});
+    CNA_STUDIO_EXPECT_EQ(textures.folders.front().path, std::string{"Assets/Textures/ui"});
+}
+
+CNA_STUDIO_TEST(TheAssetFilterIsCaseInsensitiveAndLeavesNoEmptyFolders)
+{
+    AssetDatabase assets;
+    trackPaths(assets, {"Assets/Textures/hero.png", "Assets/Textures/enemy.png",
+                        "Assets/Audio/jump.wav"});
+
+    // Part of a file name finds it wherever it lives.
+    const AssetFolder byName = buildAssetTree(assets, "HERO");
+    CNA_STUDIO_EXPECT_EQ(byName.getTotalAssetCount(), std::size_t{1});
+
+    // A filtered tree contains no empty folders: one that told the user nothing about where the
+    // match is would be worse than no tree at all.
+    CNA_STUDIO_EXPECT_EQ(byName.folders.size(), std::size_t{1});
+    CNA_STUDIO_EXPECT_EQ(byName.folders.front().folders.size(), std::size_t{1});
+    CNA_STUDIO_EXPECT_EQ(byName.folders.front().folders.front().name, std::string{"Textures"});
+
+    // A folder name keeps everything under it, because the test is against the whole path.
+    CNA_STUDIO_EXPECT_EQ(buildAssetTree(assets, "audio").getTotalAssetCount(), std::size_t{1});
+    CNA_STUDIO_EXPECT_EQ(buildAssetTree(assets, "textures").getTotalAssetCount(), std::size_t{2});
+
+    // Nothing matching yields an empty tree rather than the whole thing.
+    CNA_STUDIO_EXPECT(buildAssetTree(assets, "nothing here").isEmpty());
+    CNA_STUDIO_EXPECT_EQ(buildAssetTree(assets, "").getTotalAssetCount(), std::size_t{3});
+}
+
+CNA_STUDIO_TEST(AssetPathHelpersSplitAndJoinConsistently)
+{
+    CNA_STUDIO_EXPECT_EQ(assetFileName("Assets/Textures/hero.png"), std::string{"hero.png"});
+    CNA_STUDIO_EXPECT_EQ(assetDirectory("Assets/Textures/hero.png"), std::string{"Assets/Textures"});
+
+    // A bare file name has no directory part, and joining must not invent one -- a leading slash
+    // would look absolute and resolve somewhere else entirely.
+    CNA_STUDIO_EXPECT_EQ(assetFileName("readme.txt"), std::string{"readme.txt"});
+    CNA_STUDIO_EXPECT_EQ(assetDirectory("readme.txt"), std::string{});
+    CNA_STUDIO_EXPECT_EQ(joinAssetPath("", "readme.txt"), std::string{"readme.txt"});
+
+    CNA_STUDIO_EXPECT_EQ(joinAssetPath(assetDirectory("Assets/Textures/hero.png"), "villain.png"),
+                         std::string{"Assets/Textures/villain.png"});
+}
+
+// --------------------------------------------------------------------------------------------
+// Crash-recovery snapshots (plan.md ED-903)
+// --------------------------------------------------------------------------------------------
+
+namespace
+{
+    /** @brief Builds a snapshot carrying a one-entity scene. */
+    RecoverySnapshot makeSnapshot(const std::string& projectPath,
+                                  const std::string& sceneName,
+                                  std::int64_t savedAt)
+    {
+        RecoverySnapshot snapshot;
+        snapshot.projectPath = projectPath;
+        snapshot.scenePath = projectPath + ".scene";
+        snapshot.sceneName = sceneName;
+        snapshot.sceneId = Uuid::generate();
+        snapshot.savedAtSeconds = savedAt;
+
+        snapshot.scene = JsonValue::makeObject();
+        snapshot.scene.set("formatVersion", JsonValue{1});
+        snapshot.scene.set("name", JsonValue{sceneName});
+        snapshot.scene.set("entities", JsonValue::makeArray());
+        return snapshot;
+    }
+}
+
+CNA_STUDIO_TEST(ARecoverySnapshotRoundTripsAndIsFoundByItsProject)
+{
+    const std::filesystem::path directory = makeScratchDirectory("recovery");
+    const RecoveryStore store{directory.generic_string()};
+
+    const RecoverySnapshot written = makeSnapshot("/games/Alpha.cnaproject", "Level01", 1700000000);
+    std::string errorMessage;
+    CNA_STUDIO_EXPECT(store.write(written, &errorMessage));
+    CNA_STUDIO_EXPECT(errorMessage.empty());
+
+    const std::optional<RecoverySnapshot> found = store.findForProject("/games/Alpha.cnaproject");
+    CNA_STUDIO_EXPECT(found.has_value());
+    CNA_STUDIO_EXPECT_EQ(found->sceneName, std::string{"Level01"});
+    CNA_STUDIO_EXPECT(found->sceneId == written.sceneId);
+    CNA_STUDIO_EXPECT_EQ(found->savedAtSeconds, std::int64_t{1700000000});
+    CNA_STUDIO_EXPECT_EQ(found->scene["name"].asString(), std::string{"Level01"});
+
+    // Another project's snapshot must not be offered: recovering the wrong game's work would be
+    // a worse outcome than recovering nothing.
+    CNA_STUDIO_EXPECT(!store.findForProject("/games/Beta.cnaproject").has_value());
+
+    CNA_STUDIO_EXPECT(store.discard(written.sceneId));
+    CNA_STUDIO_EXPECT(!store.findForProject("/games/Alpha.cnaproject").has_value());
+    CNA_STUDIO_EXPECT(!store.discard(written.sceneId));
+
+    std::filesystem::remove_all(directory);
+}
+
+CNA_STUDIO_TEST(TheNewestSnapshotWinsAndACorruptOneIsSkipped)
+{
+    const std::filesystem::path directory = makeScratchDirectory("recoverynewest");
+    const RecoveryStore store{directory.generic_string()};
+
+    CNA_STUDIO_EXPECT(store.write(makeSnapshot("/games/Alpha.cnaproject", "Older", 1000)));
+    CNA_STUDIO_EXPECT(store.write(makeSnapshot("/games/Alpha.cnaproject", "Newer", 2000)));
+
+    const std::optional<RecoverySnapshot> found = store.findForProject("/games/Alpha.cnaproject");
+    CNA_STUDIO_EXPECT(found.has_value());
+    CNA_STUDIO_EXPECT_EQ(found->sceneName, std::string{"Newer"});
+
+    // A truncated file is skipped rather than hiding the readable ones. Recovery is a best-effort
+    // path by construction, and one bad file must not cost the others.
+    writeFile(directory / (Uuid::generate().toString() + ".cnarecovery"), "{\"formatVersion\":1,");
+    CNA_STUDIO_EXPECT_EQ(store.list().size(), std::size_t{2});
+
+    // So is one written by a build that knows more than this one does.
+    JsonValue future = JsonValue::makeObject();
+    future.set("formatVersion", JsonValue{RecoveryStore::kFormatVersion + 1});
+    future.set("projectPath", JsonValue{"/games/Alpha.cnaproject"});
+    future.set("sceneId", JsonValue{Uuid::generate().toString()});
+    future.set("scene", JsonValue::makeObject());
+    writeFile(directory / (Uuid::generate().toString() + ".cnarecovery"), Json::write(future));
+    CNA_STUDIO_EXPECT_EQ(store.list().size(), std::size_t{2});
+
+    // And so is one with no version at all -- which the hand-written gate this replaced let
+    // through (`plan.md` STUDIO-31005). `asInt(0) > kFormatVersion` is false for a missing key,
+    // so an envelope of unknown shape was read as though it were the shape this build writes.
+    // The chain refuses it, because a snapshot is the one file where reading the wrong fields
+    // means restoring the wrong document over work the user still has.
+    JsonValue unversioned = JsonValue::makeObject();
+    unversioned.set("projectPath", JsonValue{"/games/Alpha.cnaproject"});
+    unversioned.set("sceneId", JsonValue{Uuid::generate().toString()});
+    unversioned.set("scene", JsonValue::makeObject());
+    writeFile(directory / (Uuid::generate().toString() + ".cnarecovery"), Json::write(unversioned));
+    CNA_STUDIO_EXPECT_EQ(store.list().size(), std::size_t{2});
+
+    std::filesystem::remove_all(directory);
+}
+
+CNA_STUDIO_TEST(AFailedSnapshotIsReportedRatherThanThrown)
+{
+    // No directory at all: an editor that died because it could not autosave would have caused
+    // exactly the loss it was installed to prevent.
+    const RecoveryStore store{""};
+
+    std::string errorMessage;
+    CNA_STUDIO_EXPECT(!store.write(makeSnapshot("/games/Alpha.cnaproject", "Level01", 1), &errorMessage));
+    CNA_STUDIO_EXPECT(!errorMessage.empty());
+    CNA_STUDIO_EXPECT(store.list().empty());
+    CNA_STUDIO_EXPECT(!store.findForProject("/games/Alpha.cnaproject").has_value());
+}
+
+CNA_STUDIO_TEST(TheDefaultRecoveryDirectoryIsUnderTheUsersState)
+{
+    const std::string directory = getDefaultRecoveryDirectory();
+
+    // Never empty on any platform the editor builds for, and never inside a project: an autosave
+    // of unsaved work is not part of the game being edited.
+    CNA_STUDIO_EXPECT(!directory.empty());
+    CNA_STUDIO_EXPECT(directory.find("cna-studio") != std::string::npos);
+    CNA_STUDIO_EXPECT(directory.find("recovery") != std::string::npos);
+}
+
+CNA_STUDIO_TEST(ASidecarThisBuildCannotReadKeepsItsIdAndIsLeftAlone)
+{
+    const std::filesystem::path directory = makeScratchDirectory("sidecarversion");
+    writeFile(directory / "Assets" / "hero.png", "hero");
+
+    // A sidecar from a build that knows more than this one. The id is the one thing a scene
+    // references (D-08), so it must survive; the rest may not be safe to read.
+    const Uuid pinned = Uuid::generate();
+    JsonValue sidecar = JsonValue::makeObject();
+    sidecar.set("formatVersion", JsonValue{AssetDatabase::kFormatVersion + 1});
+    sidecar.set("id", JsonValue{pinned.toString()});
+    sidecar.set("type", JsonValue{"Texture2D"});
+    sidecar.set("importer", JsonValue{"Future.Importer"});
+    const std::string original = Json::write(sidecar);
+    writeFile(directory / "Assets" / "hero.png.cnaasset", original);
+
+    AssetDatabase database;
+    database.setProjectRoot(directory.generic_string());
+    const AssetScanResult result = database.scan("Assets");
+
+    CNA_STUDIO_EXPECT(result.succeeded);
+    CNA_STUDIO_EXPECT_EQ(result.newCount, std::size_t{0});
+
+    const AssetRecord* record = database.find(pinned);
+    CNA_STUDIO_EXPECT(record != nullptr);
+    CNA_STUDIO_EXPECT_EQ(record->sourcePath, std::string{"Assets/hero.png"});
+
+    // The unreadable importer was not adopted, and the user was told why.
+    CNA_STUDIO_EXPECT(record->importerId != std::string{"Future.Importer"});
+
+    bool warned = false;
+    for (const std::string& warning : result.warnings)
+    {
+        if (warning.find("newer than this build supports") != std::string::npos
+            && warning.find("its id was kept") != std::string::npos)
+        {
+            warned = true;
+        }
+    }
+    CNA_STUDIO_EXPECT(warned);
+
+    // And the file on disk is untouched, so a build that understands it still can.
+    std::ifstream stream{directory / "Assets" / "hero.png.cnaasset", std::ios::binary};
+    std::ostringstream buffer;
+    buffer << stream.rdbuf();
+    CNA_STUDIO_EXPECT_EQ(buffer.str(), original);
+
+    std::filesystem::remove_all(directory);
+}
+
+// --------------------------------------------------------------------------------------------
+// Layers (plan.md ED-305)
+// --------------------------------------------------------------------------------------------
+
+CNA_STUDIO_TEST(AProjectCarriesItsLayersAndNeverHasNone)
+{
+    Project project = Project::createDefault("Layered", "/tmp/layered");
+    CNA_STUDIO_EXPECT_EQ(project.getLayers().size(), std::size_t{1});
+    CNA_STUDIO_EXPECT_EQ(project.getLayers().front(), std::string{Project::kDefaultLayer});
+
+    project.setLayers({"Background", "Default", "Foreground"});
+    CNA_STUDIO_EXPECT_EQ(project.getLayers().size(), std::size_t{3});
+
+    // The order is the meaning -- index 0 draws first -- so it has to survive a round trip exactly.
+    Project reloaded;
+    CNA_STUDIO_EXPECT(reloaded.loadFromJson(project.toJson()).succeeded);
+    CNA_STUDIO_EXPECT_EQ(reloaded.getLayers().front(), std::string{"Background"});
+    CNA_STUDIO_EXPECT_EQ(reloaded.getLayers().back(), std::string{"Foreground"});
+
+    // An empty list is refused rather than accepted and repaired, so a caller that computed one
+    // finds out here instead of later.
+    project.setLayers({});
+    CNA_STUDIO_EXPECT_EQ(project.getLayers().size(), std::size_t{3});
+}
+
+CNA_STUDIO_TEST(AProjectFileWrittenBeforeLayersExistedStillOpens)
+{
+    // The additive-field promise, tested rather than asserted in a comment: no formatVersion was
+    // bumped for layers, so a file from before them has to load and get the default.
+    JsonValue json = JsonValue::makeObject();
+    json.set("formatVersion", JsonValue{Project::kFormatVersion});
+    json.set("name", JsonValue{"Older"});
+    json.set("kind", JsonValue{"CnaNative"});
+
+    Project project;
+    CNA_STUDIO_EXPECT(project.loadFromJson(json).succeeded);
+    CNA_STUDIO_EXPECT_EQ(project.getLayers().size(), std::size_t{1});
+    CNA_STUDIO_EXPECT_EQ(project.getLayers().front(), std::string{Project::kDefaultLayer});
+
+    // As does one hand-edited down to nothing, or to blanks.
+    JsonValue blanks = JsonValue::makeArray();
+    blanks.append(JsonValue{""});
+    json.set("layers", std::move(blanks));
+    CNA_STUDIO_EXPECT(project.loadFromJson(json).succeeded);
+    CNA_STUDIO_EXPECT_EQ(project.getLayers().front(), std::string{Project::kDefaultLayer});
+}
+
+CNA_STUDIO_TEST(TheDefaultLayerNameMatchesTheProjects)
+{
+    // Two constants, deliberately: cna-studio-scene links cna-studio-core and nothing else, so
+    // reaching into the project module for one string would trade a duplicated literal for a
+    // dependency the build graph is meant to forbid. This is what keeps them honest.
+    CNA_STUDIO_EXPECT_EQ(std::string{kDefaultLayerName}, std::string{Project::kDefaultLayer});
+}
+
+CNA_STUDIO_TEST(TheLayerComponentOffersWhateverTheProjectDeclares)
+{
+    ComponentRegistry registry;
+    registerBuiltinComponents(registry);
+
+    const ComponentDescriptor* descriptor = registry.find(BuiltinComponentIds::kLayer);
+    CNA_STUDIO_EXPECT(descriptor != nullptr);
+    CNA_STUDIO_EXPECT_EQ(descriptor->findProperty("layer")->enumOptions.size(), std::size_t{1});
+
+    applyProjectLayers(registry, {"Background", "Default", "Foreground"});
+
+    descriptor = registry.find(BuiltinComponentIds::kLayer);
+    CNA_STUDIO_EXPECT(descriptor != nullptr);
+    const PropertyDescriptor* layer = descriptor->findProperty("layer");
+    CNA_STUDIO_EXPECT(layer != nullptr);
+    CNA_STUDIO_EXPECT_EQ(layer->enumOptions.size(), std::size_t{3});
+    CNA_STUDIO_EXPECT_EQ(layer->enumOptions.front(), std::string{"Background"});
+
+    // An empty list is ignored: a component whose enum has no options is one nothing can be set
+    // to, and leaving the previous list in place is the more useful failure.
+    applyProjectLayers(registry, {});
+    CNA_STUDIO_EXPECT_EQ(registry.find(BuiltinComponentIds::kLayer)->findProperty("layer")->enumOptions.size(),
+                         std::size_t{3});
+}
+
+// --------------------------------------------------------------------------------------------
+// Sprite fonts (plan.md ED-302)
+// --------------------------------------------------------------------------------------------
+
+CNA_STUDIO_TEST(ASpriteFontDescribesItselfAndTheStudioReportsIt)
+{
+    const std::filesystem::path directory = makeScratchDirectory("spritefont");
+    writeFile(directory / "Assets" / "Menu.spritefont",
+              R"(<?xml version="1.0" encoding="utf-8"?>)"
+              R"(<XnaContent xmlns:Graphics="Microsoft.Xna.Framework.Content.Pipeline.Graphics">)"
+              R"(<Asset Type="Graphics:FontDescription">)"
+              R"(<FontName>Segoe UI</FontName>)"
+              R"(<Size>14</Size>)"
+              R"(<Spacing>2</Spacing>)"
+              R"(<UseKerning>false</UseKerning>)"
+              R"(<CharacterRegions><CharacterRegion>)"
+              R"(<Start>&#32;</Start><End>&#126;</End>)"
+              R"(</CharacterRegion></CharacterRegions>)"
+              R"(</Asset></XnaContent>)");
+
+    const std::optional<SpriteFontDescription> description =
+        readSpriteFontDescription((directory / "Assets" / "Menu.spritefont").generic_string());
+    CNA_STUDIO_EXPECT(description.has_value());
+    if (!description) { return; }
+
+    CNA_STUDIO_EXPECT_EQ(description->fontName, std::string{"Segoe UI"});
+    CNA_STUDIO_EXPECT_EQ(description->pointSize, 14.0f);
+    CNA_STUDIO_EXPECT_EQ(description->spacing, 2.0f);
+    CNA_STUDIO_EXPECT(!description->useKerning);
+
+    // The entity form is the common one, because the usual region starts at a space -- and a space
+    // written literally between two tags is exactly what whitespace trimming would eat.
+    CNA_STUDIO_EXPECT_EQ(description->firstCharacter, 32);
+    CNA_STUDIO_EXPECT_EQ(description->lastCharacter, 126);
+
+    // Scanning writes the facts into the sidecar, where the inspector shows them read-only.
+    AssetDatabase database;
+    database.setProjectRoot(directory.generic_string());
+    CNA_STUDIO_EXPECT(database.scan("Assets").succeeded);
+    CNA_STUDIO_EXPECT_EQ(applyImporterFacts(database), std::size_t{1});
+
+    const AssetRecord* record = database.findByPath("Assets/Menu.spritefont");
+    CNA_STUDIO_EXPECT(record != nullptr);
+    if (record == nullptr) { return; }
+
+    CNA_STUDIO_EXPECT(record->type == AssetType::SpriteFont);
+    CNA_STUDIO_EXPECT_EQ(record->importerSettings["fontName"].asString(), std::string{"Segoe UI"});
+    CNA_STUDIO_EXPECT_EQ(record->importerSettings["characterRange"].asString(), std::string{"32-126"});
+
+    // Nothing changed the second time, so opening a project twice produces no diff -- the rule that
+    // keeps --headless safe to run against a repository you want left alone.
+    CNA_STUDIO_EXPECT_EQ(applyImporterFacts(database), std::size_t{0});
+
+    std::filesystem::remove_all(directory);
+}
+
+CNA_STUDIO_TEST(AnXmlFileThatIsNotASpriteFontIsNotReadAsOne)
+{
+    const std::filesystem::path directory = makeScratchDirectory("notaspritefont");
+
+    // Without a structural check, any XML with a <Size> element would be read as a sprite font and
+    // the inspector would report confident nonsense about it.
+    writeFile(directory / "config.xml", "<Settings><Size>14</Size></Settings>");
+    CNA_STUDIO_EXPECT(!readSpriteFontDescription((directory / "config.xml").generic_string()).has_value());
+    CNA_STUDIO_EXPECT(!readSpriteFontDescription((directory / "absent.spritefont").generic_string()).has_value());
+
+    // A real one missing half its fields is read for what it does say rather than refused: an
+    // asset the editor cannot fully describe is still one it must not hide.
+    writeFile(directory / "Bare.spritefont",
+              R"(<Asset Type="Graphics:SpriteFontDescription"><FontName>Arial</FontName></Asset>)");
+    const std::optional<SpriteFontDescription> bare =
+        readSpriteFontDescription((directory / "Bare.spritefont").generic_string());
+    CNA_STUDIO_EXPECT(bare.has_value());
+    if (bare)
+    {
+        CNA_STUDIO_EXPECT_EQ(bare->fontName, std::string{"Arial"});
+        CNA_STUDIO_EXPECT_EQ(bare->pointSize, 0.0f);
+        CNA_STUDIO_EXPECT(bare->useKerning);
+    }
+
+    std::filesystem::remove_all(directory);
+}
+
+CNA_STUDIO_TEST(TheSpriteFontImporterOffersFactsAndNoSettings)
+{
+    ComponentRegistry registry;
+    registerBuiltinImporters(registry);
+
+    const ComponentDescriptor* descriptor = registry.find(ImporterIds::kSpriteFont);
+    CNA_STUDIO_EXPECT(descriptor != nullptr);
+    if (descriptor == nullptr) { return; }
+
+    // Every field read-only, and that is the design. A .spritefont is the content pipeline's own
+    // input; an editable copy of its fields in the sidecar would be a second answer to a question
+    // the build asks the file.
+    CNA_STUDIO_EXPECT(!descriptor->properties.empty());
+    for (const PropertyDescriptor& property : descriptor->properties)
+    {
+        CNA_STUDIO_EXPECT(property.readOnly);
+    }
+    CNA_STUDIO_EXPECT(descriptor->findProperty("fontName") != nullptr);
+    CNA_STUDIO_EXPECT(descriptor->findProperty("characterRange") != nullptr);
+}
+
+// --------------------------------------------------------------------------------------------
+// Building (plan.md ED-308)
+// --------------------------------------------------------------------------------------------
+
+CNA_STUDIO_TEST(ABuildPlanIsTwoCommandsWithTheOptionsTheStudioActuallyKnows)
+{
+    const std::filesystem::path directory = makeScratchDirectory("buildplan");
+    writeFile(directory / "CMakeLists.txt", "cmake_minimum_required(VERSION 3.20)\n");
+
+    BuildRequest request;
+    request.projectRoot = directory.generic_string();
+    request.targetPlatform = "linux-x64";
+    request.graphicsBackend = "EASYGL";
+    request.configuration = "RelWithDebInfo";
+    request.cmakePath = findCMake();
+
+    // Skipped rather than failed when there is no cmake: the plan is about *which* options are
+    // passed, and asserting that on a machine without a toolchain would be testing the machine.
+    if (request.cmakePath.empty())
+    {
+        CNA_STUDIO_EXPECT(!describeBuildProblem(request).empty());
+        std::filesystem::remove_all(directory);
+        return;
+    }
+
+    request.buildDirectory = getDefaultBuildDirectory(request);
+    CNA_STUDIO_EXPECT(describeBuildProblem(request).empty());
+
+    // Beside the project and keyed by platform: a build people iterate on has to be incremental,
+    // and two platforms must not overwrite each other.
+    CNA_STUDIO_EXPECT(request.buildDirectory.find("/build/linux-x64") != std::string::npos);
+
+    const std::vector<BuildStep> steps = planBuild(request);
+    CNA_STUDIO_EXPECT_EQ(steps.size(), std::size_t{2});
+    if (steps.size() != 2) { return; }
+
+    const std::string configure = steps.front().toCommandLine();
+    CNA_STUDIO_EXPECT(configure.find("-S " + request.projectRoot) != std::string::npos);
+    CNA_STUDIO_EXPECT(configure.find("-DCMAKE_BUILD_TYPE=RelWithDebInfo") != std::string::npos);
+
+    // The one option the editor genuinely knows about. Passing more would be guessing at somebody
+    // else's CMakeLists.
+    // CNA_GRAPHICS_RENDERER, not the CNA_GRAPHICS_BACKEND Studio used to pass: current CNA does
+    // not define the old name, so a game configured with it silently took CNA's default renderer
+    // instead of the chosen one -- and the build succeeded, which is what hid it.
+    CNA_STUDIO_EXPECT(configure.find("-DCNA_GRAPHICS_RENDERER=EASYGL") != std::string::npos);
+
+    // --config as well as CMAKE_BUILD_TYPE: single-config generators read the first and
+    // multi-config ones read the second, and a build that produced a Debug binary on one
+    // developer's machine and a Release one on another's is the bug this avoids.
+    const std::string build = steps.back().toCommandLine();
+    CNA_STUDIO_EXPECT(build.find("--build") != std::string::npos);
+    CNA_STUDIO_EXPECT(build.find("--config RelWithDebInfo") != std::string::npos);
+    CNA_STUDIO_EXPECT(build.find("--parallel") != std::string::npos);
+
+    std::filesystem::remove_all(directory);
+}
+
+CNA_STUDIO_TEST(ABuildSaysWhyItCannotRunBeforeItIsOffered)
+{
+    BuildRequest empty;
+    CNA_STUDIO_EXPECT_EQ(describeBuildProblem(empty), std::string{"no project is open"});
+    CNA_STUDIO_EXPECT(planBuild(empty).empty());
+
+    BuildRequest missing;
+    missing.projectRoot = "/definitely/not/a/directory";
+    CNA_STUDIO_EXPECT(describeBuildProblem(missing).find("does not exist") != std::string::npos);
+
+    // A project directory with no CMakeLists is the case CMake reports worst: a wall of text about
+    // a missing file that says nothing about what the user should do.
+    const std::filesystem::path directory = makeScratchDirectory("buildproblem");
+    BuildRequest noCMakeLists;
+    noCMakeLists.projectRoot = directory.generic_string();
+    CNA_STUDIO_EXPECT(describeBuildProblem(noCMakeLists).find("no CMakeLists.txt") != std::string::npos);
+
+    // And a cmake that is not there is named plainly rather than left to fail on exec.
+    writeFile(directory / "CMakeLists.txt", "cmake_minimum_required(VERSION 3.20)\n");
+    BuildRequest badCMake;
+    badCMake.projectRoot = directory.generic_string();
+    badCMake.cmakePath = (directory / "not-cmake").generic_string();
+    CNA_STUDIO_EXPECT(describeBuildProblem(badCMake).find("is not an executable file")
+                      != std::string::npos);
+
+    std::filesystem::remove_all(directory);
+}
+
+CNA_STUDIO_TEST(ABuildRunsItsStepsAndReportsTheOutcome)
+{
+    const std::filesystem::path directory = makeScratchDirectory("buildrun");
+
+    // A CMakeLists that configures and builds nothing. Enough to prove the editor drives cmake,
+    // reaps it, advances to the second step and reports success -- without needing a compiler.
+    writeFile(directory / "CMakeLists.txt",
+              "cmake_minimum_required(VERSION 3.20)\n"
+              "project(BuildRunnerProbe NONE)\n");
+
+    BuildRequest request;
+    request.projectRoot = directory.generic_string();
+    request.targetPlatform = "probe";
+    request.configuration = "Release";
+    request.cmakePath = findCMake();
+    request.buildDirectory = getDefaultBuildDirectory(request);
+
+    if (request.cmakePath.empty())
+    {
+        std::filesystem::remove_all(directory);
+        return;
+    }
+
+    // Planned by the C++ toolchain and run by the language-neutral runner beside it -- the two
+    // halves STUDIO-02081 separated, exercised together, which is the only place the split can go
+    // wrong without a compile error.
+    StudioBuildJob job;
+    job.steps = planBuild(request);
+    job.buildDirectory = request.buildDirectory;
+    job.description = request.targetPlatform + ", " + request.configuration;
+
+    BuildProcess process;
+    std::string errorMessage;
+    CNA_STUDIO_EXPECT(process.start(job, &errorMessage));
+    CNA_STUDIO_EXPECT(errorMessage.empty());
+    CNA_STUDIO_EXPECT(process.getState() == BuildState::Running);
+
+    // A build must never block the editor, so poll() is called until it finishes rather than
+    // waited on. Bounded so a hung cmake fails the test instead of hanging it.
+    for (int attempt = 0; attempt < 2000 && process.getState() == BuildState::Running; ++attempt)
+    {
+        process.poll();
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+
+    CNA_STUDIO_EXPECT(process.getState() == BuildState::Succeeded);
+    CNA_STUDIO_EXPECT_EQ(process.getStepNumber(), std::size_t{2});
+    CNA_STUDIO_EXPECT(std::filesystem::exists(process.getLogPath()));
+
+    // The log opens with the commands that were run, so a build that failed an hour ago is still
+    // explainable from the file alone.
+    const std::vector<std::string> tail = process.readLogTail(200);
+    CNA_STUDIO_EXPECT(!tail.empty());
+
+    bool sawHeader = false;
+    for (const std::string& line : tail)
+    {
+        if (line.find("cna-studio build: probe, Release") != std::string::npos) { sawHeader = true; }
+    }
+    CNA_STUDIO_EXPECT(sawHeader);
+
+    // Starting a second build over a finished one is allowed; over a running one is not.
+    CNA_STUDIO_EXPECT(process.start(job, &errorMessage));
+    CNA_STUDIO_EXPECT(!process.start(job, &errorMessage));
+    CNA_STUDIO_EXPECT_EQ(errorMessage, std::string{"a build is already running"});
+
+    process.cancel();
+    CNA_STUDIO_EXPECT(process.getState() == BuildState::Failed);
+
+    std::filesystem::remove_all(directory);
+}
+
+CNA_STUDIO_TEST(TheGridSnapIsAnAdditiveFieldThatOlderProjectsSimplyLack)
+{
+    JsonValue json = JsonValue::makeObject();
+    json.set("formatVersion", JsonValue{Project::kFormatVersion});
+    json.set("name", JsonValue{"Older"});
+    json.set("kind", JsonValue{"CnaNative"});
+
+    // The same additive-field promise layers were held to, and no formatVersion bump here either.
+    // Zero is not "no snapping" -- Ctrl turns snapping on -- it is "use the grid the viewport is
+    // drawing", which is exactly what the editor did before the setting existed.
+    Project project;
+    CNA_STUDIO_EXPECT(project.loadFromJson(json).succeeded);
+    CNA_STUDIO_EXPECT_EQ(project.getGridSnap(), 0.0f);
+
+    // A project that never sets one must not start writing the field, or the first save of every
+    // existing project would be a diff that says nothing.
+    CNA_STUDIO_EXPECT(!project.toJson().contains("gridSnap"));
+
+    project.setGridSnap(16.0f);
+    CNA_STUDIO_EXPECT_EQ(project.getGridSnap(), 16.0f);
+
+    Project reloaded;
+    CNA_STUDIO_EXPECT(reloaded.loadFromJson(project.toJson()).succeeded);
+    CNA_STUDIO_EXPECT_EQ(reloaded.getGridSnap(), 16.0f);
+
+    // Negative is refused rather than clamped: it is not a smaller step, it is a value with no
+    // meaning, and rounding to it would land an entity where nothing else agrees it is.
+    reloaded.setGridSnap(-4.0f);
+    CNA_STUDIO_EXPECT_EQ(reloaded.getGridSnap(), 16.0f);
+
+    // Zero puts it back, and takes the field back out of the file with it.
+    reloaded.setGridSnap(0.0f);
+    CNA_STUDIO_EXPECT(!reloaded.toJson().contains("gridSnap"));
+}
+
+/**
+ * A project declares its angle and scale steps, as it already declares its grid (STUDIO-12007).
+ *
+ * Fifteen degrees and tenths were constants in the editor, which suits most projects and suits an
+ * isometric one badly: a game laid out on thirty-degree facings, or built out of pieces that
+ * double, wants to say so once rather than have every user match it by eye. The same shape as
+ * `gridSnap` in every respect, deliberately -- zero means the editor's default, negatives are
+ * refused, and the keys stay out of the file until they are set.
+ */
+CNA_STUDIO_TEST(AProjectDeclaresItsAngleAndScaleStepsOrTakesTheDefaults)
+{
+    Project project;
+
+    // Zero is not "no snapping": it is "use the editor's own step", which is what every project
+    // written before these settings existed means.
+    CNA_STUDIO_EXPECT_EQ(project.getAngleSnap(), 0.0f);
+    CNA_STUDIO_EXPECT_EQ(project.getScaleSnap(), 0.0f);
+    CNA_STUDIO_EXPECT(!project.toJson().contains("angleSnap"));
+    CNA_STUDIO_EXPECT(!project.toJson().contains("scaleSnap"));
+
+    const float thirtyDegrees = 3.14159265358979323846f / 6.0f;
+    project.setAngleSnap(thirtyDegrees);
+    project.setScaleSnap(0.25f);
+
+    Project reloaded;
+    CNA_STUDIO_EXPECT(reloaded.loadFromJson(project.toJson()).succeeded);
+    CNA_STUDIO_EXPECT(std::fabs(reloaded.getAngleSnap() - thirtyDegrees) < 0.0001f);
+    CNA_STUDIO_EXPECT(std::fabs(reloaded.getScaleSnap() - 0.25f) < 0.0001f);
+
+    // Negative is refused rather than clamped, exactly as the grid step is: a negative angle is not
+    // a smaller one, it is a value with no meaning.
+    reloaded.setAngleSnap(-1.0f);
+    reloaded.setScaleSnap(-1.0f);
+    CNA_STUDIO_EXPECT(std::fabs(reloaded.getAngleSnap() - thirtyDegrees) < 0.0001f);
+    CNA_STUDIO_EXPECT(std::fabs(reloaded.getScaleSnap() - 0.25f) < 0.0001f);
+
+    // Zero puts the defaults back and takes the keys out of the file with them.
+    reloaded.setAngleSnap(0.0f);
+    reloaded.setScaleSnap(0.0f);
+    CNA_STUDIO_EXPECT(!reloaded.toJson().contains("angleSnap"));
+    CNA_STUDIO_EXPECT(!reloaded.toJson().contains("scaleSnap"));
+}
+
+CNA_STUDIO_TEST(SettingTheGridSnapUndoesAndReachesTheFile)
+{
+    const std::filesystem::path root =
+        std::filesystem::temp_directory_path() / ("cna-snap-" + Uuid::generate().toString());
+    std::filesystem::create_directories(root);
+
+    Project project = Project::createDefault("Snappy", root.generic_string());
+    CNA_STUDIO_EXPECT(project.saveToFile((root / "Snappy.cnaproject").generic_string()));
+
+    SetProjectGridSnapCommand command{project, 16.0f};
+    CNA_STUDIO_EXPECT(command.isValid());
+    command.execute();
+    CNA_STUDIO_EXPECT_EQ(project.getGridSnap(), 16.0f);
+    CNA_STUDIO_EXPECT(command.wasSavedToDisk());
+
+    // Written through rather than held in memory: the recovery snapshot holds the scene, not the
+    // project, so a project change that never reached disk is one a crash loses entirely.
+    Project fromDisk;
+    CNA_STUDIO_EXPECT(fromDisk.loadFromFile((root / "Snappy.cnaproject").generic_string()).succeeded);
+    CNA_STUDIO_EXPECT_EQ(fromDisk.getGridSnap(), 16.0f);
+
+    command.undo();
+    CNA_STUDIO_EXPECT_EQ(project.getGridSnap(), 0.0f);
+
+    // Setting what is already set is not an edit. An undo entry that restores the state it is
+    // already in reads to a user as a broken Ctrl+Z.
+    SetProjectGridSnapCommand unchanged{project, 0.0f};
+    CNA_STUDIO_EXPECT(!unchanged.isValid());
+
+    SetProjectGridSnapCommand negative{project, -1.0f};
+    CNA_STUDIO_EXPECT(!negative.isValid());
+
+    std::error_code cleanup;
+    std::filesystem::remove_all(root, cleanup);
+}
+
+/**
+ * @brief ED-403: a `.cnamaterial` round-trips, and converts to what the model pass already draws.
+ *
+ * The conversion is the half worth checking. A material asset stores metallic-roughness and the
+ * renderer may be drawing through `BasicEffect` (gap G-05), so `toMeshMaterial` derives the
+ * Blinn-Phong pair rather than storing a second copy that could disagree with the first. A metal
+ * reflects its own colour and a dielectric reflects white; that is the one line of the PBR model
+ * that survives the trip meaning what it meant, and it is what this asserts.
+ */
+CNA_STUDIO_TEST(AMaterialAssetRoundTripsAndDerivesItsBlinnPhongHalf)
+{
+    MaterialDocument material;
+    material.name = "Brushed Steel";
+    material.diffuseColor = StudioVector3{0.9f, 0.9f, 0.95f};
+    material.emissiveColor = StudioVector3{0.0f, 0.05f, 0.1f};
+    material.metallic = 0.95f;
+    material.roughness = 0.2f;
+    material.alpha = 0.8f;
+    material.diffuseTexture = Uuid::generate();
+
+    MaterialDocument reloaded;
+    CNA_STUDIO_EXPECT(reloaded.loadFromJson(material.toJson()));
+
+    CNA_STUDIO_EXPECT_EQ(reloaded.name, std::string{"Brushed Steel"});
+    CNA_STUDIO_EXPECT(reloaded.diffuseTexture == material.diffuseTexture);
+    CNA_STUDIO_EXPECT(std::fabs(reloaded.metallic - 0.95f) < 0.001f);
+    CNA_STUDIO_EXPECT(std::fabs(reloaded.alpha - 0.8f) < 0.001f);
+
+    // A texture that was never set is absent from the file rather than written as a nil id, and
+    // reads back as nil either way -- the two mean the same thing and only one of them is noise.
+    CNA_STUDIO_EXPECT(material.toJson()["normalTexture"].asString("absent") == "absent");
+    CNA_STUDIO_EXPECT(!reloaded.normalTexture.isValid());
+
+    const MeshMaterial mesh = reloaded.toMeshMaterial();
+    CNA_STUDIO_EXPECT(mesh.specularColor.x > 0.8f);
+    CNA_STUDIO_EXPECT(mesh.specularPower > 16.0f);
+
+    // The paths stay empty: this document speaks in ids, and resolving one to a file belongs to
+    // whoever holds the asset database.
+    CNA_STUDIO_EXPECT(mesh.diffuseTexturePath.empty());
+}
+
+/** @brief A material from a newer editor is refused rather than silently rewritten with less in it. */
+CNA_STUDIO_TEST(AMaterialFromAFutureFormatVersionIsRefused)
+{
+    MaterialDocument material;
+    JsonValue future = material.toJson();
+    future.set("formatVersion", JsonValue{MaterialDocument::kFormatVersion + 1});
+
+    MaterialDocument reloaded;
+    CNA_STUDIO_EXPECT(!reloaded.loadFromJson(future));
+}
+
+// --- Rename, move, duplicate and delete (STUDIO-09009) ------------------------------------------
+
+/**
+ * @brief The acceptance condition of STUDIO-09009: a move does not touch a scene.
+ *
+ * Not "the scene still loads" and not "the reference still resolves" -- the *file* is unchanged,
+ * byte for byte. That is the property decision D-08 was taken for, and it is the one a weaker
+ * assertion would let slip: a move that rewrote every scene would still pass a test that only
+ * checked the reference, and the user would find out when they reviewed a hundred-file diff.
+ */
+CNA_STUDIO_TEST(MovingAnAssetLeavesEverySceneThatReferencesItByteIdentical)
+{
+    ComponentRegistry registry;
+    registerBuiltinComponents(registry);
+
+    const std::filesystem::path directory = makeScratchDirectory("assetmovescene");
+    writeFile(directory / "Assets" / "player.png", "pixels");
+    std::filesystem::create_directories(directory / "Assets" / "Characters");
+
+    AssetDatabase assets;
+    assets.setProjectRoot(directory.generic_string());
+    CNA_STUDIO_EXPECT(assets.scan("Assets").succeeded);
+
+    const Uuid textureId = assets.findByPath("Assets/player.png")->id;
+
+    SceneDocument scene;
+    StudioEntity entity{Uuid::generate(), "Hero"};
+    StudioComponent sprite{BuiltinComponentIds::kSpriteRenderer};
+    sprite.applyDefaults(*registry.find(BuiltinComponentIds::kSpriteRenderer));
+    sprite.setProperty("texture", PropertyValue{PropertyValue::AssetReference{textureId}});
+    entity.addComponent(std::move(sprite));
+    scene.addEntity(std::move(entity));
+
+    const std::string scenePath = (directory / "Assets" / "Level.cnascene").generic_string();
+    CNA_STUDIO_EXPECT(scene.saveToFile(scenePath));
+
+    const auto read = [&scenePath] {
+        std::ifstream stream{scenePath, std::ios::binary};
+        return std::string{std::istreambuf_iterator<char>{stream},
+                           std::istreambuf_iterator<char>{}};
+    };
+    const std::string before = read();
+    CNA_STUDIO_EXPECT(!before.empty());
+
+    CommandHistory history;
+    auto move = std::make_unique<MoveAssetCommand>(assets, textureId,
+                                                   "Assets/Characters/player.png");
+    CNA_STUDIO_EXPECT(move->isValid());
+    history.execute(std::move(move));
+
+    CNA_STUDIO_EXPECT_EQ(assets.find(textureId)->sourcePath,
+                         std::string{"Assets/Characters/player.png"});
+    CNA_STUDIO_EXPECT_EQ(read(), before);
+
+    // And back again on undo, with the scene still untouched in that direction too.
+    CNA_STUDIO_EXPECT(history.undo());
+    CNA_STUDIO_EXPECT_EQ(assets.find(textureId)->sourcePath, std::string{"Assets/player.png"});
+    CNA_STUDIO_EXPECT_EQ(read(), before);
+
+    std::filesystem::remove_all(directory);
+}
+
+/** @brief A rename is a move, so it keeps the id -- there is one code path, not two. */
+CNA_STUDIO_TEST(ARenameKeepsTheIdAndMovesTheSidecarWithTheFile)
+{
+    const std::filesystem::path directory = makeScratchDirectory("assetrename");
+    writeFile(directory / "Assets" / "Textures" / "old.png", "pixels");
+
+    AssetDatabase assets;
+    assets.setProjectRoot(directory.generic_string());
+    CNA_STUDIO_EXPECT(assets.scan("Assets").succeeded);
+
+    const Uuid id = assets.findByPath("Assets/Textures/old.png")->id;
+
+    auto rename = std::make_unique<MoveAssetCommand>(
+        assets, id, studioAssetPathRenamedTo("Assets/Textures/old.png", "new.png"));
+    CNA_STUDIO_EXPECT(rename->isValid());
+    rename->execute();
+
+    CNA_STUDIO_EXPECT_EQ(assets.find(id)->sourcePath, std::string{"Assets/Textures/new.png"});
+    CNA_STUDIO_EXPECT(std::filesystem::exists(directory / "Assets" / "Textures" / "new.png"));
+    CNA_STUDIO_EXPECT(
+        std::filesystem::exists(directory / "Assets" / "Textures" / "new.png.cnaasset"));
+    CNA_STUDIO_EXPECT(!std::filesystem::exists(directory / "Assets" / "Textures" / "old.png"));
+    CNA_STUDIO_EXPECT(
+        !std::filesystem::exists(directory / "Assets" / "Textures" / "old.png.cnaasset"));
+
+    std::filesystem::remove_all(directory);
+}
+
+/**
+ * @brief Names are checked against the strictest platform, not the host's.
+ *
+ * A name Linux accepts and Windows refuses is a repository one colleague cannot check out, and the
+ * person who created it never finds out.
+ */
+CNA_STUDIO_TEST(ANameIsCheckedAgainstEveryPlatformRatherThanThisOne)
+{
+    CNA_STUDIO_EXPECT(describeStudioAssetNameProblem("Crate.png").empty());
+    CNA_STUDIO_EXPECT(describeStudioAssetNameProblem(".gitignore").empty());
+    CNA_STUDIO_EXPECT(describeStudioAssetNameProblem("a b c.png").empty());
+
+    for (const std::string_view refused : {"", "a/b.png", "a\\b.png", ".", "..", "a<b.png",
+                                           "a>b.png", "a:b.png", "a\"b.png", "a|b.png",
+                                           "a?b.png", "a*b.png", "trailing.", "trailing ",
+                                           "CON.txt", "com1", "NUL"})
+    {
+        CNA_STUDIO_EXPECT(!describeStudioAssetNameProblem(refused).empty());
+    }
+
+    // A control character is the case nobody types deliberately and every filesystem handles
+    // differently. It is refused rather than sanitised: silently changing a name the user typed is
+    // how a rename produces a file they cannot find again.
+    CNA_STUDIO_EXPECT(!describeStudioAssetNameProblem(std::string_view{"bad\nname.png"}).empty());
+}
+
+/** @brief A duplicate gets a free name beside the original, and keeps the extension. */
+CNA_STUDIO_TEST(ADuplicateIsANewAssetBesideTheOldOneRatherThanASecondReferenceToIt)
+{
+    const std::filesystem::path directory = makeScratchDirectory("assetduplicate");
+    writeFile(directory / "Assets" / "Crate.png", "pixels");
+
+    AssetDatabase assets;
+    assets.setProjectRoot(directory.generic_string());
+    CNA_STUDIO_EXPECT(assets.scan("Assets").succeeded);
+
+    const Uuid originalId = assets.findByPath("Assets/Crate.png")->id;
+
+    CommandHistory history;
+    auto duplicate = std::make_unique<DuplicateAssetCommand>(assets, originalId);
+    CNA_STUDIO_EXPECT(duplicate->isValid());
+
+    const Uuid copyId = duplicate->getCopyId();
+    CNA_STUDIO_EXPECT_EQ(duplicate->getCopyPath(), std::string{"Assets/Crate 2.png"});
+
+    // A new id, not the old one. Two files sharing an id would leave the database unable to say
+    // which of them a scene references, and the first scan to notice would pick whichever it
+    // walked last.
+    CNA_STUDIO_EXPECT(copyId != originalId);
+    history.execute(std::move(duplicate));
+
+    CNA_STUDIO_EXPECT(std::filesystem::exists(directory / "Assets" / "Crate 2.png"));
+    CNA_STUDIO_EXPECT(std::filesystem::exists(directory / "Assets" / "Crate 2.png.cnaasset"));
+
+    // The extension comes across, because it is what decides the type on the next scan.
+    CNA_STUDIO_EXPECT(assets.find(copyId)->type == AssetType::Texture2D);
+
+    // And a second duplicate steps past the first rather than colliding with it.
+    auto second = std::make_unique<DuplicateAssetCommand>(assets, originalId);
+    CNA_STUDIO_EXPECT(second->isValid());
+    CNA_STUDIO_EXPECT_EQ(second->getCopyPath(), std::string{"Assets/Crate 3.png"});
+
+    std::filesystem::remove_all(directory);
+}
+
+/** @brief Undo removes the copy; redo restores *the same* copy rather than minting a second one. */
+CNA_STUDIO_TEST(RedoingADuplicateRestoresTheSameCopyRatherThanANewOne)
+{
+    const std::filesystem::path directory = makeScratchDirectory("assetduplicateredo");
+    writeFile(directory / "Assets" / "Crate.png", "pixels");
+
+    AssetDatabase assets;
+    assets.setProjectRoot(directory.generic_string());
+    CNA_STUDIO_EXPECT(assets.scan("Assets").succeeded);
+
+    auto duplicate = std::make_unique<DuplicateAssetCommand>(
+        assets, assets.findByPath("Assets/Crate.png")->id);
+    const Uuid copyId = duplicate->getCopyId();
+
+    CommandHistory history;
+    history.execute(std::move(duplicate));
+    CNA_STUDIO_EXPECT(assets.find(copyId) != nullptr);
+
+    CNA_STUDIO_EXPECT(history.undo());
+    CNA_STUDIO_EXPECT(assets.find(copyId) == nullptr);
+    CNA_STUDIO_EXPECT(!std::filesystem::exists(directory / "Assets" / "Crate 2.png"));
+    CNA_STUDIO_EXPECT(!std::filesystem::exists(directory / "Assets" / "Crate 2.png.cnaasset"));
+
+    // The id is the point. A redo that minted a fresh one would leave every reference the user had
+    // since made to the copy pointing at nothing.
+    CNA_STUDIO_EXPECT(history.redo());
+    CNA_STUDIO_EXPECT(assets.find(copyId) != nullptr);
+    CNA_STUDIO_EXPECT_EQ(assets.find(copyId)->sourcePath, std::string{"Assets/Crate 2.png"});
+
+    std::filesystem::remove_all(directory);
+}
+
+/** @brief A delete undoes back to the same id, the same bytes and the same importer settings. */
+CNA_STUDIO_TEST(UndoingADeleteRestoresTheAssetUnderTheIdEverySceneStillReferences)
+{
+    const std::filesystem::path directory = makeScratchDirectory("assetdelete");
+    writeFile(directory / "Assets" / "Crate.png", "the original bytes");
+
+    AssetDatabase assets;
+    assets.setProjectRoot(directory.generic_string());
+    CNA_STUDIO_EXPECT(assets.scan("Assets").succeeded);
+
+    const Uuid id = assets.findByPath("Assets/Crate.png")->id;
+
+    CommandHistory history;
+    history.execute(std::make_unique<SetImporterSettingCommand>(assets, id, "generateMipmaps",
+                                                                PropertyValue{false}));
+
+    auto remove = std::make_unique<DeleteAssetCommand>(assets, id);
+    CNA_STUDIO_EXPECT(remove->isValid());
+    history.execute(std::move(remove));
+
+    CNA_STUDIO_EXPECT(assets.find(id) == nullptr);
+    CNA_STUDIO_EXPECT(!std::filesystem::exists(directory / "Assets" / "Crate.png"));
+    CNA_STUDIO_EXPECT(!std::filesystem::exists(directory / "Assets" / "Crate.png.cnaasset"));
+
+    CNA_STUDIO_EXPECT(history.undo());
+
+    // The same id: every scene that referenced this asset was left untouched by the delete, so a
+    // restore under a new id would break exactly the references the undo is meant to repair.
+    const AssetRecord* restored = assets.find(id);
+    CNA_STUDIO_EXPECT(restored != nullptr);
+    CNA_STUDIO_EXPECT_EQ(restored->sourcePath, std::string{"Assets/Crate.png"});
+    CNA_STUDIO_EXPECT(!restored->importerSettings["generateMipmaps"].isNull());
+
+    std::ifstream stream{(directory / "Assets" / "Crate.png").generic_string(), std::ios::binary};
+    const std::string bytes{std::istreambuf_iterator<char>{stream},
+                            std::istreambuf_iterator<char>{}};
+    CNA_STUDIO_EXPECT_EQ(bytes, std::string{"the original bytes"});
+    CNA_STUDIO_EXPECT(std::filesystem::exists(directory / "Assets" / "Crate.png.cnaasset"));
+
+    std::filesystem::remove_all(directory);
+}
+
+/** @brief An asset whose file has gone cannot be deleted, because the delete could not be undone. */
+CNA_STUDIO_TEST(DeletingAnAssetWhoseFileIsAlreadyGoneIsRefusedRatherThanIrreversible)
+{
+    const std::filesystem::path directory = makeScratchDirectory("assetdeletemissing");
+    writeFile(directory / "Assets" / "Gone.png", "pixels");
+
+    AssetDatabase assets;
+    assets.setProjectRoot(directory.generic_string());
+    CNA_STUDIO_EXPECT(assets.scan("Assets").succeeded);
+
+    const Uuid id = assets.findByPath("Assets/Gone.png")->id;
+    std::filesystem::remove(directory / "Assets" / "Gone.png");
+
+    const DeleteAssetCommand remove{assets, id};
+    CNA_STUDIO_EXPECT(!remove.isValid());
+    CNA_STUDIO_EXPECT(!remove.getError().empty());
+
+    // And the record is still there, which is the whole reason a missing source is not dropped:
+    // the file may be one `git checkout` away from returning.
+    CNA_STUDIO_EXPECT(assets.find(id) != nullptr);
+
+    std::filesystem::remove_all(directory);
+}
+
+/** @brief A duplicate of an asset whose file has gone is refused too, for the same reason. */
+CNA_STUDIO_TEST(DuplicatingAnAssetWhoseFileIsGoneIsRefusedRatherThanProducingAnEmptyOne)
+{
+    const std::filesystem::path directory = makeScratchDirectory("assetdupmissing");
+    writeFile(directory / "Assets" / "Gone.png", "pixels");
+
+    AssetDatabase assets;
+    assets.setProjectRoot(directory.generic_string());
+    CNA_STUDIO_EXPECT(assets.scan("Assets").succeeded);
+
+    const Uuid id = assets.findByPath("Assets/Gone.png")->id;
+    std::filesystem::remove(directory / "Assets" / "Gone.png");
+
+    const DuplicateAssetCommand duplicate{assets, id};
+    CNA_STUDIO_EXPECT(!duplicate.isValid());
+    CNA_STUDIO_EXPECT(!std::filesystem::exists(directory / "Assets" / "Gone 2.png"));
+
+    std::filesystem::remove_all(directory);
+}
+
+/** @brief Renaming a folder moves everything under it, as one undo entry and with no new ids. */
+CNA_STUDIO_TEST(RenamingAFolderMovesItsContentsAsOneUndoEntryAndKeepsEveryId)
+{
+    const std::filesystem::path directory = makeScratchDirectory("folderrename");
+    writeFile(directory / "Assets" / "Textures" / "a.png", "a");
+    writeFile(directory / "Assets" / "Textures" / "Deep" / "b.png", "b");
+
+    // A sibling whose name is a prefix of the folder being renamed. `Textures2` is not inside
+    // `Textures`, however the two strings sort, and a prefix check without the separator would
+    // drag it along.
+    writeFile(directory / "Assets" / "Textures2" / "c.png", "c");
+
+    AssetDatabase assets;
+    assets.setProjectRoot(directory.generic_string());
+    CNA_STUDIO_EXPECT(assets.scan("Assets").succeeded);
+
+    const Uuid deepId = assets.findByPath("Assets/Textures/Deep/b.png")->id;
+    const Uuid siblingId = assets.findByPath("Assets/Textures2/c.png")->id;
+
+    std::string error;
+    std::unique_ptr<StudioCommand> command =
+        studioMoveFolderCommand(assets, "Assets/Textures", "Assets/Art", &error);
+    CNA_STUDIO_EXPECT(command != nullptr);
+
+    CommandHistory history;
+    history.execute(std::move(command));
+
+    CNA_STUDIO_EXPECT_EQ(assets.find(deepId)->sourcePath, std::string{"Assets/Art/Deep/b.png"});
+    CNA_STUDIO_EXPECT(assets.findByPath("Assets/Art/a.png") != nullptr);
+    CNA_STUDIO_EXPECT_EQ(assets.find(siblingId)->sourcePath, std::string{"Assets/Textures2/c.png"});
+
+    // One entry: a folder that came back one file per Ctrl+Z would be a folder nobody dares
+    // rename.
+    CNA_STUDIO_EXPECT_EQ(history.getCount(), std::size_t{1});
+    CNA_STUDIO_EXPECT(history.undo());
+    CNA_STUDIO_EXPECT_EQ(assets.find(deepId)->sourcePath,
+                         std::string{"Assets/Textures/Deep/b.png"});
+
+    std::filesystem::remove_all(directory);
+}
+
+/** @brief A folder cannot be moved inside itself, and a bad segment is refused before anything moves. */
+CNA_STUDIO_TEST(AFolderMoveRefusesTheDestinationsThatWouldNotSurviveIt)
+{
+    const std::filesystem::path directory = makeScratchDirectory("foldermovebad");
+    writeFile(directory / "Assets" / "Textures" / "a.png", "a");
+
+    AssetDatabase assets;
+    assets.setProjectRoot(directory.generic_string());
+    CNA_STUDIO_EXPECT(assets.scan("Assets").succeeded);
+
+    std::string error;
+    CNA_STUDIO_EXPECT(studioMoveFolderCommand(assets, "Assets/Textures",
+                                              "Assets/Textures/Inner", &error) == nullptr);
+    CNA_STUDIO_EXPECT(!error.empty());
+
+    // Every segment of the destination is checked, not just the last: a directory Windows refuses
+    // is as unusable as a file it refuses.
+    CNA_STUDIO_EXPECT(studioMoveFolderCommand(assets, "Assets/Textures",
+                                              "Assets/CON/Art", &error) == nullptr);
+    CNA_STUDIO_EXPECT(studioMoveFolderCommand(assets, "", "Assets/Art", &error) == nullptr);
+    CNA_STUDIO_EXPECT(studioMoveFolderCommand(assets, "Assets/Nothing", "Assets/Art", &error)
+                      == nullptr);
+
+    // Nothing moved on the way to any of those refusals.
+    CNA_STUDIO_EXPECT(assets.findByPath("Assets/Textures/a.png") != nullptr);
+
+    std::filesystem::remove_all(directory);
+}
+
+// --- Import settings: overridden, and resettable (STUDIO-09014) ---------------------------------
+
+/**
+ * @brief Reset removes the setting rather than writing the default into it.
+ *
+ * The difference matters on the day the importer's default changes: an *absent* setting follows the
+ * new default, and one written into the sidecar is frozen at whatever this build thought the
+ * default was. It is also what keeps an asset's diff to the decisions somebody actually made.
+ */
+CNA_STUDIO_TEST(ResettingAnImportSettingTakesItBackOutOfTheSidecar)
+{
+    const std::filesystem::path directory = makeScratchDirectory("importreset");
+    writeFile(directory / "Textures" / "Hero.png", "not really a png");
+
+    AssetDatabase assets;
+    assets.setProjectRoot(directory.generic_string());
+    CNA_STUDIO_EXPECT(assets.scan("Textures").succeeded);
+
+    const Uuid id = assets.findByPath("Textures/Hero.png")->id;
+
+    CommandHistory history;
+    history.execute(std::make_unique<SetImporterSettingCommand>(assets, id, "generateMipmaps",
+                                                                PropertyValue{false}));
+    CNA_STUDIO_EXPECT(!assets.find(id)->importerSettings["generateMipmaps"].isNull());
+
+    auto reset = std::make_unique<ClearImporterSettingCommand>(assets, id, "generateMipmaps");
+    CNA_STUDIO_EXPECT(reset->isValid());
+    history.execute(std::move(reset));
+
+    CNA_STUDIO_EXPECT(assets.find(id)->importerSettings["generateMipmaps"].isNull());
+
+    // On disk too, or the reset would come back on the next scan.
+    AssetDatabase reopened;
+    reopened.setProjectRoot(directory.generic_string());
+    CNA_STUDIO_EXPECT(reopened.scan("Textures").succeeded);
+    CNA_STUDIO_EXPECT(reopened.find(id) != nullptr);
+    CNA_STUDIO_EXPECT(reopened.find(id)->importerSettings["generateMipmaps"].isNull());
+
+    // And undo puts back exactly what was there.
+    CNA_STUDIO_EXPECT(history.undo());
+    CNA_STUDIO_EXPECT(!assets.find(id)->importerSettings["generateMipmaps"].isNull());
+    CNA_STUDIO_EXPECT(assets.find(id)->importerSettings["generateMipmaps"].asBoolean() == false);
+
+    std::filesystem::remove_all(directory);
+}
+
+/** @brief A setting that was never set cannot be reset, rather than pushing an undo entry that does nothing. */
+CNA_STUDIO_TEST(ResettingASettingNobodySetIsRefusedRatherThanAnEmptyUndoEntry)
+{
+    const std::filesystem::path directory = makeScratchDirectory("importresetnoop");
+    writeFile(directory / "Textures" / "Hero.png", "not really a png");
+
+    AssetDatabase assets;
+    assets.setProjectRoot(directory.generic_string());
+    CNA_STUDIO_EXPECT(assets.scan("Textures").succeeded);
+
+    const Uuid id = assets.findByPath("Textures/Hero.png")->id;
+
+    // An entry on the undo stack that does nothing reads as Ctrl+Z having broken.
+    const ClearImporterSettingCommand reset{assets, id, "generateMipmaps"};
+    CNA_STUDIO_EXPECT(!reset.isValid());
+
+    const ClearImporterSettingCommand unknown{assets, Uuid::generate(), "generateMipmaps"};
+    CNA_STUDIO_EXPECT(!unknown.isValid());
+
+    std::filesystem::remove_all(directory);
+}
+
+// --- Reimport, preserving what the user chose (STUDIO-10001, STUDIO-09010) ----------------------
+
+/**
+ * @brief The acceptance condition: a reimport keeps every import setting.
+ *
+ * The classic asset-pipeline failure is the opposite — somebody re-exports a mesh from their
+ * modelling tool and every import setting in the project silently reverts. The sidecar holds two
+ * kinds of entry and only one of them is a reimport's to touch.
+ */
+CNA_STUDIO_TEST(AReimportRefreshesTheFactsAndKeepsEverySetting)
+{
+    const std::filesystem::path directory = makeScratchDirectory("reimportsettings");
+
+    // A 2x2 PNG, then a 4x4 one: the pixel size is a *fact* the importer reads from the header.
+    const auto writePng = [&](int width, int height) {
+        std::string png;
+        png += "\x89PNG\r\n\x1a\n";
+        png += std::string(4, '\0');
+        png += "IHDR";
+        const auto beInt = [&png](int value) {
+            png += static_cast<char>((value >> 24) & 0xFF);
+            png += static_cast<char>((value >> 16) & 0xFF);
+            png += static_cast<char>((value >> 8) & 0xFF);
+            png += static_cast<char>(value & 0xFF);
+        };
+        beInt(width);
+        beInt(height);
+
+        // Padded so the two files differ in *length*. The stamp is seconds-resolution and both
+        // writes happen inside one, which is a real property of the design -- the header says the
+        // stamp is deliberately not a content hash -- rather than something to work around by
+        // sleeping for a second in a test.
+        png += std::string(static_cast<std::size_t>(width) * 16u, 'x');
+        writeFile(directory / "Textures" / "Hero.png", png);
+    };
+
+    writePng(2, 2);
+
+    AssetDatabase assets;
+    assets.setProjectRoot(directory.generic_string());
+    CNA_STUDIO_EXPECT(assets.scan("Textures").succeeded);
+
+    const Uuid id = assets.findByPath("Textures/Hero.png")->id;
+
+    // What the user chose, through the same command the inspector uses.
+    CommandHistory history;
+    history.execute(std::make_unique<SetImporterSettingCommand>(assets, id, "generateMipmaps",
+                                                                PropertyValue{false}));
+
+    // Never imported, so a reimport would do something -- but nothing has *changed*, so the
+    // browser does not mark it. Those are different questions with different right answers.
+    CNA_STUDIO_EXPECT(studioNeedsReimport(*assets.find(id)));
+    CNA_STUDIO_EXPECT(!studioSourceChangedSinceImport(*assets.find(id)));
+
+    const StudioReimportResult first = studioReimportAssets(assets, {id});
+    CNA_STUDIO_EXPECT_EQ(first.reimported, std::size_t{1});
+    CNA_STUDIO_EXPECT_EQ(first.factsChanged, std::size_t{1});
+
+    // The fact is there and the setting survived.
+    CNA_STUDIO_EXPECT(!assets.find(id)->importerSettings["pixelSize"].isNull());
+    CNA_STUDIO_EXPECT(!assets.find(id)->importerSettings["generateMipmaps"].isNull());
+    CNA_STUDIO_EXPECT(assets.find(id)->importerSettings["generateMipmaps"].asBoolean() == false);
+
+    // Imported, and nothing has changed since: neither question says yes now.
+    CNA_STUDIO_EXPECT(!studioNeedsReimport(*assets.find(id)));
+    CNA_STUDIO_EXPECT(!studioSourceChangedSinceImport(*assets.find(id)));
+
+    // The file is re-exported at a different size. The record's stamp is what a scan or a watcher
+    // poll updates, spelled here rather than waiting for one.
+    writePng(4, 4);
+    CNA_STUDIO_EXPECT(assets.scan("Textures").succeeded);
+    CNA_STUDIO_EXPECT(studioSourceChangedSinceImport(*assets.find(id)));
+
+    const StudioReimportResult second = studioReimportAssets(assets, {id});
+    CNA_STUDIO_EXPECT_EQ(second.reimported, std::size_t{1});
+
+    // The fact moved on and the setting did not -- which is the whole acceptance condition.
+    const StudioVector2 size =
+        PropertyValue::fromJson(assets.find(id)->importerSettings["pixelSize"],
+                                PropertyType::Vector2)
+            .get<StudioVector2>();
+    CNA_STUDIO_EXPECT_EQ(size.x, 4.0f);
+    CNA_STUDIO_EXPECT_EQ(size.y, 4.0f);
+    CNA_STUDIO_EXPECT(assets.find(id)->importerSettings["generateMipmaps"].asBoolean() == false);
+    CNA_STUDIO_EXPECT(!studioSourceChangedSinceImport(*assets.find(id)));
+
+    // And it survives a restart: the stamp is in the sidecar, so a reopened project does not think
+    // every asset needs importing again.
+    AssetDatabase reopened;
+    reopened.setProjectRoot(directory.generic_string());
+    CNA_STUDIO_EXPECT(reopened.scan("Textures").succeeded);
+    CNA_STUDIO_EXPECT(!studioNeedsReimport(*reopened.find(id)));
+    CNA_STUDIO_EXPECT(
+        reopened.find(id)->importerSettings["generateMipmaps"].asBoolean() == false);
+
+    std::filesystem::remove_all(directory);
+}
+
+CNA_STUDIO_TEST(AskingWhetherAReimportIsDueTouchesNoFilesystem)
+{
+    // Which is what lets the Content Browser mark every row. Both stamps are in the record: one
+    // kept by the watcher, one by the last import.
+    const std::filesystem::path directory = makeScratchDirectory("reimportfree");
+    writeFile(directory / "Textures" / "Hero.png", "not really a png");
+
+    AssetDatabase assets;
+    assets.setProjectRoot(directory.generic_string());
+    CNA_STUDIO_EXPECT(assets.scan("Textures").succeeded);
+
+    const Uuid id = assets.findByPath("Textures/Hero.png")->id;
+    (void)studioReimportAssets(assets, {id});
+
+    const std::uint64_t before = assets.getPresenceProbeCount();
+    for (int i = 0; i < 100; ++i)
+    {
+        (void)studioNeedsReimport(*assets.find(id));
+        (void)studioSourceChangedSinceImport(*assets.find(id));
+        (void)studioAssetsNeedingReimport(assets);
+    }
+    CNA_STUDIO_EXPECT_EQ(assets.getPresenceProbeCount(), before);
+
+    std::filesystem::remove_all(directory);
+}
+
+CNA_STUDIO_TEST(AReimportOfAMissingFileIsRefusedRatherThanWritingNothingQuietly)
+{
+    const std::filesystem::path directory = makeScratchDirectory("reimportmissing");
+    writeFile(directory / "Textures" / "Gone.png", "not really a png");
+
+    AssetDatabase assets;
+    assets.setProjectRoot(directory.generic_string());
+    CNA_STUDIO_EXPECT(assets.scan("Textures").succeeded);
+
+    const Uuid id = assets.findByPath("Textures/Gone.png")->id;
+    std::filesystem::remove(directory / "Textures" / "Gone.png");
+    CNA_STUDIO_EXPECT_EQ(assets.refreshPresence(), std::size_t{1});
+
+    // Neither question says a missing file needs reimporting: there is nothing to read, and
+    // offering the action would be offering one that cannot work.
+    CNA_STUDIO_EXPECT(!studioNeedsReimport(*assets.find(id)));
+    CNA_STUDIO_EXPECT(!studioSourceChangedSinceImport(*assets.find(id)));
+
+    const StudioReimportResult result = studioReimportAssets(assets, {id});
+    CNA_STUDIO_EXPECT_EQ(result.reimported, std::size_t{0});
+    CNA_STUDIO_EXPECT_EQ(result.missing, std::size_t{1});
+    CNA_STUDIO_EXPECT_EQ(result.warnings.size(), std::size_t{1});
+
+    std::filesystem::remove_all(directory);
+}

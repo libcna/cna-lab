@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="styles.css">
+<title>CNA Studio</title>
+<meta name="description" content="A lightweight visual development companion for CNA — what it is, what it deliberately is not, and how to use it.">
+</head>
+<body>
+
+<header class="bar">
+  <div class="bar-in">
+    <a class="mark" href="index.html">
+      <svg class="mark-glyph" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4">
+        <path d="M1 4.5V1h3.5M11.5 1H15v3.5M15 11.5V15h-3.5M4.5 15H1v-3.5"/>
+        <path d="M8 6.2v3.6M6.2 8h3.6" stroke-width="1.2"/>
+      </svg>
+      CNA Studio
+    </a>
+    <nav aria-label="Site">
+      <a href="index.html" aria-current="page">Overview</a>
+      <a href="tutorial.html">Tutorial</a>
+      <a href="workflow.html">The workflow</a>
+      <a href="reference.html">Reference</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <div class="hero">
+    <p class="eyebrow">Version 1.0.0 &middot; Maintenance mode</p>
+    <h1>The visual half of a CNA project. The C++ stays yours.</h1>
+    <p class="lede">
+      CNA Studio is a lightweight visual development companion for
+      <a href="https://github.com/libcna/cna">CNA</a>, the C++ reimplementation of the XNA&nbsp;4.0
+      framework. It creates projects, manages assets, edits scenes, drives your build, reads your
+      compiler errors and runs your game &mdash; then hands you back to CLion or whatever you write
+      C++ in.
+    </p>
+    <div class="facts">
+      <span class="fact">C++<b>23</b></span>
+      <span class="fact">CMake <b>&ge;&nbsp;3.20</b></span>
+      <span class="fact"><b>1832</b> assertions</span>
+      <span class="fact"><b>69</b> CTest cases</span>
+      <span class="fact">zero <b>dependencies</b> by default</span>
+    </div>
+  </div>
+
+  <section id="paths">
+    <div class="stack-lg">
+      <h2>Start here</h2>
+      <div class="cards">
+        <a class="card" href="tutorial.html">
+          <h3>Tutorial</h3>
+          <p>
+            Fourteen parts, about 45 minutes: a clone, a project, an asset on screen, a build you can
+            read the errors of, a game in its own process, and a crash you recover from.
+          </p>
+          <span class="go">Build your first game &rarr;</span>
+        </a>
+        <a class="card" href="workflow.html">
+          <h3>The eleven steps</h3>
+          <p>
+            What each part of the product is for, and the list of things Studio deliberately does not
+            do &mdash; each absence a decision rather than a gap.
+          </p>
+          <span class="go">Read the workflow &rarr;</span>
+        </a>
+        <a class="card" href="reference.html">
+          <h3>Reference</h3>
+          <p>
+            Requirements, every default shortcut, the headless command lines, the build options and
+            the renderer model.
+          </p>
+          <span class="go">Look something up &rarr;</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <section id="what">
+    <div class="stack-lg">
+      <h2>What it is, and what it is not</h2>
+      <div class="split">
+        <div>
+          <h3>A companion, not an engine editor</h3>
+          <p>
+            Studio does the work that is genuinely easier with a mouse: placing objects, wiring up
+            assets, tuning material and light properties, seeing what you have selected. Eleven steps,
+            each one reliable, documented and covered by a test.
+          </p>
+        </div>
+        <div>
+          <h3>Never a runtime dependency</h3>
+          <p>
+            A project authored here is an ordinary CNA project &mdash; a directory with a
+            <code>CMakeLists.txt</code>, some C++ and some assets. It builds and runs with Studio
+            uninstalled, and CI proves that for every shipped template on every change.
+          </p>
+        </div>
+      </div>
+      <div class="note">
+        <b>The scope is bounded on purpose.</b> Studio is not Unity, Unreal or Godot, and is not
+        trying to become them. It is not an IDE: there is no code editor, no completion and no
+        debugger. The reasoning is in <code>docs/ADR-001-SCOPE-REDUCTION.md</code>, and the list of
+        things it deliberately does not do is on
+        <a href="workflow.html#absent">the workflow page</a>.
+      </div>
+      <p class="prose">
+        As of 23&nbsp;September&nbsp;2026 all eleven Core deliverables are done and the product is in
+        <b>maintenance mode</b>: bug fixes, compatibility fixes, adaptation to CNA API changes,
+        security and correctness work, and small usability fixes inside the workflow. Planned feature
+        development has stopped.
+      </p>
+    </div>
+  </section>
+
+  <section id="look">
+    <div class="stack-lg">
+      <h2>What it looks like</h2>
+      <p class="prose">
+        Captures of the shipped binary, not mock-ups. The three wide ones are real frames from a
+        running Studio window rendered by CNA on the OPENGL4 backend; the two panel close-ups are
+        shell previews, which is how a page taller than its dock gets photographed whole.
+      </p>
+
+      <div class="shots">
+        <figure>
+          <img src="images/studio-shell.png" width="1600" height="900"
+               alt="The CNA Studio shell with a project open: outliner on the left, viewport in the middle, Details panel on the right, Content Browser along the bottom.">
+          <figcaption>
+            The shell with the <code>HelloSprites</code> example open and <code>Player</code>
+            selected. World Outliner and its search on the left, the 2D viewport with the project's
+            sprites, the selection outline and translate gizmo in the middle, the Details grid on the
+            right, and the status bar naming the build target and the renderer under it.
+          </figcaption>
+        </figure>
+
+        <figure>
+          <img src="images/studio-3d-selection.png" width="1600" height="900"
+               alt="The 3D viewport with a crate model selected, showing its selection box and the pivot cross.">
+          <figcaption>
+            The 3D viewport with <code>Crate</code> selected: the imported <code>Crate.gltf</code>
+            inside its selection box, the cross marking the point a rotation will turn about, the
+            sprites edge-on and the key light's range drawn as an arc. A multi-selection gets one box
+            round the whole of it and one pivot between them.
+          </figcaption>
+        </figure>
+
+        <figure>
+          <img src="images/studio-light-theme.png" width="1600" height="900"
+               alt="The same shell in the light theme, with a light viewport.">
+          <figcaption>
+            The light theme, chosen under
+            <b>Preferences&nbsp;&rsaquo;&nbsp;Appearance&nbsp;&rsaquo;&nbsp;Theme</b>. It applies as
+            you pick it rather than on an OK button, and it is a <em>user</em> preference &mdash; it
+            travels with the person, not with the project, so choosing it does not make a teammate's
+            Studio light.
+          </figcaption>
+        </figure>
+
+        <div class="shots-pair">
+          <figure>
+            <img src="images/studio-details-grid.png" width="820" height="430"
+                 alt="The Details panel showing a Transform and a Sprite Renderer component as a property grid.">
+            <figcaption>
+              The Details panel. The label column is sized from its labels rather than from a
+              fraction of the panel, so every value in the grid starts at the same x.
+            </figcaption>
+          </figure>
+          <figure>
+            <img src="images/studio-build-panel.png" width="1500" height="510"
+                 alt="The Build panel showing target axes, optional subsystems, and the exact cmake commands it would run.">
+            <figcaption>
+              The Build panel. The renderer and platform axes, the optional CNA subsystems, and the
+              exact <code>cmake</code> commands &mdash; shown before anything runs and copyable in
+              full.
+            </figcaption>
+          </figure>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="quick">
+    <div class="stack-lg">
+      <h2>The shortest possible start</h2>
+<pre><code>git clone https://github.com/libcna/cna-studio
+cd cna-studio
+cmake -S . -B build -G Ninja &amp;&amp; cmake --build build -j4
+
+./build/cna-studio --new-project=/tmp/MyGame --template=basic-sample --project-name="My Game"
+./build/cna-studio --project="/tmp/MyGame/My Game.cnaproject"</code></pre>
+      <p class="prose">
+        That build has no external dependencies and no scene viewport. The
+        <a href="tutorial.html">tutorial</a> takes it from there, including adding the viewport and
+        proving the game you make does not need Studio at all.
+      </p>
+    </div>
+  </section>
+
+  <nav class="pager" aria-label="Pagination">
+    <span></span>
+    <a class="next" href="tutorial.html"><span>Next</span>Build your first CNA game</a>
+  </nav>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>
+      CNA Studio 1.0.0 &mdash; a lightweight visual development companion for CNA applications.
+      Source at <a href="https://github.com/libcna/cna-studio">github.com/libcna/cna-studio</a>;
+      CNA itself at <a href="https://github.com/libcna/cna">github.com/libcna/cna</a>.
+      These pages present <code>docs/</code>; where they disagree, <code>docs/</code> is right.
+    </p>
+  </div>
+</footer>
+
+</body>
+</html>

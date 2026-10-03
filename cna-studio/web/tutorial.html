@@ -1,0 +1,618 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="styles.css">
+<title>CNA Studio Tutorial</title>
+<meta name="description" content="Fourteen parts from a clone to a running CNA game, with the commands and what you should see after each one.">
+</head>
+<body>
+
+<header class="bar">
+  <div class="bar-in">
+    <a class="mark" href="index.html">
+      <svg class="mark-glyph" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4">
+        <path d="M1 4.5V1h3.5M11.5 1H15v3.5M15 11.5V15h-3.5M4.5 15H1v-3.5"/>
+        <path d="M8 6.2v3.6M6.2 8h3.6" stroke-width="1.2"/>
+      </svg>
+      CNA Studio
+    </a>
+    <nav aria-label="Site">
+      <a href="index.html">Overview</a>
+      <a href="tutorial.html" aria-current="page">Tutorial</a>
+      <a href="workflow.html">The workflow</a>
+      <a href="reference.html">Reference</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <div class="pagehead">
+    <p class="eyebrow">Tutorial &middot; about 45 minutes</p>
+    <h1>Build, play and ship your first CNA game</h1>
+    <p class="lede">
+      Fourteen parts, start to finish: a clone, a project, an asset on screen, a build you can read
+      the errors of, a game running in its own process, a crash you recover from, and a final step
+      that proves none of it needs Studio installed.
+    </p>
+  </div>
+
+  <nav class="toc" aria-label="Tutorial contents">
+    <h2>What you will do</h2>
+    <ol>
+      <li><a href="#p1">Get Studio running</a></li>
+      <li><a href="#p2">Make a project</a></li>
+      <li><a href="#p3">Learn the window</a></li>
+      <li><a href="#p4">Bring in an asset</a></li>
+      <li><a href="#p5">Put it in the scene</a></li>
+      <li><a href="#p6">Move it, precisely</a></li>
+      <li><a href="#p7">Light it</a></li>
+      <li><a href="#p8">Save</a></li>
+      <li><a href="#p9">Choose what you are building</a></li>
+      <li><a href="#p10">Build it, and break it</a></li>
+      <li><a href="#p11">Play it</a></li>
+      <li><a href="#p12">Survive a crash</a></li>
+      <li><a href="#p13">Hand off to your IDE</a></li>
+      <li><a href="#p14">Prove it does not need Studio</a></li>
+    </ol>
+  </nav>
+
+  <!-- ==================================================================== -->
+  <section class="part" id="p1">
+    <div class="part-head"><span class="part-n">Part 01</span><h2>Get Studio running</h2></div>
+    <div class="part-body">
+      <p>
+        Studio's default build has <b>no external dependencies at all</b> &mdash; no CNA checkout, no
+        GPU, no display. That build has no 3D viewport, but everything else in this tutorial works in
+        it, including creating the project and building the game.
+      </p>
+<pre><code>git clone https://github.com/libcna/cna-studio
+cd cna-studio
+cmake -S . -B build -G Ninja
+cmake --build build -j4</code></pre>
+      <p>Check it:</p>
+<pre><code>./build/cna-studio --version
+./build/cna-studio --list-templates</code></pre>
+<pre class="out"><code>cna-studio 1.0.0</code></pre>
+      <div class="check">
+        <code>--list-templates</code> prints four templates. If it does, you have a working Studio and
+        can do every part of this tutorial except looking at the viewport.
+      </div>
+      <h3>If you want the viewport too</h3>
+      <p>
+        The CNA-backed viewport is opt-in because it needs two sibling checkouts next to this one:
+      </p>
+<pre><code>cd ..
+git clone https://github.com/libcna/cna.git
+git clone https://github.com/libcna/sharp-runtime.git
+cd cna-studio
+
+cmake -S . -B build-cna -DCNA_STUDIO_WITH_CNA=ON -DCNA_DEVICES=ON
+cmake --build build-cna -j</code></pre>
+      <p>
+        From here on, <code>./build/cna-studio</code> means &ldquo;whichever build you made&rdquo;.
+        <code>-DCNA_DEVICES=ON</code> is what gives Studio a working clipboard. CNA itself needs
+        SDL3's build dependencies and FFmpeg headers; the root <code>README.md</code> lists the exact
+        Debian package names.
+      </p>
+    </div>
+  </section>
+
+  <!-- ==================================================================== -->
+  <section class="part" id="p2">
+    <div class="part-head"><span class="part-n">Part 02</span><h2>Make a project</h2></div>
+    <div class="part-body">
+      <p>
+        Two ways in, and they are the same code: the <b>Project Hub</b> (the tab beside Viewport when
+        nothing is open) or the command line. The command line is easier to show:
+      </p>
+<pre><code>./build/cna-studio --new-project=/tmp/MyGame \
+                   --template=basic-sample \
+                   --project-name="My Game"</code></pre>
+<pre class="out"><code>cna-studio: created 14 files in '/tmp/MyGame'</code></pre>
+      <p>Here is what those files are:</p>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Path</th><th>What it is</th></tr></thead>
+          <tbody>
+            <tr><td><code>My Game.cnaproject</code></td><td>The project file Studio opens. Name, kind, asset roots, build target profiles</td></tr>
+            <tr><td><code>CMakeLists.txt</code></td><td><b>Yours.</b> Studio drives it and never rewrites it</td></tr>
+            <tr><td><code>Source/Main.cpp</code></td><td>Your game's entry point. Studio never edits this either</td></tr>
+            <tr><td><code>Assets/</code></td><td>What the importers watch. Drop files in; there is no import button</td></tr>
+            <tr><td><code>Scenes/</code></td><td>What the editor edits. <code>.cnascene</code> documents</td></tr>
+            <tr><td><code>Runtime/</code></td><td>The scene loader this template brought with it &mdash; ordinary C++ you own</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <h3>Which template</h3>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Template</th><th>Starts you with</th></tr></thead>
+          <tbody>
+            <tr><td><code>basic-sample</code></td><td>A scene with something already in it. <b>Use this one</b></td></tr>
+            <tr><td><code>empty-2d</code></td><td>A 2D project with an empty scene</td></tr>
+            <tr><td><code>empty-3d</code></td><td>A 3D project with an empty scene</td></tr>
+            <tr><td><code>xna-compatible</code></td><td>A hand-written <code>Initialize</code>/<code>LoadContent</code>/<code>Update</code>/<code>Draw</code> game, with no scene model at all</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        They differ in what they start you with, not in what they let you do. A project also declares
+        its <em>kind</em>, and the kind decides what Studio offers: <code>CnaNative</code> gets scenes,
+        entities, components, gizmos, prefabs and both viewports; <code>XnaCompatible</code> gets
+        assets, importer settings, previews, renderer configuration and Play, and nothing else,
+        because your game keeps its own game loop.
+      </p>
+    </div>
+  </section>
+
+  <!-- ==================================================================== -->
+  <section class="part" id="p3">
+    <div class="part-head"><span class="part-n">Part 03</span><h2>Learn the window</h2></div>
+    <div class="part-body">
+      <p>Open what you just made:</p>
+<pre><code>./build/cna-studio --project="/tmp/MyGame/My Game.cnaproject"</code></pre>
+      <p>
+        Or without a window at all, which is what the test suite does and what you can do over SSH:
+      </p>
+<pre><code>./build/cna-studio --project="/tmp/MyGame/My Game.cnaproject" --headless --frames=2</code></pre>
+<pre class="out"><code>[info] Opened project 'My Game' (CnaNative) at /tmp/MyGame
+[info] Assets: 4 found, 0 new, 0 moved, 0 missing
+[info] Opened scene 'Level01' with 5 entities</code></pre>
+
+      <figure>
+        <img src="images/studio-shell.png" width="1600" height="900"
+             alt="The CNA Studio shell: menu bar and toolbar on top, World Outliner on the left, viewport in the middle, Details panel on the right, Content Browser along the bottom, status bar at the foot.">
+        <figcaption>
+          The shell with a project open and an entity selected. Every panel below is in this frame.
+        </figcaption>
+      </figure>
+
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Where</th><th>Panel</th><th>For</th></tr></thead>
+          <tbody>
+            <tr><td>Top</td><td>Menu bar and toolbar</td><td>File, Edit, Entity, View, Build, Play, Tools, Window, Help. Save, undo/redo, the gizmo mode, snapping, and the play controls</td></tr>
+            <tr><td>Left</td><td><b>World Outliner</b></td><td>The scene as a tree. Search, visibility and lock toggles, drag to reparent</td></tr>
+            <tr><td>Left</td><td><b>Layers</b></td><td>The scene's layers</td></tr>
+            <tr><td>Middle</td><td><b>Viewport</b></td><td>2D, 3D and Game views, with the mode strip along its top</td></tr>
+            <tr><td>Middle</td><td><b>Project Hub</b></td><td>New, Open, and a recent list that greys out what has moved</td></tr>
+            <tr><td>Right</td><td><b>Details</b></td><td>Everything about what is selected</td></tr>
+            <tr><td>Right</td><td><b>Material</b>, <b>History</b></td><td>The selected material; the undo stack as a list you can read</td></tr>
+            <tr><td>Bottom</td><td><b>Content Browser</b></td><td>The project's assets, as a folder tree and cards</td></tr>
+            <tr><td>Bottom</td><td><b>Output Log</b></td><td>Studio's messages and the running game's, each marked with its source</td></tr>
+            <tr><td>Bottom</td><td><b>Build</b>, <b>Problems</b></td><td>Target profiles and the build; compiler diagnostics as rows</td></tr>
+            <tr><td>Bottom</td><td><b>Backends</b>, <b>Preferences</b>, <b>Diagnostics</b></td><td>Renderer comparison; your settings; what this build can do</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        Panels dock, undock into floating windows and re-dock by dragging their tab, and the
+        arrangement is remembered per project. <b>Window &rsaquo; Panels</b> reopens anything you
+        closed.
+      </p>
+      <div class="note">
+        <b>Pick your theme now.</b> <b>Preferences &rsaquo; Appearance &rsaquo; Theme</b> switches
+        between Dark and Light, and applies as you pick it rather than on an OK button. It is a
+        <em>user</em> preference stored beside your workspace layout, not in the project, so it does
+        not follow the project to a teammate.
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================================== -->
+  <section class="part" id="p4">
+    <div class="part-head"><span class="part-n">Part 04</span><h2>Bring in an asset</h2></div>
+    <div class="part-body">
+      <p>
+        Copy any PNG into <code>/tmp/MyGame/Assets/Textures/</code>. That is the whole import step
+        &mdash; the Content Browser watches the directory, notices the file and imports it. There is
+        no import button to find, and nothing to click.
+      </p>
+      <p>
+        Beside your PNG a <code>.cnaasset</code> sidecar appears. It holds the asset's UUID and its
+        importer settings, and the UUID is what makes a reference survive you renaming or moving the
+        file later. Commit sidecars along with the assets they describe.
+      </p>
+      <div class="check">
+        The Content Browser shows a card for your file, and the Output Log says the asset database
+        found it. If the card does not appear, the file is outside <code>Assets/</code>.
+      </div>
+      <h3>Finding it again</h3>
+      <ul>
+        <li><b>Search</b> (the field top right of the browser) covers the name, the kind and the path, and deliberately <em>leaves the current folder behind</em> to look at the whole project &mdash; searching only inside one folder is how people conclude an asset is gone when it is one folder over.</li>
+        <li><b>The kind filter</b> beside it narrows what you are browsing, which is the opposite scope on purpose: a filter is a way of looking at where you are standing.</li>
+        <li>Both scale. A hundred thousand assets, searched or browsed, cost a screenful &mdash; the panel builds rows for what is on screen, not for what matches.</li>
+      </ul>
+      <p>
+        Right-clicking a card offers <b>Reveal</b> (opens your file manager at it), a reimport when
+        the file on disk is newer than what was imported, and favourites. The folder pane keeps a
+        favourites and a recents list, and drops entries whose asset went away.
+      </p>
+    </div>
+  </section>
+
+  <!-- ==================================================================== -->
+  <section class="part" id="p5">
+    <div class="part-head"><span class="part-n">Part 05</span><h2>Put it in the scene</h2></div>
+    <div class="part-body">
+      <p>Two ways, and both end in the same undoable command:</p>
+      <ul>
+        <li><b>Drag the card into the viewport.</b> That makes an entity with a sprite renderer already pointing at your texture.</li>
+        <li><b>Entity &rsaquo; Create &rsaquo; Sprite</b>, then set the texture in the Details panel. The same menu creates Empty, Model, Camera, Audio and Directional, Point and Spot lights.</li>
+      </ul>
+      <p>
+        The new entity appears in the World Outliner. <kbd>F2</kbd> renames it in place;
+        <kbd>Ctrl</kbd>+<kbd>D</kbd> duplicates; <kbd>Del</kbd> deletes. Drag one row onto another to
+        reparent it &mdash; the child keeps its position on screen, because a reparent that moved
+        things is a reparent nobody can use. <kbd>Ctrl</kbd>+<kbd>G</kbd> wraps the selection in a
+        group, <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd> unwraps it.
+      </p>
+      <div class="note">
+        <b>Every one of those is a command.</b> There is no path in Studio that edits the document
+        directly &mdash; not the panels, not the gizmos, not drag and drop &mdash; so
+        <kbd>Ctrl</kbd>+<kbd>Z</kbd> reaches all of it, and the History panel lists it. That is
+        enforced by a test rather than by a rule.
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================================== -->
+  <section class="part" id="p6">
+    <div class="part-head"><span class="part-n">Part 06</span><h2>Move it, precisely</h2></div>
+    <div class="part-body">
+      <p>With the entity selected, the viewport gives you a gizmo:</p>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Key</th><th>Does</th></tr></thead>
+          <tbody>
+            <tr><td><kbd>W</kbd> / <kbd>E</kbd> / <kbd>R</kbd></td><td>Translate / Rotate / Scale</td></tr>
+            <tr><td><kbd>X</kbd></td><td>Switch the gizmo between world and local space</td></tr>
+            <tr><td><kbd>F</kbd></td><td>Move the camera to frame the selection</td></tr>
+            <tr><td><kbd>2</kbd> / <kbd>3</kbd> / <kbd>4</kbd></td><td>2D view / 3D view / Game view</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        A drag along one arm is constrained to that axis, and the plane handles between the arms move
+        two at once. The whole drag is <b>one undo entry</b>, not one per mouse-move. The snap toggle
+        in the toolbar rounds to the increment beside it.
+      </p>
+      <p>
+        What is selected is outlined. Select a second entity and you also get a box round the whole
+        selection and a cross at the point a rotation will turn about &mdash; which is the thing you
+        need to know before you press <kbd>R</kbd>. <b>View &rsaquo; Pivot</b> chooses whether that
+        point is the selection's centre or its active entity.
+      </p>
+
+      <figure>
+        <img src="images/studio-3d-selection.png" width="1600" height="900"
+             alt="The 3D viewport with a model selected, showing its selection box and a cross at the pivot.">
+        <figcaption>
+          The 3D viewport with a model selected: its selection box, the pivot cross, the sprites
+          edge-on and the key light's range drawn as an arc.
+        </figcaption>
+      </figure>
+
+      <h3>When the mouse is not precise enough</h3>
+      <p>
+        Type into the <b>Details</b> panel instead. Position, Rotation and Scale are ordinary number
+        fields &mdash; drag on one to scrub it, or click and type an exact value.
+      </p>
+
+      <figure>
+        <img src="images/studio-details-grid.png" width="820" height="430"
+             alt="The Details panel showing Transform and Sprite Renderer components as an aligned property grid.">
+        <figcaption>
+          The label column is sized from the labels actually on screen, so every value in the grid
+          starts at the same x. A property that differs from its default is marked and can be reset
+          &mdash; through the history, like everything else.
+        </figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ==================================================================== -->
+  <section class="part" id="p7">
+    <div class="part-head"><span class="part-n">Part 07</span><h2>Light it</h2></div>
+    <div class="part-body">
+      <p>
+        <b>Entity &rsaquo; Create &rsaquo; Light</b> gives you a directional, point or spot light.
+        Select it and the Details panel shows what that type actually has: a point light's range is
+        live, a directional light's is dead, because a directional light has no range to set.
+      </p>
+      <p>
+        Materials are assets. Right-click in the Content Browser for <b>New Material</b> &mdash; it is
+        written into the folder the browser is standing in &mdash; then assign it to an entity's Model
+        Renderer, or override a single part of a multi-part model.
+      </p>
+      <div class="note">
+        <b>Studio tells you when it cannot draw what you asked for.</b> If your build's effect cannot
+        render a light property, the Details panel says so on the light rather than showing you a
+        value that does nothing.
+      </div>
+      <p>
+        <b>View &rsaquo; Shading</b> switches between shaded and wireframe, and the debug views
+        (lighting, normals, metallic, roughness, unlit) show one channel at a time when something
+        looks wrong.
+      </p>
+    </div>
+  </section>
+
+  <!-- ==================================================================== -->
+  <section class="part" id="p8">
+    <div class="part-head"><span class="part-n">Part 08</span><h2>Save</h2></div>
+    <div class="part-body">
+      <p>
+        <kbd>Ctrl</kbd>+<kbd>S</kbd> saves the active document,
+        <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd> saves everything with unsaved changes. The
+        status bar and the document tab mark what is dirty.
+      </p>
+      <p>
+        Every write is <b>atomic</b>: the bytes go to a temporary file which is then renamed over the
+        old one. An interrupted save therefore leaves you with the previous version intact rather
+        than half of both, and that is true of autosave snapshots too. If Studio ever finds a
+        left-over partial file it reports it by name instead of trying to read it.
+      </p>
+      <div class="check">
+        Close Studio and reopen the project. Your entity is where you left it. If it is not, you did
+        not save &mdash; Studio does not save on exit behind your back.
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================================== -->
+  <section class="part" id="p9">
+    <div class="part-head"><span class="part-n">Part 09</span><h2>Choose what you are building</h2></div>
+    <div class="part-body">
+      <p>
+        Open the <b>Build</b> panel. A project carries one or more <em>target profiles</em>, and a
+        profile is one build of your game.
+      </p>
+
+      <figure>
+        <img src="images/studio-build-panel.png" width="1500" height="510"
+             alt="The Build panel: target selector, operating system, architecture, renderer, platform, configuration, optional subsystems, the cmake commands, and Build and Clean Build buttons.">
+        <figcaption>
+          The whole panel. The commands at the bottom are the ones that will run, shown before
+          anything runs.
+        </figcaption>
+      </figure>
+
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Field</th><th>What it decides</th></tr></thead>
+          <tbody>
+            <tr><td><b>Target</b> / Name / Add / Duplicate / Remove</td><td>Which profile you are editing. Keep one per thing you ship</td></tr>
+            <tr><td><b>Operating system</b>, <b>Architecture</b></td><td>What you are building for</td></tr>
+            <tr><td><b>Renderer</b></td><td>The CNA graphics backend. The list offers only what CNA will actually configure for the chosen system</td></tr>
+            <tr><td><b>Platform</b></td><td>The CNA windowing and input layer &mdash; SDL3, SDL2, headless or terminal</td></tr>
+            <tr><td><b>Configuration</b></td><td>Debug or Release</td></tr>
+            <tr><td><b>Optional subsystems</b></td><td>Networking, video playback, Draco mesh compression, device services, modern graphics extensions</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="note">
+        <b>The renderer Studio draws itself with and the renderer your game targets are unrelated.</b>
+        You can build a Vulkan game on a machine that cannot run Vulkan, and a Studio that refused
+        would be wrong.
+      </div>
+      <p>
+        An option that is tri-state in CNA is tri-state here. <code>CNA_ENABLE_VIDEO</code> is
+        <code>OFF</code>, <code>AUTO</code> or <code>ON</code>: <code>AUTO</code> uses FFmpeg where the
+        build machine has it, and <code>ON</code> <em>requires</em> it and fails the configure without
+        it &mdash; which is a thing a shipping project may well want to say.
+      </p>
+      <p>
+        <b>Copy Commands</b> puts the exact, untruncated, shell-quoted command lines on your
+        clipboard. Run them yourself in a terminal and you get the same build; Studio has no build
+        system of its own and no private flags.
+      </p>
+    </div>
+  </section>
+
+  <!-- ==================================================================== -->
+  <section class="part" id="p10">
+    <div class="part-head"><span class="part-n">Part 10</span><h2>Build it, and break it</h2></div>
+    <div class="part-body">
+      <p>
+        <kbd>Ctrl</kbd>+<kbd>B</kbd> builds. <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd> is a clean
+        build: it runs your project's own <code>clean</code> target between the configure and the
+        build. It does <em>not</em> delete your build directory, so nothing you are keeping in there
+        disappears.
+      </p>
+      <h3>Set your editor first</h3>
+      <p>
+        Go to <b>Preferences &rsaquo; Tools</b> and set <b>External editor</b> to a full path or a
+        name on your <code>PATH</code> &mdash; <code>clion</code>, <code>code</code>,
+        <code>vim</code>, <code>subl</code>, <code>kate</code> and their relatives are known well
+        enough to be told which line to jump to. Studio does not guess: on Linux, whatever opens a
+        <code>.cpp</code> by default is as likely to be a text viewer as an IDE, so with nothing set
+        the gesture is refused with a message naming this setting.
+      </p>
+      <h3>Now break something on purpose</h3>
+      <p>
+        Open <code>/tmp/MyGame/Source/Main.cpp</code>, delete a semicolon, save, and press
+        <kbd>Ctrl</kbd>+<kbd>B</kbd>. The <b>Problems</b> panel fills with rows &mdash; each naming the
+        file, the line, the column and the message. Activate the row and your editor opens at that
+        line.
+      </p>
+      <p>
+        The parser understands GCC, Clang, MSVC and CMake's own configure errors, keeps a
+        <code>note:</code> attached to the diagnostic above it, and does not split a Windows path on
+        its drive letter. Whatever it made of the output, <b>Open Build Log</b> gives you the complete
+        unparsed log.
+      </p>
+      <div class="check">
+        Put the semicolon back, build again, and the build succeeds. You have now seen the whole loop
+        the Build panel exists for: configure, compile, read the failure, jump to it, fix it.
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================================== -->
+  <section class="part" id="p11">
+    <div class="part-head"><span class="part-n">Part 11</span><h2>Play it</h2></div>
+    <div class="part-body">
+      <p>
+        <kbd>F5</kbd>. Your game launches in a <b>separate process</b> &mdash; <code>cna-player</code>
+        &mdash; which is the reason a crash in your game is a crash in your game: Studio reports it,
+        with the exit reason the operating system gave, and stays up.
+      </p>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Key</th><th>Does</th></tr></thead>
+          <tbody>
+            <tr><td><kbd>F5</kbd></td><td>Play</td></tr>
+            <tr><td><kbd>Ctrl</kbd>+<kbd>F5</kbd></td><td>Pause</td></tr>
+            <tr><td><kbd>Alt</kbd>+<kbd>F5</kbd></td><td>Step one frame</td></tr>
+            <tr><td><kbd>Shift</kbd>+<kbd>F5</kbd></td><td>Stop</td></tr>
+            <tr><td><kbd>F12</kbd></td><td>Ask the running game to write the frame it is showing to a PNG</td></tr>
+          </tbody>
+        </table>
+      </div>
+<pre class="out"><code>cna-player: project 'My Game', backend SOFTWARE, scene 'Level01' (5 entities)
+cna-player: ran 60 frames, 2 sprites and 0 tiles on the last one</code></pre>
+      <p>
+        The player's log is routed into the Output panel with its source marked, so you can tell your
+        game's messages from Studio's. Edits you make while it runs are mirrored across, and assets
+        reload live.
+      </p>
+      <p>
+        Play is refused, with a reason, when there is nothing to play or nothing to play it with
+        &mdash; an unsaved scene says so rather than being written out silently behind you, and a
+        player that cannot be launched is reported rather than leaving the toolbar stuck.
+      </p>
+    </div>
+  </section>
+
+  <!-- ==================================================================== -->
+  <section class="part" id="p12">
+    <div class="part-head"><span class="part-n">Part 12</span><h2>Survive a crash</h2></div>
+    <div class="part-body">
+      <p>
+        Worth doing once, deliberately, so that you trust it. Move your entity, do <b>not</b> save,
+        and kill Studio:
+      </p>
+<pre><code>pkill -9 cna-studio</code></pre>
+      <p>Reopen the project. Studio finds the autosave snapshot that belongs to it and offers it.</p>
+      <ul>
+        <li><b>Recover</b> takes the work back and leaves it unsaved, so you decide where it goes.</li>
+        <li><b>Discard</b> removes the snapshot and the offer.</li>
+        <li>Both commands are on the File menu, and both are greyed out when there is nothing to answer for.</li>
+      </ul>
+      <p>
+        Snapshots live in your per-user state directory, not in the project, and are written
+        atomically for the same reason saves are. The interval is
+        <b>Preferences &rsaquo; Autosave</b>; zero disables it.
+      </p>
+    </div>
+  </section>
+
+  <!-- ==================================================================== -->
+  <section class="part" id="p13">
+    <div class="part-head"><span class="part-n">Part 13</span><h2>Hand off to your IDE</h2></div>
+    <div class="part-body">
+      <p>
+        <b>Tools &rsaquo; Open Project in External Editor</b> hands the whole directory to CLion, VS
+        Code or whatever you configured in part 10.
+        <b>Tools &rsaquo; Open Main Source in External Editor</b> opens <code>Source/Main.cpp</code>.
+      </p>
+      <p>
+        This is not an escape hatch, it is the point. Studio does the visual half; the C++ is written
+        where you write C++. There is no code editor here, no completion and no debugger, and none of
+        those are planned.
+      </p>
+    </div>
+  </section>
+
+  <!-- ==================================================================== -->
+  <section class="part" id="p14">
+    <div class="part-head"><span class="part-n">Part 14</span><h2>Prove it does not need Studio</h2></div>
+    <div class="part-body">
+      <p>
+        The step that matters most. What you have made is an <b>ordinary CNA project</b> &mdash; a
+        directory with a <code>CMakeLists.txt</code>, some C++ and some assets. Build it with Studio
+        nowhere in the picture:
+      </p>
+<pre><code>cmake -S /tmp/MyGame -B /tmp/MyGame/build \
+      -DCNA_ROOT=/path/to/cna -DCNA_GRAPHICS_RENDERER=SOFTWARE
+cmake --build /tmp/MyGame/build -j4
+cd /tmp/MyGame/build &amp;&amp; SDL_VIDEODRIVER=dummy ./My_Game --frames=10</code></pre>
+<pre class="out"><code>My_Game: loaded 5 entities, drew 2 sprites</code></pre>
+      <div class="check">
+        No Studio anywhere in that. This is the one rule the whole product is shaped by, and CI runs
+        exactly these commands for every shipped template on every change
+        (<code>ctest -R CnaStudioTemplateBuilds</code>) &mdash; because the one failure mode this rule
+        has is the one that looks fine until somebody tries it.
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================================== -->
+  <section class="part" id="trouble">
+    <div class="part-head"><span class="part-n">If something went wrong</span><h2>Troubleshooting</h2></div>
+    <div class="part-body">
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Symptom</th><th>Why, and what to do</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>The viewport is empty and the status bar says <code>none, headless preview</code></td>
+              <td>You built without <code>-DCNA_STUDIO_WITH_CNA=ON</code>. Everything except the scene viewport works; see part 1 to add it</td>
+            </tr>
+            <tr>
+              <td>Studio refuses to open a window at all</td>
+              <td>Your graphics backend does not meet the profile the UI renderer needs. The <b>Diagnostics</b> panel and <code>cna-studio --host-capabilities</code> both say which requirement failed</td>
+            </tr>
+            <tr>
+              <td>An asset does not appear in the Content Browser</td>
+              <td>It is outside <code>Assets/</code>, or its importer refused it. The Output Log says which</td>
+            </tr>
+            <tr>
+              <td>&ldquo;Cannot build: the project has no <code>CMakeLists.txt</code>&rdquo;</td>
+              <td>You opened a project that has no build of its own. A CNA game's build is the game's own; Studio only runs it</td>
+            </tr>
+            <tr>
+              <td>Opening a diagnostic row does nothing</td>
+              <td>No external editor is configured. <b>Preferences &rsaquo; Tools &rsaquo; External editor</b></td>
+            </tr>
+            <tr>
+              <td>The build was killed with no error in the log</td>
+              <td>Out of memory, not a compile failure. Lower the parallel job count, or build from the terminal with <b>Copy Commands</b> and a smaller <code>-j</code></td>
+            </tr>
+            <tr>
+              <td>Non-Latin names render as boxes</td>
+              <td>Known and deliberate. Localisation, IME input and non-Latin text rendering were cut on budget rather than on merit</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <nav class="pager" aria-label="Pagination">
+    <a href="index.html"><span>Back to</span>Overview</a>
+    <a class="next" href="workflow.html"><span>Next</span>The eleven steps, in detail</a>
+  </nav>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>
+      CNA Studio 1.0.0 &mdash; a lightweight visual development companion for CNA applications.
+      Source at <a href="https://github.com/libcna/cna-studio">github.com/libcna/cna-studio</a>;
+      CNA itself at <a href="https://github.com/libcna/cna">github.com/libcna/cna</a>.
+      These pages present <code>docs/</code>; where they disagree, <code>docs/</code> is right.
+    </p>
+  </div>
+</footer>
+
+</body>
+</html>

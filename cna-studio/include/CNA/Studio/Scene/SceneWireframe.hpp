@@ -1,0 +1,517 @@
+// SPDX-License-Identifier: MS-PL
+#pragma once
+
+/**
+ * @file CNA/Studio/Scene/SceneWireframe.hpp
+ * @brief What the 3D viewport draws, expressed as screen-space line segments (plan.md ED-400).
+ *
+ * The same split the gizmos use, and for the same reason: the *decisions* -- where the ground grid
+ * goes, how far it extends, which entity gets a box, what is clipped against the near plane -- are
+ * CNA-free and unit-tested in CI, and the renderer's job shrinks to calling `drawLine` in a loop.
+ * A 3D viewport whose geometry could only be checked by looking at it would be a 3D viewport
+ * nobody could check.
+ *
+ * This is deliberately *not* a 3D renderer. Until ED-402 brings a model pipeline there is no mesh
+ * to draw, and a wireframe over the scene's bounds answers the question a 3D camera exists to ask:
+ * where is everything, actually, in relation to everything else. Sprites are not drawn as textured
+ * quads here because `SpriteBatch` cannot draw an arbitrary quad -- only a rotated rectangle -- and
+ * a sprite seen from an angle is a trapezoid.
+ */
+
+#include <cstddef>
+#include <functional>
+#include <optional>
+#include <vector>
+
+#include "CNA/Studio/Core/MeshData.hpp"
+#include "CNA/Studio/Scene/StudioCamera3D.hpp"
+#include "CNA/Studio/Scene/SceneLighting.hpp"
+#include "CNA/Studio/Scene/SceneSelectionOverlay.hpp"
+#include "CNA/Studio/Scene/StudioIcons.hpp"
+
+namespace CNA::Studio
+{
+    class SceneDocument;
+
+    // `MeshProvider` comes from MeshData.hpp: it is the seam's own callback, and this module is one
+    // of its consumers rather than its owner. The same relationship `SpriteSizeProvider` has with
+    // the scene -- this module knows what a scene says, not what is on disk, and asks.
+
+    /** @brief One line to draw, in viewport pixels. */
+    struct WireSegment
+    {
+        StudioVector2 from;
+        StudioVector2 to;
+        StudioColor color;
+        float thickness = 1.0f;
+    };
+
+    /** @brief The colours the 3D viewport draws with, kept beside the geometry that uses them. */
+    namespace WireColors
+    {
+        /** @brief The ground grid. Dim enough to read the scene over. */
+        inline constexpr StudioColor kGrid{70, 70, 78, 255};
+
+        /** @brief Every tenth line, so distances stay readable when the grid is dense. */
+        inline constexpr StudioColor kGridMajor{104, 104, 116, 255};
+
+        /** @brief The world X axis. Red, as every 3D tool since the first one. */
+        inline constexpr StudioColor kAxisX{196, 84, 84, 255};
+
+        /** @brief The world Y axis. Green, matching the gizmo's Y arm. */
+        inline constexpr StudioColor kAxisY{92, 170, 92, 255};
+
+        /** @brief The world Z axis. Blue, and drawn only by the ground grid, where Z is in-plane. */
+        inline constexpr StudioColor kAxisZ{84, 116, 196, 255};
+
+        /** @brief An entity's bounding box. */
+        inline constexpr StudioColor kEntity{130, 138, 150, 255};
+
+        /** @brief A selected entity's bounding box. Matches the 2D viewport's selection colour. */
+        inline constexpr StudioColor kSelected{255, 190, 60, 255};
+
+        /**
+         * @brief The box round a whole multi-selection (`plan.md` CORE-03).
+         *
+         * Dimmer than @ref kSelected, so it reads as *the extent of what is selected* rather than
+         * as a ninth selected entity. Drawing it in the selection colour would make a selection of
+         * eight crates look like nine.
+         */
+        inline constexpr StudioColor kSelectionExtent{176, 132, 44, 255};
+
+        /**
+         * @brief The cross at the point the gizmo turns and scales about (`plan.md` CORE-03).
+         *
+         * Brighter than either, because it is the smallest mark on screen and the one a user has
+         * to find before pressing R.
+         */
+        inline constexpr StudioColor kSelectionPivot{255, 224, 150, 255};
+
+        /**
+         * @brief The bounding volumes the bounds overlay draws (`plan.md` STUDIO-11008).
+         *
+         * A cool blue-green, deliberately not on the grey-to-amber axis the boxes and the
+         * selection already use: the overlay is drawn *over* whatever an entity is otherwise drawn
+         * as, and a debug volume that could be mistaken for the object's own outline would be
+         * worse than none.
+         */
+        inline constexpr StudioColor kBounds{92, 176, 168, 255};
+
+        /**
+         * @brief A light's direction arrow and range ring (ED-404).
+         *
+         * The same yellow the 2D viewport's light icon uses, so the arrow reads as belonging to the
+         * badge it comes out of rather than as one more piece of scene geometry. Dimmer than the
+         * badge, because a ring is a much longer line than an icon and the two at equal weight
+         * would make the ring the loudest thing in a lit scene.
+         */
+        inline constexpr StudioColor kLight{190, 168, 84, 255};
+    }
+
+    /**
+     * @brief Which plane the 3D grid is drawn on.
+     *
+     * Not a cosmetic choice: the grid is the only landmark a 3D view has, and it has to lie in the
+     * plane the scene is actually laid out in. Everything this editor can place today lives in XY,
+     * so that is the default; the moment ED-402 puts a model above a floor, a floor is what a user
+     * needs to see it standing on.
+     */
+    enum class GridPlane
+    {
+        /**
+         * @brief The scene's own XY plane at world Z = 0.
+         *
+         * Where sprites, tilemaps and the 2D camera's whole world live. On this plane a 3D camera
+         * at yaw and pitch zero shows exactly what the 2D viewport shows, which is what makes the
+         * two views recognisably the same scene.
+         */
+        SceneXY,
+
+        /**
+         * @brief A floor: the XZ plane at world Y = 0.
+         *
+         * Right for a scene with height in it, and wrong for a flat one -- an unrotated camera
+         * looks along it edge-on and sees a single line where a flat scene's grid would be.
+         */
+        Ground
+    };
+
+    /** @brief Returns the display name of @p plane. */
+    [[nodiscard]] const char* toString(GridPlane plane);
+
+    /**
+     * @brief Which entities get the bounds overlay (`plan.md` STUDIO-11008).
+     *
+     * The overlay is the box the editor *measures* with -- what a click is tested against and what
+     * Focus Selected frames -- drawn over whatever the entity is otherwise drawn as. An entity
+     * already drawn as exactly that box gets nothing added, because a second box in a second
+     * colour on top of the first says nothing the first did not.
+     */
+    enum class BoundsDisplay
+    {
+        /** @brief No overlay. The default: a bounding box on every entity is noise once it agrees. */
+        None,
+
+        /** @brief Only the selected entities, which is the usual reason to want one. */
+        Selected,
+
+        /** @brief Every drawn entity, for looking at how a whole scene measures at once. */
+        All
+    };
+
+    /** @brief Returns the display name of @p display. */
+    [[nodiscard]] const char* toString(BoundsDisplay display);
+
+    /** @brief What to include in a wireframe. */
+    struct WireframeOptions
+    {
+        /** @brief Draw the grid. */
+        bool drawGrid = true;
+
+        /** @brief Which plane to draw it on. */
+        GridPlane gridPlane = GridPlane::SceneXY;
+
+        /** @brief Draw a box per entity. */
+        bool drawEntityBounds = true;
+
+        /**
+         * @brief Draw an imported model's own edges, rather than only the box around it.
+         *
+         * `plan.md` STUDIO-11010. True here so that every existing caller and every test that
+         * pins the edge drawing keeps meaning what it meant; the *viewport* passes false in its
+         * shaded mode, which is where the new opinion belongs. Until there was a shading mode
+         * there was nowhere to put it, so the 3D view drew every mesh's edges over the solid
+         * render permanently and a user could not get a clean shaded picture at all.
+         */
+        bool drawMeshEdges = true;
+
+        /**
+         * @brief Outline a selected model's silhouette rather than recolouring all of its edges.
+         *
+         * `plan.md` STUDIO-11007. Recolouring every edge is what this replaces, and on anything
+         * denser than a crate it does not read as a selection -- it reads as the object turning
+         * into a solid block of the selection colour. An outline stays an outline however many
+         * triangles are behind it, and it is the only thing that marks a selected model at all in
+         * the shaded mode, where no edges are drawn otherwise.
+         */
+        bool drawSelectionOutline = true;
+
+        /**
+         * @brief Mark the whole selection's extent and the point it turns about (`plan.md` CORE-03).
+         *
+         * Eight selected crates were eight identical boxes with nothing saying they were one
+         * selection, and nothing at all marking the point a rotation would happen about -- which is
+         * the one thing a user has to know before they press R. On for the viewport; off for the
+         * callers that want the scene's own geometry and no editor furniture.
+         */
+        bool drawSelectionExtent = true;
+
+        /**
+         * @brief Which pivot the gizmo is using, so the mark lands where the rotation does.
+         *
+         * Passed rather than assumed: a mark that said the rotation would happen somewhere it
+         * does not is worse than no mark, because it is a wrong answer to the question the user
+         * asked by looking.
+         */
+        StudioPivotMode pivotMode = StudioPivotMode::Center;
+
+        /**
+         * @brief Draw each light's direction and range (ED-404).
+         *
+         * On by default, and worth a switch because a scene lit by a dozen lamps is a dozen rings
+         * over the geometry they light -- useful while aiming one and noise once they are all
+         * aimed.
+         */
+        bool drawLightGizmos = true;
+
+        /**
+         * @brief Draw a segment per vertex normal, coloured by the direction it points.
+         *
+         * `plan.md` STUDIO-11011, and the honest half of that row: CNA exposes `BasicEffect` and
+         * `PbrEffect` and no seam for an effect of one's own, so there is no way to write a normal
+         * *buffer* and Studio is not entitled to invent one (gap G-12). The normals themselves,
+         * drawn, answer the questions a normal buffer is opened for -- inverted faces, split
+         * seams, an importer mirror that did not take -- and they are a picture of the data rather
+         * than of a shader nobody has.
+         *
+         * Off by default: on a scene of any size this is a segment per vertex, which is the one
+         * overlay here that can reach `maxSegments` on a single model.
+         */
+        bool drawMeshNormals = false;
+
+        /**
+         * @brief How long a normal segment is, as a fraction of the model's largest extent.
+         *
+         * A fraction rather than a length in world units, because the alternative is an overlay
+         * that is invisible on a chair and a forest of spikes on a terrain -- the two models a
+         * user is most likely to switch between while looking for the same defect.
+         */
+        float meshNormalLength = 0.06f;
+
+        /**
+         * @brief Which entities get their bounding box drawn over them (`plan.md` STUDIO-11008).
+         *
+         * `None` by default, because the overlay's job is to answer a question -- why did my click
+         * miss, why did Focus fly me in there -- and an answer permanently on screen is noise.
+         */
+        BoundsDisplay boundsOverlay = BoundsDisplay::None;
+
+        /**
+         * @brief Also draw the bounding *sphere*, for the entities the overlay covers.
+         *
+         * CNA's collision, like XNA's, is `BoundingBox` and `BoundingSphere` and the intersection
+         * tests on them; there is no collider component and Studio is not entitled to invent one
+         * (`plans/phase-26-physics-nav.md` owns that, and says Studio integrates with a physics
+         * system rather than implementing one). So the collision a CNA game actually tests is the
+         * bounding volumes, and the sphere is the half a user cannot guess from the box: the
+         * smallest sphere containing a box is the one `BoundingSphere::CreateFromBoundingBox`
+         * builds, and around anything long and thin it is enormously bigger than the box it came
+         * from. Seeing that is the difference between a sphere test that works and one that
+         * collides with the air beside the object.
+         */
+        bool drawBoundingSpheres = false;
+
+        /**
+         * @brief World units between grid lines, or 0 to choose one from the camera's distance.
+         *
+         * Choosing rather than fixing, for the reason `chooseGridSpacing` exists: a fixed spacing
+         * is a solid block when zoomed out and invisible when zoomed in.
+         */
+        float gridSpacing = 0.0f;
+
+        /** @brief How many cells the grid extends from its centre, in each direction. */
+        int gridHalfExtent = 24;
+
+        /**
+         * @brief Where the grid starts fading, as a fraction of its radius. Zero disables the fade.
+         *
+         * `plan.md` STUDIO-11005. The grid used to stop: forty-nine lines each way at full
+         * strength and then nothing, which draws a bright square edge across the middle of a
+         * scene and, in any view that is not straight down, a solid aliased band where the far
+         * lines converge. Fading from here to the rim turns the square into a disc that dissolves,
+         * which is what an editor grid is expected to look like and what stops the far side of it
+         * competing with the geometry.
+         *
+         * Radial from the grid's centre rather than measured from the eye, deliberately: a fade
+         * that depended on where the camera was would shimmer as the user orbited, and the far
+         * edge of the grid *is* the horizon in a grazing view, so the simpler rule covers the case
+         * the harder one was for.
+         */
+        float gridFadeStart = 0.45f;
+
+        /**
+         * @brief How many pieces each grid line is cut into so it can fade along its length.
+         *
+         * A `WireSegment` carries one colour, so a line that runs from the centre to the rim can
+         * only fade if it is more than one segment. Six is enough that the steps are not visible
+         * at the widths a grid is drawn at, and it is a multiplier on the segment count -- which
+         * is why it is a number here rather than a constant, and why a test pins what the grid
+         * costs. One disables the subdivision and gives the old single-segment lines back.
+         */
+        int gridFadeSteps = 6;
+
+        /**
+         * @brief Ceiling on the segments produced, so a large scene cannot stall a frame.
+         *
+         * Reached rather than approached silently: `WireframeResult::truncated` says so, and the
+         * viewport reports it, because a wireframe that quietly stopped halfway through a scene
+         * looks exactly like a scene with half its entities missing.
+         */
+        std::size_t maxSegments = 20000;
+
+        /**
+         * @brief Where a `ModelRenderer`'s geometry comes from, or empty to draw boxes as before.
+         *
+         * In the options rather than beside `sizeProvider` in the parameter list, which is where
+         * its symmetry with that callback would put it. The reason is narrow and worth stating:
+         * this field is additive and a parameter would not be, so every existing caller -- and
+         * every test that pins the box-drawing behaviour -- keeps compiling and keeps meaning what
+         * it meant. Empty is the pre-ED-405 behaviour exactly.
+         */
+        MeshProvider meshProvider;
+    };
+
+    /** @brief The segments to draw, and what had to be left out to produce them. */
+    struct WireframeResult
+    {
+        std::vector<WireSegment> segments;
+
+        /** @brief Entities whose box contributed at least one visible segment. */
+        std::size_t entitiesDrawn = 0;
+
+        /** @brief True when `maxSegments` stopped the build before the scene was exhausted. */
+        bool truncated = false;
+    };
+
+    /**
+     * @brief Projects the segment @p from -> @p to, clipping it against the near plane.
+     *
+     * @return The screen-space endpoints, or std::nullopt when the segment is entirely behind the
+     *         camera. A segment with one endpoint behind is *shortened* rather than dropped: a
+     *         grid line running under the camera is mostly visible, and dropping it whole leaves a
+     *         wedge of missing floor exactly where the user is looking.
+     */
+    [[nodiscard]] std::optional<std::pair<StudioVector2, StudioVector2>> projectSegment(
+        const StudioCamera3D& camera, const StudioVector3& from, const StudioVector3& to);
+
+    /**
+     * @brief Appends the lines that show where @p light points and how far it reaches (ED-404).
+     *
+     * The half of ED-404 that ED-402 did not do. The lighting itself is read by
+     * `SceneLighting.hpp`, and a light whose effect can be seen but whose *aim* cannot is one a
+     * user has to point by typing Euler angles and re-rendering. So: an arrow along the direction,
+     * starting at the entity, and -- for a light that has a range -- one ring at that range.
+     *
+     * One ring in the scene's own plane rather than three about the three axes. Three describe the
+     * sphere more completely and put two of them edge-on in the view this editor opens in, where
+     * they collapse into lines through the middle of the badge. A directional light gets no ring at
+     * all: it reaches everything, and a boundary the user can drag that means nothing is worse than
+     * no boundary.
+     *
+     * @return How many segments were appended, which is at most @p budget.
+     */
+    std::size_t appendLightVisualisation(std::vector<WireSegment>& segments,
+                                         const StudioCamera3D& camera, const SceneLight& light,
+                                         const StudioColor& color, std::size_t budget);
+
+    /**
+     * @brief Returns the grid alone: the XY plane at world Z = 0, centred on the camera's pivot.
+     *
+     * The *scene's* plane, not a ground plane under it. Everything this editor can currently place
+     * lives in XY -- sprites, tilemaps, the 2D camera's whole world -- so a grid on XZ would be a
+     * floor beneath a scene that has no floor, and an unrotated 3D camera would look along it
+     * edge-on and show nothing. On this plane, a 3D camera at yaw and pitch zero shows exactly what
+     * the 2D viewport shows, which is what makes the two views recognisably the same scene.
+     *
+     * `options.gridPlane` chooses: the scene's plane by default, a floor for a scene with height
+     * in it. One function either way, because the two differ by which pair of axes is in the plane
+     * and nothing else -- a second function would be the same loop twice, free to drift.
+     */
+    [[nodiscard]] std::vector<WireSegment> buildSceneGrid(const StudioCamera3D& camera,
+                                                          const WireframeOptions& options = {});
+
+    /**
+     * @brief Returns the screen-space badge for @p kind, centred on @p screenPoint.
+     *
+     * Drawn in pixels rather than in the world, exactly as the 2D viewport's icons are and for the
+     * same reason: a camera has no size, so a badge scaled by distance would vanish at the far end
+     * of a level and swallow the screen at the near end. Ten entities that draw nothing are ten
+     * identical cubes without this -- and "which of these is the camera" is the first question a
+     * 3D view of such a scene is asked.
+     */
+    [[nodiscard]] std::vector<WireSegment> buildIconBadge(StudioIconKind kind,
+                                                          const StudioVector2& screenPoint,
+                                                          const StudioColor& color);
+
+    /**
+     * @brief Appends @p mesh's triangle edges, placed by @p world, to @p segments.
+     *
+     * Each edge once rather than once per triangle that owns it: an interior edge is shared by two
+     * faces, so drawing them naively doubles both the work and the apparent line weight, and a
+     * dense model comes out looking like a solid blob.
+     *
+     * @param budget The most segments this call may add. When the mesh needs more, triangles are
+     *        sampled at a stride so that what appears is the whole shape drawn sparsely rather
+     *        than one corner of it drawn completely -- a wireframe that stopped at the budget would
+     *        show a model with a bite taken out of it, which reads as broken geometry rather than
+     *        as a full view. `outTruncated` is set when that happens.
+     * @return The number of segments appended.
+     */
+    std::size_t appendMeshEdges(std::vector<WireSegment>& segments, const StudioCamera3D& camera,
+                                const MeshData& mesh, const StudioMatrix& world,
+                                const StudioColor& color, float thickness, std::size_t budget,
+                                bool& outTruncated);
+
+    /**
+     * @brief Appends a segment per vertex normal of @p mesh, placed by @p world.
+     *
+     * Each segment is coloured by the direction its normal points, in the `n * 0.5 + 0.5`
+     * convention every normal map is written in (`studioNormalColor`), so the overlay reads the
+     * same way a normal map does to anyone who has opened one.
+     *
+     * The normal is rotated by @p world and the *position* is transformed by it, which is not the
+     * same operation: a normal carries no translation, and adding one would sweep every normal in
+     * the scene towards the origin as the model moved away from it. A non-uniform scale bends a
+     * normal in a way this does not correct, and the plan says so rather than implying otherwise
+     * -- the inverse-transpose belongs to the renderer that shades with it, and an overlay that
+     * silently disagreed with the shading would be worse than one that visibly matches it.
+     *
+     * @param lengthFraction How long a segment is, as a fraction of @p mesh's largest extent.
+     * @param budget The most segments this call may add. Vertices are sampled at a stride when the
+     *        mesh has more, for the reason `appendMeshEdges` gives: a sparse whole model is a
+     *        picture of the model, and a complete corner of one is a picture of the budget.
+     * @return The number of segments appended.
+     */
+    std::size_t appendMeshNormals(std::vector<WireSegment>& segments, const StudioCamera3D& camera,
+                                  const MeshData& mesh, const StudioMatrix& world,
+                                  float lengthFraction, float thickness, std::size_t budget,
+                                  bool& outTruncated);
+
+    /**
+     * @brief Returns everything the 3D viewport draws for @p scene.
+     *
+     * @param selection Entities drawn in the selection colour, and drawn thicker so a selected box
+     *        inside a cluster of others can still be told apart.
+     * @param sizeProvider Supplies sprite dimensions, exactly as the 2D picking path does.
+     */
+    [[nodiscard]] WireframeResult buildSceneWireframe(const SceneDocument& scene,
+                                                      const StudioCamera3D& camera,
+                                                      const std::vector<Uuid>& selection,
+                                                      const SpriteSizeProvider& sizeProvider,
+                                                      const WireframeOptions& options = {});
+
+    /**
+     * @brief Returns the entity whose box is nearest the eye along the ray through @p screenPoint.
+     *
+     * The 3D counterpart of `pickEntityAt`, and the same trade: a ray against bounds rather than
+     * GPU picking, so it needs no render target, no read-back, and works headless. "Nearest"
+     * rather than "topmost", because depth is a real quantity here and layer order is not.
+     *
+     * @param meshProvider Where an imported model's geometry comes from, so a model is clicked
+     *        where it is drawn. Without one it is picked against the icon-sized box at its origin
+     *        that `computeEntityBounds3D` falls back to -- which is what a viewport did before
+     *        `plan.md` STUDIO-11008, and meant a click landed on a large model only near its
+     *        middle.
+     *
+     * @return The entity hit, or the nil Uuid when the ray missed everything.
+     */
+    [[nodiscard]] Uuid pickEntityAt3D(const SceneDocument& scene, const StudioCamera3D& camera,
+                                      const StudioVector2& screenPoint,
+                                      const SpriteSizeProvider& sizeProvider,
+                                      const MeshProvider& meshProvider = {});
+
+    /**
+     * @brief Returns every entity whose projected bounds overlap the band @p from -- @p to.
+     *
+     * `plan.md` STUDIO-12009, and the 3D counterpart of `pickEntitiesIn`. The two corners are in
+     * either order, and the rule is the same one: overlap rather than enclosure, because requiring
+     * an object to be wholly inside the band makes anything bigger than the viewport unselectable.
+     *
+     * **A box in the world is not a box on the screen**, so the answer is the screen extent of the
+     * eight projected corners rather than of two of them -- the same reason `transformBounds3D`
+     * re-bounds, one projection further along.
+     *
+     * **An entity partly behind the eye is measured by the part in front of it.** A corner behind
+     * the camera has no screen position at all, so it is left out and the remaining ones decide.
+     * That under-reports a wall the camera is standing inside, and it under-reports it in the safe
+     * direction: what the user can see of it is what they can band.
+     *
+     * @param meshProvider So a model is boxed at the size it is drawn, for the reason
+     *        `pickEntityAt3D` takes one (`plan.md` STUDIO-11008).
+     */
+    [[nodiscard]] std::vector<Uuid> pickEntitiesIn3D(const SceneDocument& scene,
+                                                     const StudioCamera3D& camera,
+                                                     const StudioVector2& from,
+                                                     const StudioVector2& to,
+                                                     const SpriteSizeProvider& sizeProvider,
+                                                     const MeshProvider& meshProvider = {});
+
+    /**
+     * @brief Returns the distance along @p ray at which it enters @p bounds, if it does.
+     *
+     * The slab test. Exposed because picking is not its only caller -- framing a click and
+     * dropping an asset into a 3D view both need to know where a ray meets a box.
+     */
+    [[nodiscard]] std::optional<float> intersectRayWithBounds(const WorldRay& ray,
+                                                              const WorldBounds3D& bounds);
+}

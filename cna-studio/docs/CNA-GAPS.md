@@ -1,0 +1,436 @@
+# CNA gaps found by CNA Studio
+
+CNA Studio is one of CNA's largest real-world consumers, and finding CNA's rough edges is a
+deliverable of that relationship rather than a side effect. This document is the register.
+
+**CNA Studio does not fix CNA.** When Studio hits a CNA deficiency it is recorded here, worked
+around in Studio where a safe workaround exists, and left for CNA's own maintainers and test
+suite. Studio never reaches into `CNA::Internal::*`, and never adds renderer-specific code to
+normal Studio modules to paper over a gap — doing either would hide the problem instead of
+reporting it.
+
+## Audit basis
+
+| Repository | Branch | Commit | Audited |
+|------------|--------|--------|---------|
+| `libcna/cna` | `next` | `e05b3d0f026e0926741f89459daf02579240399d` | 2026-09-14 |
+| `libcna/sharp-runtime` | `next` | `0c82d9b888bdf5f7d5663c77942f339bcb2a7445` | 2026-09-14 |
+
+The gaps numbered G-01 … G-05 were recorded against an **older** CNA revision by the CNA Editor
+prototype; G-06 through G-14 are new, filed by CNA Studio. **G-13 and G-14 were filed in error
+and are withdrawn**: both asserted that CNA lacks something it has, because they were written from
+`IEffectLights` — the XNA 4.0 interface Studio's model pass happens to use — without reading the
+CNAEXT layer where CNA puts its own additions. They are kept, marked and corrected rather than
+deleted. All five of the inherited ones were
+re-verified against the commit above as part of the CNA Studio bootstrap; two have since been fixed
+upstream and are kept here, marked closed, so the record stays honest.
+
+## Status legend
+
+| Symbol | Meaning |
+|--------|---------|
+| 🔴 | Open — confirmed against the audited commit |
+| 🟡 | Narrowed — the blocking part is fixed, something smaller remains |
+| ✅ | Closed — fixed upstream, verified against the audited commit |
+| ⊘ | Withdrawn — filed in error; the entry is kept, marked, and says what was actually true |
+
+---
+
+## ✅ G-01 — `Color` had no default constructor
+
+**Closed.** `Microsoft::Xna::Framework::Color` now declares `Color();`
+(`modules/math/include/Microsoft/Xna/Framework/Color.hpp:375`), documented explicitly in terms of
+.NET's `default(Color)`.
+
+`std::vector<Color>::resize(n)` compiles. The behavioural difference from XNA that this gap
+described is gone.
+
+---
+
+## 🔴 G-02 — `CNA::Devices::Clipboard` is behind a default-off option
+
+| Field | Value |
+|-------|-------|
+| Affected API | `CNA::Devices::Clipboard` |
+| Current behaviour | The whole devices layer is inside `CNA_DEVICES`, which is `option(... OFF)` at `CMakeLists.txt:123` |
+| Expected behaviour | A tooling-grade consumer can rely on a clipboard being present, or can detect its absence before the user tries to paste |
+| Studio impact | Copy/paste in text fields does nothing on a default CNA build |
+| Workaround | `CnaUiPlatform::hasClipboard()` reports the absence and Studio degrades visibly rather than silently; documentation tells Studio builders to pass `-DCNA_DEVICES=ON` |
+| Suggested fix | Either default the option on for desktop targets, or document that tooling consumers require it — the current state makes a *silently* less capable build the default |
+| Test needed in CNA | A build matrix entry that exercises the clipboard path |
+
+---
+
+## 🔴 G-03 — Render-target sampling origin is not normalised across renderers
+
+| Field | Value |
+|-------|-------|
+| Affected API | `RenderTarget2D` sampled as a `Texture2D` |
+| Current behaviour | Some renderers present a sampled render target vertically flipped relative to others |
+| Expected behaviour | Either the sampling origin is normalised by CNA, or the convention is stated in the public API so a consumer can compensate deterministically |
+| Studio impact | The viewport panel composites the scene through a render target. Getting this wrong shows the scene upside down — a total failure that looks like a Studio bug |
+| Workaround | A compile-time per-renderer constant in Studio's viewport. This is exactly the kind of renderer-specific knowledge Studio should not hold, and it is isolated to one function so it can be deleted in one edit when CNA settles the convention |
+| Suggested fix | Normalise in the renderers, or publish the convention as a queryable property |
+| Test needed in CNA | A cross-renderer test that renders a known asymmetric pattern to a target, samples it, and compares |
+
+**Note.** This gap predates the renderer registry rewrite and the audited commit has a far larger
+renderer set than when it was filed. Its restatement above is deliberately renderer-agnostic;
+re-measuring which of the 50 registered renderer identities are actually affected is
+`STUDIO-02010`.
+
+---
+
+## 🟡 G-04 — No public path from a font file to a `SpriteFont`
+
+**Narrowed.** The blocking half is fixed: `SpriteFont` now has a **public** `CNAEXT` constructor
+taking the atlas texture and the four glyph tables directly
+(`modules/graphics/include/Microsoft/Xna/Framework/Graphics/SpriteFont.hpp:44`), and matching
+`getGlyphBoundsEXT()` / `getCroppingEXT()` / `getKerningEXT()` accessors that round-trip it. A
+consumer can now construct a `SpriteFont` without touching `CNA::Internal::Xnb::SpriteFontReader`.
+
+| Field | Value |
+|-------|-------|
+| What remains | There is no public glyph **rasterizer** or atlas builder in CNA. A consumer that has a `.ttf` and wants a `SpriteFont` must rasterize the glyphs itself |
+| Studio impact | Moderate, and it cuts both ways. Studio cannot preview an arbitrary `.spritefont` asset without its own rasterizer — but Studio's *own* UI needs a font atlas it controls anyway, so building one is work Studio wants to own regardless |
+| Workaround | Studio builds and owns its UI font atlas, and constructs `SpriteFont` through the now-public constructor |
+| Suggested fix | A public font-atlas builder in CNAEXT, or a public `ContentManager::Load<SpriteFont>` specialisation for the `.xnb` path |
+
+---
+
+## 🔴 G-05 — `PbrEffect` draws nothing on some renderers, and reports no error
+
+| Field | Value |
+|-------|-------|
+| Affected API | `PbrEffect` (`modules/graphics/src/Xna/PbrEffect.cpp`) |
+| Current behaviour | On at least one renderer it constructs without throwing, accepts every parameter, issues its draw calls, and puts no pixels on screen, while `BasicEffect` renders the same geometry, matrices and lights correctly in the same frame |
+| Expected behaviour | Either it draws, or it refuses — silence is the failure mode that costs the most time |
+| Studio impact | Studio's model pass cannot use PBR where this reproduces, which blocks the material authoring workstream from previewing what it authors |
+| Secondary defect (same investigation) | `PbrEffect::FillGpuDrawParams` sets `textureEnabled = true` unconditionally while binding `texture0` only when a texture exists, so a material with a base-colour *factor* and no map samples an unbound texture |
+| Suggested fix | Bind no texture **and** clear `textureEnabled` when there is none; and check whether the affected renderer's PBR path draws at all |
+| Test needed in CNA | A per-renderer test that draws one lit triangle through `PbrEffect` and asserts the framebuffer is not empty |
+
+**Re-audit status.** The secondary defect was still visible in the audited source. The primary
+"draws nothing" symptom was originally observed on a renderer that predates the registry rewrite,
+and has not been re-measured against the current renderer set. Re-measuring it is `STUDIO-02011`.
+
+---
+
+## 🔴 G-06 — Studio-host capability requirements have no single queryable answer
+
+**New, filed by CNA Studio.**
+
+| Field | Value |
+|-------|-------|
+| Affected API | `GraphicsDevice::GetRendererCapabilityProfileEXT()`, `CNA::RendererFeature` |
+| Current behaviour | CNA exposes an excellent runtime capability model — 32 atomic `RendererFeature` entries with a four-state `Supported`/`Restricted`/`Unsupported`/`Unknown` answer, 22 numeric limits, and per-`SurfaceFormat` usage masks. What it does not have is a way to ask "does this device satisfy *this set* of requirements", and `Unknown` is common: a feature the renderer has simply not classified |
+| Expected behaviour | A consumer with a fixed requirement set should be able to evaluate it in one call and receive a structured list of what is missing, with `Unknown` distinguishable from `Unsupported` |
+| Studio impact | Studio must decide at start-up whether the compiled renderer can host its UI, and must explain precisely why not when it cannot. Studio implements this itself in one module (`StudioHostRequirements`) rather than scattering the knowledge |
+| Workaround | Studio owns the requirement set and evaluates it against the profile. This is arguably the right place for it — the requirement is Studio's, not CNA's — so this may be better framed as a request for a small helper than a defect |
+| Suggested fix | A `RendererCapabilityProfile::Evaluate(std::span<const RendererFeature>)` returning the unmet and unknown subsets |
+
+**Studio treats `Unknown` as not-satisfied for required features**, and says so in its diagnostic
+rather than assuming the best. A tool that starts and then fails to draw is worse than one that
+refuses with a reason.
+
+**Implemented in Studio, and the gap stands.** `CNA/Studio/Project/StudioHostRequirements.hpp`
+owns the requirement set and evaluates it; `CNA/Studio/Viewport/CnaCapabilityBridge.hpp` reads a
+live profile into it. Building it confirmed the workaround is practical and confirmed the shape of
+the missing helper: what Studio wrote is a general evaluation over a requirement set, with nothing
+Studio-specific in the mechanism — only in the *membership* of the set. That is the part that
+belongs to the consumer; the evaluation is the part that does not. Re-framing this as a request for
+`RendererCapabilityProfile::Evaluate(std::span<const RendererFeature>)` returning the unmet and
+unknown subsets is therefore right, and every consumer that needs it will otherwise write the same
+loop.
+
+---
+
+## 🔴 G-07 — `GetBackBufferData` is unavailable under the Reach profile, and that is only discoverable by trying
+
+**New, filed by CNA Studio.**
+
+| Field | Value |
+|-------|-------|
+| Affected API | `GraphicsDevice::GetBackBufferData`, `GraphicsProfile` |
+| Current behaviour | Under `GraphicsProfile::Reach` — the default a `GraphicsDeviceManager` starts with — `GetBackBufferData` throws `"GetBackBufferData is not supported by the Reach graphics profile"` |
+| Expected behaviour | Reasonable as an XNA-compatible restriction. What is missing is a way to ask *before* calling: nothing in the capability model reports it, so a tool discovers it by catching an exception at the moment it wanted the pixels |
+| Studio impact | Every screenshot, every golden image and the whole renderer-comparison harness are built on this call. Studio now requests `HiDef` explicitly, which fixes it — but only after the failure had been observed |
+| Workaround | Request `GraphicsProfile::HiDef` at device creation. Studio does |
+| Suggested fix | Report profile-gated operations through `RendererCapabilityProfile`, so a consumer can check rather than catch |
+| Test needed in CNA | A test asserting the capability answer matches the actual behaviour under both profiles |
+
+**Note on how this was found.** It was invisible for a different reason first: Studio's own host
+set its "screenshot written" flag inside the exception handler, so a failed capture reported
+success and the process exited zero having written nothing. That was a Studio bug, fixed here, and
+it is worth recording because it is the exact failure mode the graphical smoke tests exist to
+prevent — the file appearing *is* the assertion, and a flag that lies about it makes the test pass
+while proving nothing.
+
+---
+
+## 🔴 G-08 — Which renderers a target can build is stated only as CMake conditions
+
+**New, filed by CNA Studio.**
+
+| Field | Value |
+|-------|-------|
+| Affected API | `cmake/RendererSelection.cmake`; no runtime or build-time query |
+| Current behaviour | CNA knows precisely which of its 50 renderers can be built for which operating system — `DIRECTX*`, `DIRECT2D`, `GLIDE` and `GDI` are Windows-only; `CANVAS`, `HTML_DOM`, `SVG_DOM`, `PIXIJS`, `WEBGL1` and `WEBGL2` are Emscripten-only; `MAGNUM` and the desktop GL profiles are the reverse; `NANOVG` and `RLGL` are desktop-only; `GLIDE` additionally needs a 32-bit x86 ABI. Every one of those is a `FATAL_ERROR` inside a CMake `if`, reachable only by attempting a configure |
+| Expected behaviour | A consumer building a target-selection UI can ask, without configuring anything, which renderers are valid for a given platform and architecture — a generated table, a queryable CMake target property, or a small JSON manifest beside the registry |
+| Studio impact | Studio's Build panel offers target profiles, and offering a combination CNA will refuse is a build that fails minutes later with a message about a missing header. So Studio **transcribes** the gates from `RendererSelection.cmake` into `CNA/Studio/Project/TargetProfile.cpp` — a second copy of CNA's own rules, which is exactly what `docs/ARCHITECTURE.md` says Studio should not have to hold |
+| Workaround | The transcription, plus `STUDIO-29007`: a guard test that reads CNA's `RendererSelection.cmake` and fails when a renderer CNA gates is one Studio still offers. It runs only in the CNA-backed configuration, because it needs a CNA checkout to read |
+| Suggested fix | Emit the identity → allowed-system map from `RendererRegistry.cmake`, the same way the renderer descriptor table is already generated. The data exists; only the export is missing |
+| Test needed in CNA | A test asserting the generated map agrees with the `FATAL_ERROR` gates, so the two cannot drift |
+
+**Note on severity.** This is the mildest of the open gaps and the most annoying to live with. Nothing
+is broken; the information is simply not reachable except by reading CMake, so every consumer that
+needs it writes the same table and each one rots independently.
+
+---
+
+## 🔴 G-09 — Consuming CNA as a subdirectory builds its tests and examples, and its examples cannot build that way at all
+
+**New, filed by CNA Studio.**
+
+| Field | Value |
+|-------|-------|
+| Affected API | `CMakeLists.txt` (`CNA_BUILD_TESTS`, `CNA_BUILD_EXAMPLES`); `modules/graphics/examples/CMakeLists.txt` |
+| Current behaviour | Both options default `ON` with no top-level-project guard, so `add_subdirectory(cna)` from a consuming project builds CNA's entire test suite and every example program as part of that project's build. Neither can succeed in the default case: the tests `FATAL_ERROR` on a checkout whose `vendor/googletest` submodule is not initialised, and the examples resolve their content-staging helper as `${CMAKE_SOURCE_DIR}/cmake/CopyDirectoryLocked.cmake` — which, from a subdirectory, is the **consuming project's** root, not CNA's, so the custom command fails with `Not a file` |
+| Expected behaviour | A project that consumes CNA gets CNA. `CNA_BUILD_TESTS` and `CNA_BUILD_EXAMPLES` default to `ON` only when CNA is the top-level project (CMake has `PROJECT_IS_TOP_LEVEL` for exactly this), and anything CNA's own targets reference inside its tree is addressed through `CNA_SOURCE_DIR` or `CMAKE_CURRENT_SOURCE_DIR` rather than `CMAKE_SOURCE_DIR` |
+| Studio impact | Every game CNA Studio exports consumes CNA this way — that is what a CNA game *is*. An exported project that did not know to turn both options off would not configure on a fresh CNA clone, and the message it failed with would name googletest, which has nothing to do with the game |
+| Workaround | The generated `CMakeLists.txt` sets `CNA_BUILD_TESTS OFF` and `CNA_BUILD_EXAMPLES OFF` as cache entries, with a comment saying why. `STUDIO-02051` builds an *exported* project on every CNA-backed run, and `STUDIO-08011` now builds a project created from each template as well — so a regression here fails a test rather than a user's first build, on both of the paths a CNA project comes into existence by |
+| Suggested fix | `option(CNA_BUILD_TESTS "..." ${PROJECT_IS_TOP_LEVEL})` and the same for examples; replace `CMAKE_SOURCE_DIR` with `CNA_SOURCE_DIR` in `modules/graphics/examples/CMakeLists.txt` (two occurrences, one of them a Python test script path) |
+| Test needed in CNA | A CI leg that configures a trivial consumer project which does nothing but `add_subdirectory(cna)` and link `CNA`. It would have caught both halves of this, and it is the configuration every downstream user is in |
+
+**How it was found.** By building an exported game rather than reading it. `STUDIO-02051` exports the
+example project, configures it with nothing but CMake and a CNA checkout, compiles it and runs it.
+Both halves of this gap stopped that build, and neither is visible in the exported tree.
+
+**Still open, and now hit twice as often.** Every project the Project Hub creates carries the same
+two cache entries and the same comment, because the export's generator is the generator
+(`STUDIO-08011`). That is four more places a user would have met this gap and does not, and four
+more CI cases that would fail if CNA fixed it in a way these lines do not survive — which is the
+right direction for a workaround to be watched from.
+
+---
+
+## 🟢 G-10 — *Narrowed.* The GL family needs undocumented sibling checkouts; `OPENGL4` does not
+
+**New, filed by CNA Studio.**
+
+| Field | Value |
+|-------|-------|
+| Affected API | `CNA_GRAPHICS_RENDERER`; `cmake/RendererSelection.cmake` |
+| Current behaviour | Of the renderers that configure from a plain CNA + sharp-runtime checkout, `SOFTWARE` and `HEADLESS` need no display and are what CI uses; `SDL_RENDERER` needs one but cannot host Studio (it reports no `ThreeDimensionalPipeline` and no `DepthStencilBuffer`); `SDL_GPU` and `VULKAN` configure but need a Vulkan ICD, which a bare Linux runner does not have. Every OpenGL family — `OPENGL2`, `OPENGL33`, `OPENGLES3` — fails at configure time asking for an `easy-gl` sibling checkout, which in turn asks for a `meta-gl` sibling of its own. Neither is a submodule and neither is named anywhere a consumer would look before trying |
+| Expected behaviour | The renderer list in `CNA_GRAPHICS_RENDERER`'s cache docstring says which renderers a given checkout can actually build, or CNA documents the sibling checkouts each family needs where the option is declared. Failing at configure time with a clear message is already much better than most; what is missing is being able to find out *first* |
+| Studio impact | Was recorded as blocking `STUDIO-33010`, the per-renderer half of `STUDIO-04015`, and — unrecorded until `STUDIO-04021` — the modern UI renderer itself. **No longer blocking**: see below |
+| Workaround | `OPENGL4` plus `libgl1-mesa-dev` and Xvfb. Not a workaround for the documentation half of this gap, which stands |
+| Suggested fix | Extend `G-08`'s answer: whatever CNA grows to report which renderers a target can build should also report which of them this checkout has the sources for. The information exists at configure time — the message that refuses `OPENGLES3` proves it |
+| Test needed in CNA | A CI leg that configures each renderer the docstring advertises from a clean checkout and asserts that it either configures or refuses with a message naming what is missing |
+
+**How it was found.** By trying to close `STUDIO-33010` rather than reasoning about it. The display
+plumbing turned out to be the easy half: `CNA_STUDIO_TEST_DISPLAY` already exists, Xvfb works, and
+the fourteen labelled tests appear the moment a renderer that needs a display is configured. What
+does not exist is such a renderer.
+
+**Narrowed, by looking one renderer further down the list.** The conclusion above — "there is
+simply no renderer available that both satisfies Studio's capability contract and needs a display" —
+was wrong, and it was wrong because the search stopped at the GL *family*. `OPENGL2`, `OPENGL33` and
+`OPENGLES3` are all EasyGL, and EasyGL is what wants the `easy-gl` and `meta-gl` siblings.
+**`OPENGL4` is a separate renderer** — `modules/renderers/opengl4`, real desktop GL 4.x core profile,
+no EasyGL — and it configures from a plain CNA checkout with nothing but `libgl1-mesa-dev`
+installed.
+
+It runs under Xvfb on Mesa's llvmpipe, with no GPU:
+
+```bash
+apt-get install -y libgl1-mesa-dev xvfb
+cmake -S . -B build-gl -G Ninja -DCNA_STUDIO_WITH_CNA=ON \
+      -DCNA_STUDIO_CNA_ROOT=… -DCNA_SHARP_RUNTIME_ROOT=… \
+      -DCNA_GRAPHICS_RENDERER=OPENGL4 -DCNA_PLATFORM=SDL3 \
+      -DCNA_BUILD_TESTS=OFF -DCNA_BUILD_EXAMPLES=OFF \
+      -DCNA_ENABLE_NET=OFF -DCNA_ENABLE_DRACO=OFF -DCNA_CNAEXT=ON
+Xvfb :99 -screen 0 1920x1080x24 &
+DISPLAY=:99 LIBGL_ALWAYS_SOFTWARE=1 ./build-gl/cna-studio --host-capabilities
+```
+
+which reports `OpenGL4Renderer initialized with OpenGL 4.5 (Core Profile) Mesa`, and:
+
+```
+  Renderer:   OPENGL4
+  Profile:    modern
+  Can host:   yes
+  [required]    ShaderEffects: satisfied
+  [required]    ShaderEffectSourceExecution: satisfied
+  UI renderer: modern -- This renderer meets the modern host profile.
+```
+
+**What that unblocks.** Three things that were each recorded as blocked on this gap: `STUDIO-33010`
+(graphical CI on a renderer that needs a display), the per-renderer half of `STUDIO-04015`, and
+— the one nobody had connected to it — the whole modern CNAEXT UI renderer, which cannot be
+*executed* on `SOFTWARE` at all because `SOFTWARE` reports no shader support. Studio had the only
+automated renderer it could reach being the one renderer its intended UI path cannot run on, and
+nothing said so.
+
+**What remains a gap**, and is why this is 🟢 narrowed rather than closed: the GL family still asks
+for siblings nothing names, and `CNA_GRAPHICS_RENDERER`'s docstring still lists fifty renderers
+without saying which of them a given checkout can build. A consumer choosing `OPENGL33` because it
+sounds like the portable one gets a configure error; choosing `OPENGL4` gets a working editor. That
+is exactly the "being able to find out first" the row above asks for.
+
+**And one thing that worked.** `SDL_RENDERER` builds a complete Studio, and Studio refuses to start
+on it — naming `ThreeDimensionalPipeline` and `DepthStencilBuffer`, saying what each is for, and
+telling the user to build against a renderer that satisfies them. That is the host capability
+contract (`STUDIO-02021`) exercised against a real inadequate renderer for the first time rather
+than against a synthetic capability set, and it behaved exactly as designed: no renderer names, no
+whitelist, a reason per requirement.
+
+---
+
+## How to add a gap
+
+A gap is worth filing when Studio cannot do something through CNA's public API that CNA plausibly
+ought to support. Record: the affected API, current behaviour, expected behaviour, Studio impact,
+the workaround if any, a suggested fix, and the test CNA would need. A gap with no reproduction is
+a complaint, not a report.
+
+---
+
+## 🔴 G-11 — A UI vertex costs 56 bytes to hand CNA and carries 20 bytes of data
+
+**New, filed by CNA Studio, measured by `STUDIO-04028`.**
+
+| Field | Value |
+|-------|-------|
+| Affected API | `Microsoft::Xna::Framework::Graphics::VertexPositionColorTexture`; `Microsoft::Xna::Framework::Color`; `IVertexType` |
+| Current behaviour | `sizeof(VertexPositionColorTexture)` is **56**. Its data is twenty bytes — a `Vector3` (12), a colour (4 as uploaded) and a `Vector2` (8). The other thirty-six are two vtable pointers and padding: eight for the vertex's own, because `IVertexType` has a virtual destructor, and `sizeof(Color)` is **24** rather than 4 for the same reason. CNA repacks the whole thing into a 24-byte `PositionColorTextureStream` before upload, so the bus is not charged — but every caller building a vertex array is |
+| Expected behaviour | A vertex type is a layout, and the type that describes a layout should *be* that layout. `IVertexType`'s `getVertexDeclarationProperty()` could be a static or a trait rather than a virtual, which is what removes the pointer from every vertex a program owns |
+| Studio impact | Measured, not estimated. Studio's UI builds a scratch array of these every frame in both render backends: at 1920×1080 an idle shell is about 6 000 vertices, so the scratch is 330 KB where 120 KB would do, and the classic backend re-hands that array to the driver once per draw call. `--ui-benchmark` prints both figures per scenario — "handed to CNA" against "on the bus" — and the first is 2.3× the second on every row |
+| Workaround | None taken, deliberately. A Studio-local packed vertex would be a second layout to keep in step with CNA's `VertexDeclaration`, and a layout that drifts from its declaration draws garbage rather than failing |
+| Suggested fix | Make the vertex declaration accessor non-virtual (a static, or a trait specialised per vertex type), and give `Color` no vtable. Both are source-compatible for callers that use the types as values |
+| Test needed in CNA | `static_assert(sizeof(VertexPositionColorTexture) == vertexDeclaration.getVertexStrideProperty())` for each built-in vertex type — the C++ type and the layout it declares should not be able to disagree |
+
+**How it was found.** Not by reading the header. `STUDIO-04028` needed a bytes-per-vertex constant
+for the benchmark's cost model, the estimate written down was 32 — a vptr plus the three members —
+and the `static_assert` pinning it to the real type refused to compile and printed 56. The extra
+twenty-four bytes are `Color`, which nobody would think to measure.
+
+**Why the benchmark reports both numbers.** They answer different questions and only one of them is
+the bus. What Studio *hands CNA* is the cost of the conversion loop and the copy, and is real CPU
+work Studio does on every frame; what reaches the GPU is 24 bytes a vertex after CNA repacks. The
+ratio between the two render backends is the same under either measure, because both build the same
+array and differ only in how often they hand it over — which is why this gap changes the absolute
+numbers in `docs/UI-RENDER-PATH.md` and not the conclusion drawn from them.
+
+---
+
+## 🟡 G-12 — There is no seam for an effect of one's own, so a renderer cannot write a debug buffer
+
+**New, filed by CNA Studio, found by `STUDIO-11011`.**
+
+| Field | Value |
+|-------|-------|
+| Affected API | `Microsoft::Xna::Framework::Graphics::BasicEffect`; `PbrEffect`; the absence of `Effect` as a public base a caller can implement or load a compiled shader into |
+| Current behaviour | The two built-in effects are the whole of what a CNA program can draw a mesh with. Both compute a lit or unlit surface from a material; neither can be asked to output something that is not a shaded colour, and there is no public way to supply a vertex or fragment program |
+| Expected behaviour | XNA's own `Effect` is loadable from a compiled shader and subclassable, which is how every XNA editor wrote a G-buffer, a depth view or a normal view. CNA's effect set being fixed is a reasonable simplification; the seam being absent is what makes a whole class of editor view impossible rather than merely inconvenient |
+| Studio impact | Narrow and specific. Studio's material debug views — unlit, lighting only, metalness, roughness — are all expressible as a material and a lighting environment, so they cost nothing and needed no seam. A **normal buffer** is not: colouring each pixel by its interpolated surface normal is a fragment program and nothing else. A viewport that can show roughness but not normals is what this gap looks like from the outside |
+| Workaround | Taken, and it is a different picture rather than the same one. Studio draws each vertex normal as a segment coloured by the direction it points (`appendMeshNormals`, in the `n * 0.5 + 0.5` convention every normal map is written in). That answers the questions a normal buffer is opened for — inverted faces, split seams, an importer mirror that did not take — and it is a picture of the data rather than of a shader. It is not a substitute: it samples vertices, not pixels, and it says nothing about interpolation across a face |
+| Rejected workaround | Uploading a second vertex buffer per model, coloured per vertex by its normal, and drawing it through `BasicEffect` with vertex colours. It would look like a normal buffer and would double the GPU memory of every mesh in the project, permanently, for a view nobody leaves on. Studio is not entitled to spend a user's memory on its own convenience |
+| Suggested fix | Either make `Effect` public and loadable, or add the two or three debug outputs to `PbrEffect` as a mode — `Normal`, `Depth` and one channel selector would cover what an editor needs without opening the shader pipeline at all |
+| Test needed in CNA | A scene drawn with a normal-output effect whose centre pixel reads the surface normal of the triangle under it, so the output is checked rather than looked at |
+
+**Why this is amber rather than red.** Nothing is broken and nothing draws wrongly; a category of
+editor view is simply unavailable. Studio ships five debug views of the six a user might expect,
+says which one it cannot give and why, and the sixth has a real if lesser answer in its place.
+
+---
+
+## ⊘ G-13 — WITHDRAWN: filed in error. CNA has point and spot lights, with cones and shadows
+
+**This entry was wrong and is kept rather than deleted, because a register that quietly loses its
+mistakes is a register nobody can audit.** The claim below — that a spot light's cone has nowhere
+to go — is false. `PbrEffect` implements a CNAEXT extension, `setPunctualLightEXT`, taking a
+`PunctualLightEXT` with a **position, direction, range, `InnerAngle`, `OuterAngle`** and its own
+shadow map or cube. One shadowed punctual light per draw, beside the three directional slots, and
+CNA's own documentation calls that a deliberate ceiling rather than an omission.
+
+**How the error happened, because that is the part worth keeping.** `IEffectLights` is the
+*XNA 4.0* interface, and everything the entry says about it is true. CNA's additions live in
+CNAEXT — `PunctualLightEXT`, `IShadowReceiverEXT`, `ImageBasedLightEXT` — and Studio's model pass
+uses none of them, so reading Studio's own code gave a complete and completely misleading picture.
+The lesson is the one this register exists for and I inverted: **check what the API offers before
+writing down what it lacks.** A gap filed against a feature that exists costs CNA's maintainers
+time and tells Studio's own readers something false.
+
+**What is actually true**, and it is Studio's to fix rather than CNA's: Studio draws every light
+through `IEffectLights` alone, so a point light is approximated as a directional one aimed at what
+is being drawn and a spot light's cone is not drawn at all. That is a *Studio* limitation, tracked
+by `plan.md` STUDIO-20002, STUDIO-20003 and STUDIO-20008, which this error sent in the wrong
+direction and which have been reopened.
+
+The original entry follows, unedited.
+
+## 🟡 G-13 (as filed, and wrong) — `IEffectLights` has three directional lights and no spot cone
+
+**New, filed by CNA Studio, found by `STUDIO-20001` … `STUDIO-20003`.**
+
+| Field | Value |
+|-------|-------|
+| Affected API | `Microsoft::Xna::Framework::Graphics::IEffectLights`, as implemented by `BasicEffect` and CNA's `PbrEffect` |
+| Current behaviour | An ambient colour and exactly three `DirectionalLight` slots. No point light, no spot light, no cone angle, no attenuation, and no way to hand an effect more than three lights at once |
+| Expected behaviour | Not "a deferred renderer". XNA shipped exactly this and every XNA game lived with it, so the *shape* is not the gap — what is missing is any seam for a program that needs a fourth light on one object, or a cone. `Effect` being public would have been that seam, which is `G-12` from the other side |
+| Studio impact | Three, and each is visible to a user. A **point light** is approximated: Studio aims a directional slot at whatever is being drawn and dims it by range, which behaves like a point light between objects and cannot fall off across one large model. A **spot light** is not approximated at all — there is nowhere to put a cone angle, so Studio draws one exactly as it draws a point light. And a **fourth light** applying at one point is dropped: `computeEffectLighting` keeps the three brightest |
+| Workaround | Taken, and it is disclosure rather than a fix. `SceneLighting.hpp` writes down the reduction in full; `validateScene` reports `spot-light-cone-not-rendered` on every enabled spot light and `more-directional-lights-than-slots` when a scene holds more than three of the kind that applies everywhere; and the Entity menu's Create Spot Light row says "This build draws it as a point light." in its own description |
+| Rejected workaround | Removing `Spot` from `CNA.Light`'s kinds, so that no kind is offered that the viewport cannot draw. It would have made the editor's promise true and broken every scene already holding one — and a game reading the loader's carried components can implement a cone for itself, which is a thing Studio has no business forbidding over a limitation of one renderer |
+| Suggested fix | A `SpotLight` slot on `IEffectLights`, or the `Effect` seam of `G-12`, which would let a program write the lighting it needs. Either one; both would be generous |
+| Test needed in CNA | A scene with a spot light whose lit area is bounded by its cone, asserted on pixels inside and outside the cone rather than looked at |
+
+**Why this is amber rather than red.** Nothing draws wrongly by accident: the reduction is
+deliberate, documented, and reported to the user at the point where it costs them something. What
+a user cannot do is author a cone and see it, and Studio says so rather than letting them find out
+after a build.
+
+---
+
+## ⊘ G-14 — WITHDRAWN: filed in error. CNA draws shadows
+
+**Wrong in its title and in every row, and kept for the same reason G-13 is.** `PbrEffect`
+implements `IShadowReceiverEXT` — `setShadowMapEXT`, `setLightViewProjectionEXT`,
+`setShadowsEnabledEXT`, a depth bias — and the CNAEXT engine layer ships
+`CNA::Graphics::ShadowMap`, which renders the scene from a directional light, fits an orthographic
+volume to the scene bounds, hands back a caster effect (rigid and skinned), and reports
+`isSupported()` on a renderer that cannot manage it. There are cascades (`ShadowCascadeStateEXT`)
+and quality levels. None of this is missing.
+
+**What is actually true**: `CNA.ModelRenderer`'s `castShadows` and `receiveShadows` had been
+editable since Phase 1 and were read by nothing **in Studio**. That was a Studio gap, `plan.md`
+STUDIO-20006 was reopened for it, and it is now closed: `CnaModelPass::renderShadowMap` drives
+`CNA::Graphics::ShadowMap` from the batch's own shadow plan, and both flags decide something. Also
+corrected on the way: `BasicEffect` implements `IShadowReceiverEXT` exactly as `PbrEffect` does, so
+neither shadows nor punctual lights are a PBR-only feature — a second instance of the reading error
+that produced this entry, caught by a guard test rather than by a picture.
+
+What Studio still does not drive is `CubeShadowMap` and `SpotShadowMap`, so a scene lit only by
+lamps casts nothing; `validateScene` reports `shadows-need-a-directional-light` and says so. That
+is a Studio row, not a CNA gap.
+
+The original entry follows, unedited.
+
+## 🔴 G-14 (as filed, and wrong) — Nothing in CNA can draw a shadow
+
+**New, filed by CNA Studio, found by `STUDIO-20006`.**
+
+| Field | Value |
+|-------|-------|
+| Affected API | `Microsoft::Xna::Framework::Graphics::BasicEffect`; `PbrEffect`; `IEffectLights`; the absence of any shadow-map, depth-target-sampling or `Effect` seam |
+| Current behaviour | There is no shadow of any kind. `IEffectLights` describes lights and nothing about occlusion; neither effect takes a shadow map or a light-space matrix; and there is no way to supply an effect that could, which is `G-12` from a third side |
+| Expected behaviour | Not "a shadow system". XNA shipped without one too, and every XNA game that had shadows wrote them: render depth from the light, sample it in a custom effect. What is missing is not the feature but the *seam* — the two fixed effects are the whole of what a CNA program can draw a mesh with |
+| Studio impact | `CNA.ModelRenderer` has carried `castShadows` and `receiveShadows` since Phase 1, both defaulting to **true**, both editable in the Inspector, and read by nothing in Studio or in CNA. A user has been able to turn a model's shadow off since the component existed, and no picture has ever changed |
+| Workaround | Disclosure, and only that. The fields stay — they are in scenes already, and the loader carries a component's properties through to a game that may well implement shadows itself — and `validateScene` reports `shadows-not-rendered` once for a scene that is actually set up to want one: an enabled light and an enabled model that says it casts. Once for the scene rather than once per model, because the flags default to on and a per-entity rule would fire on every project forever |
+| Rejected workaround | Adding more shadow authoring — a shadow-map resolution, a bias, a cascade count — so that Studio "has shadow configuration". Every one of those would be a field the editor offers, cannot show, and nothing in CNA reads, which is the same thing refused for a spot light's cone angle in `G-13`. Also rejected: removing the two flags, which would break scenes and take away something a game can already use |
+| Suggested fix | The `Effect` seam of `G-12` would be enough on its own: a program that can supply a shader can render its own shadow pass. A built-in one on `PbrEffect` would be generous and is not what is being asked for |
+| Test needed in CNA | A scene with one light, one occluder and one receiver, asserted on a pixel inside the shadow and one outside it |
+
+**Why this is red rather than amber.** Every other gap here is a thing Studio cannot show as well as
+it would like. This is a feature the editor has *offered for the whole of its existence* and never
+once delivered — and a user who has been switching shadows off for a year has been editing a field
+that does nothing. Reporting it is the smallest honest response, not a fix.

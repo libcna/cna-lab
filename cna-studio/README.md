@@ -1,0 +1,353 @@
+# CNA Studio
+
+A lightweight visual development companion for [CNA](https://github.com/libcna/cna) — the C++
+reimplementation of the XNA 4.0 framework.
+
+> **What this is.** Studio gives a CNA developer a visual way to create a project, manage assets,
+> edit and save scenes, manipulate objects with gizmos, edit material and light properties, play
+> the game, drive the project's own CMake build, read its failures, and recover from a crash — then
+> hands them back to CLion or whatever editor they use for the C++ itself.
+>
+> **What this is not.** Not an IDE, not Unity, not Unreal, not Godot, not a DCC tool, and not a
+> replacement for any standard development tool. Studio is never a runtime dependency: a project
+> authored here is an ordinary CNA project that builds and runs with Studio uninstalled.
+>
+> **Scope.** The product is bounded, and it is finished. All eleven deliverables in
+> [`plan.md`](plan.md) are done; on **2026-09-23**, at version **1.0.0**, the Core workflow was
+> declared complete and **Studio entered maintenance mode** — bug fixes, compatibility fixes and
+> correctness work, not a backlog to work through. The reasoning is
+> [`docs/ADR-001-SCOPE-REDUCTION.md`](docs/ADR-001-SCOPE-REDUCTION.md); the release notes and the
+> versioning convention are [`CHANGELOG.md`](CHANGELOG.md); the retired 582-task programme roadmap
+> is kept as [`docs/ROADMAP-ARCHIVE.md`](docs/ROADMAP-ARCHIVE.md).
+>
+> CNA Studio was bootstrapped on 2026-09-14 from the CNA Editor prototype developed in `cna-lab`
+> (see [`docs/ORIGIN.md`](docs/ORIGIN.md)).
+>
+> The default build stays dependency-free: no CNA checkout, no GPU, no window, **1832 assertions
+> across 69 CTest cases** in about a minute and a half.
+
+![the CNA Studio shell with the HelloSprites example open](docs/images/studio-shell.png)
+
+The shell at 1.0.0 with `examples/HelloSprites` open and `Player` selected, drawn by CNA on the
+OPENGL4 renderer: the World Outliner and its search, the 2D viewport with the project's sprites,
+the selection outline and the translate gizmo on the selected entity, the Details grid, the Content
+Browser, and the status bar naming both the build target and the renderer underneath it.
+
+![the 3D viewport with an entity selected](docs/images/studio-3d-selection.png)
+
+The same scene in the 3D viewport with `Crate` selected — the imported `Crate.gltf` inside its
+selection box, the cross at the point it turns about, the two sprites edge-on, and the key light's
+range drawn as an arc. A multi-selection gets one box round all of it and one pivot between them.
+
+![the same shell in the light theme](docs/images/studio-light-theme.png)
+
+The light theme, chosen in **Preferences > Appearance > Theme**. It applies as it is picked rather
+than on an OK button, and it is a user preference — it travels with the person, not with the
+project, so choosing it does not make a teammate's Studio light.
+
+![the Details panel as a property grid](docs/images/studio-details-grid.png)
+
+The Details panel. The label column is sized from its labels rather than from a fraction of the
+panel, so every value in the grid starts at the same x and a property called `Tint` sits beside its
+value instead of a screen away from it.
+
+![the Build panel showing the CMake commands it would run](docs/images/studio-build-panel.png)
+
+The Build panel, against a project created from the `basic-sample` template. The renderer and
+platform axes, the optional CNA subsystems, and — before anything runs — the exact `cmake` commands
+Studio would execute, copyable in full. **Build** and **Clean Build** are two separate gestures.
+
+All four are captures of the shipped binary rather than mock-ups, and each is one command. The
+first two are real frames from a running Studio window; the last two are shell previews, which is
+how a page taller than its dock gets photographed whole:
+
+```sh
+# a running window, rendered by CNA
+cna-studio --project=examples/HelloSprites/HelloSprites.cnaproject --select=Player \
+           --window-size=1600x900 --frames=8 --workspace=none --screenshot=shell.png
+
+# a single panel, filling the frame, with no graphics device needed
+cna-studio --shell-preview=details.png --shell-size=820x430 --shell-panel-only=details \
+           --project=examples/HelloSprites/HelloSprites.cnaproject --select=Player
+```
+
+On a headless machine the first command needs a display and a GL driver; `Xvfb` plus Mesa's
+software rasteriser is enough, and is how these were taken.
+
+---
+
+## Documentation
+
+| | |
+|---|---|
+| **[The presentation site](web/index.html)** | One page: what Studio is, what it is not, and how to use it |
+| **[Getting started](docs/GETTING-STARTED.md)** | A clone to a running game, through the Core workflow |
+| **[User guide](docs/USER-GUIDE.md)** | The eleven steps, and what Studio deliberately does not do |
+| [Architecture](docs/ARCHITECTURE.md) | How it is built and why |
+| [Renderers and platforms](docs/RENDERERS-AND-PLATFORMS.md) | For a contributor adding or renaming one |
+| [The roadmap](plan.md) | What is being worked on. Nothing else authorises work |
+| [ADR-001](docs/ADR-001-SCOPE-REDUCTION.md), [ADR-002](docs/ADR-002-THE-FOUR-SILENT-QUESTIONS.md) | The decisions that bound the product |
+
+---
+
+## The one rule that shapes everything
+
+> **CNA Studio produces CNA games, not CNA Studio games.**
+
+A game authored in CNA Studio is an ordinary CNA project. You can open it in CLion, configure it
+with its own `CMakeLists.txt`, build it with ordinary tools and ship it — with CNA Studio
+uninstalled. Studio is an authoring environment and a productivity multiplier; it is never a
+runtime dependency, never a mandatory build step, and never an opaque container the game lives
+inside.
+
+```
+CNA Studio                          ← authoring environment (this repository)
+    ↓  produces
+CNA game project                    ← ordinary C++: source, assets, scenes, CMake
+    ↓  builds against
+CNA                                 ← the framework
+    ↓  runs on
+platform + renderer + audio + input
+```
+
+CNA must be able to survive without CNA Studio. A game must be able to survive without CNA Studio.
+Every architectural decision in this repository is tested against those two sentences — and the
+second one is tested by *doing* it. CI creates a project from every template, configures it with
+nothing but CMake and a CNA checkout, compiles it and runs it, with Studio not consulted after the
+project was written.
+
+**C++-first, and not C++-welded-in.** CNA has several language bindings. C++ is the only one Studio
+implements, and it is the only one whose workflow is required to work — but the toolchain, the
+project files, the packaging and the build commands all sit behind one registered adapter, so
+nothing in the Project Hub, project creation or the Build panel knows what a compiler is. Adding a
+binding later is an addition rather than a rewrite. See `docs/ARCHITECTURE.md` §13.
+
+---
+
+## What it is
+
+CNA Studio is **not** a new engine, and it is not part of CNA. It is a set of tools *on top of*
+CNA, built against the same public API a game uses:
+
+- a **project hub** — create from a template, open, and a recent list that greys out what has moved;
+- a **document editor** — scenes, entities, components, undo;
+- an **asset pipeline** — stable ids, importers, dependency tracking;
+- a **runtime bridge** — play mode in a separate `cna-player` process;
+- a **plugin host** — importers, component types, panels, gizmos and exporters, loaded from a
+  manifest. Not a versioned public ABI, and not becoming one: see
+  [`docs/ADR-001-SCOPE-REDUCTION.md`](docs/ADR-001-SCOPE-REDUCTION.md).
+
+A project declares which kind it is, so a pure XNA-style port is never forced through an entity
+model it does not want:
+
+| Project kind | What Studio offers |
+|--------------|--------------------|
+| `CnaNative` | Scenes, entities, components, inspector, gizmos, prefabs, play mode, a 2D and a 3D viewport |
+| `XnaCompatible` | Asset browser, importer settings, content preview, renderer configuration, Play — and nothing else. The game keeps its own `Initialize`/`LoadContent`/`Update`/`Draw` |
+
+---
+
+## Build
+
+The default build has **no external dependencies** — no CNA checkout, no GPU, no window:
+
+```bash
+cmake -S . -B build
+cmake --build build -j
+ctest --test-dir build --output-on-failure
+```
+
+Requires a C++23 compiler (GCC 13+, Clang 16+, MSVC 19.38+) and CMake ≥ 3.20.
+
+Try it against the bundled example project:
+
+```bash
+./build/cna-studio --headless --project=examples/HelloSprites/HelloSprites.cnaproject
+```
+
+```
+[info] cna-studio starting (ui=null, viewport=null)
+[info] Opened project 'HelloSprites' (CnaNative) at .../examples/HelloSprites
+[info] Assets: 4 found, 0 new, 0 moved, 0 missing
+[info] Opened scene 'Level01' with 5 entities
+```
+
+### Building with the CNA viewport
+
+The CNA-backed viewport is opt-in, because it needs two sibling checkouts:
+
+```bash
+cd ..
+git clone https://github.com/libcna/cna.git
+git clone https://github.com/libcna/sharp-runtime.git
+cd cna-studio
+
+cmake -S . -B build-cna -DCNA_STUDIO_WITH_CNA=ON -DCNA_DEVICES=ON
+cmake --build build-cna -j
+
+# Opens a real window with Studio in it.
+./build-cna/cna-studio --project=examples/HelloSprites/HelloSprites.cnaproject
+```
+
+CNA itself needs SDL3's build dependencies (on Debian/Ubuntu: `libx11-dev libxext-dev
+libxrandr-dev libxcursor-dev libxi-dev libxfixes-dev libxss-dev libxtst-dev libxkbcommon-dev
+libwayland-dev wayland-protocols libdecor-0-dev`) plus FFmpeg headers (`libavcodec-dev
+libavformat-dev libavutil-dev libswresample-dev`). `-DCNA_DEVICES=ON` is what gives Studio a
+working clipboard.
+
+### Build options
+
+| Option | Default | Meaning |
+|--------|:-------:|---------|
+| `CNA_STUDIO_WITH_CNA` | `OFF` | Build the CNA-backed viewport, UI renderer and input platform |
+| `CNA_STUDIO_BUILD_TESTS` | `ON` | Build the test suite |
+| `CNA_STUDIO_WARNINGS_AS_ERRORS` | `OFF` | `-Werror` / `/WX` |
+| `CNA_STUDIO_CNA_ROOT` | `../cna` | Where to find the CNA checkout |
+| `CNA_STUDIO_PLAYER_BACKENDS` | *(empty)* | Extra renderers to build `cna-player` for. Each is a full CNA build |
+
+Run `cna-studio --help` for the command-line options.
+
+### Seeing the Studio UI headless
+
+The native Studio UI ([`docs/ROADMAP-ARCHIVE.md`](docs/ROADMAP-ARCHIVE.md) phases 3–7) is what `cna-studio` opens today -- there is
+no other presentation left to choose (`STUDIO-07030` removed the Dear ImGui prototype this project
+started from). Its shell geometry is CNA-free and can be rasterised with no window and no GPU, which
+is what a `--shell-preview` capture is for:
+
+```bash
+./build/cna-studio --shell-preview=shell.png --shell-size=1280x720
+# cna-studio: shell preview 1280x720, theme 'CNA Studio Dark', scale 1,
+#             3 draw calls, 1380 vertices -> shell.png
+```
+
+This needs **no GPU and no display**. The shell's geometry is CNA-free and is rasterised on the
+CPU, which is the same property that gives it golden-image regression tests before graphical CI
+exists. `--shell-theme=light` and `--shell-scale=2.0` render the other theme and High-DPI.
+
+---
+
+## Architecture at a glance
+
+```
+┌─────────────────────────── cna-studio ────────────────────────────┐
+│  Hierarchy      Viewport            Inspector                     │
+│  Assets         Console                                           │
+└───────────────────────────────────────────────────────────────────┘
+                             │
+        ┌────────────────────┴────────────────────┐
+        ▼                                         ▼
+ cna-studio-shell-panels                  cna-studio-context
+ (the native shell's own panels)          (project, scene, registry,
+        │                                  assets, undo, selection)
+        │  UiDrawData  ▼   ▲  UiInputState
+        └──────────────┬───┴──────────────┐
+                       ▼                  │
+             cna-studio-viewport ──────────┘
+             ← the ONLY module that links CNA
+               · CnaUiRenderer   (draws the UI)
+               · CnaUiPlatform   (mouse/keys/text)
+               · CnaStudioViewport (draws the scene)
+
+        ┌────────────────────┬────────────────────┐
+        ▼                    ▼                    ▼
+ cna-studio-scene    cna-studio-assets    cna-studio-project
+        └────────────────────┼────────────────────┘
+                             ▼
+                      cna-studio-core
+              (Uuid · JSON · PropertyValue ·
+          ComponentDescriptor · CommandHistory)
+
+ cna-studio-plugins   cna-studio-runtime-bridge   cna-studio-player
+ (manifest, loading)  (protocol, TCP, spawn) ─IPC─▶ (cna-player process)
+```
+
+Everything except `cna-studio-viewport` is CNA-free. That is enforced by the build graph, not by
+review: a stray `#include <Microsoft/Xna/...>` elsewhere fails to compile.
+
+### Things worth knowing
+
+**Undo is a hard rule.** Every document mutation is a `StudioCommand` pushed through
+`CommandHistory` — from the inspector, from a gizmo, from a plugin, from the bridge. Retrofitting
+undo is the mistake that cannot be repaired incrementally.
+
+**Reflection is hand-written.** C++ has none, so `ComponentDescriptor` supplies it. The inspector,
+the serialiser and `SetPropertyCommand` are all generic over it — including for component types
+supplied by a plugin Studio was never compiled against.
+
+**Assets are referenced by id, never by path.** Every asset gets a UUID in a `.cnaasset` sidecar.
+Moving `Assets/player.png` into `Assets/Characters/` touches no scene and breaks no reference.
+
+**Play mode is a separate process.** Structurally required: Studio and the game are linked against
+different CNA builds and cannot share an address space. A game crash also cannot take Studio down.
+
+**The UI toolkit was behind an abstraction.** No panel called Dear ImGui directly, which is what
+made replacing it (`STUDIO-07030`) a migration rather than a rewrite.
+
+**Studio's own UI is drawn with the same API a game has.** No `CNA::Internal::*`, no authored
+shader, no per-renderer code. If CNA cannot draw Studio's UI, that is a gap in CNA worth finding;
+the ones found so far are in [`docs/CNA-GAPS.md`](docs/CNA-GAPS.md).
+
+---
+
+## File formats are CNA formats
+
+`.cnaproject`, `.cnascene`, `.cnaasset` and `.cnaprefab` are CNA ecosystem formats, not Studio
+formats. They did not change when the product was renamed, and they will not change without a
+migration path and tests. Two JSON keys inside them still read `editorState` and
+`editorApiVersion`: those are serialized contracts that existing files and built plugins already
+depend on, and they are deliberately pinned. See [`docs/FORMATS.md`](docs/FORMATS.md).
+
+---
+
+## Repository layout
+
+```
+cna-studio/
+├── plan.md                  The active roadmap — the only source of authorised work
+├── ANALYSIS.md              Architecture analysis inherited from the prototype (historical)
+├── NEXT.md                  Early continuity notes (historical, superseded by HANDOFF.md)
+├── HANDOFF.md               State of the work in progress
+├── docs/
+│   ├── ADR-001-SCOPE-REDUCTION.md  Why Studio is a companion tool and not an engine editor
+│   ├── ROADMAP-BACKLOG.md   Conditional future work, each with an activation condition
+│   ├── ROADMAP-OUT-OF-SCOPE.md     What left the product, and why
+│   ├── ROADMAP-ARCHIVE.md   The retired 582-task programme roadmap (historical)
+│   ├── ORIGIN.md            Where this repository came from, and the verified baseline
+│   ├── ARCHITECTURE.md      The CNA Studio architecture
+│   ├── CNA-GAPS.md          Deficiencies in CNA that Studio has found
+│   ├── FORMATS.md           .cnaproject / .cnascene / .cnaasset / wire protocol
+│   └── LEGACY-EDITOR-TASK-MAP.md   Where the prototype's ED-* tasks went
+├── plans/                   Per-task detail of the archived roadmap (historical)
+├── include/CNA/Studio/      Public headers
+├── src/                     One directory per module
+│   └── project/cpp/         The C++ language adapter. Nothing else in Studio names CMake
+├── templates/               Project templates: a manifest and a content tree each, no code
+├── third_party/cgltf/       cgltf, with its symbols prefixed
+├── tests/                   1 334 assertions, no third-party framework
+└── examples/HelloSprites/   A project Studio opens end to end
+```
+
+**Adding a project template is adding a directory.** `templates/<id>/template.json` and a
+`content/` tree beside it, and nothing is registered, compiled or listed anywhere — CI globs the
+same directory, so a template added that way is a template that gets created, built and run on
+every CNA-backed job.
+
+---
+
+## Contributing
+
+House rules, matching CNA's own:
+
+- C++23, `-Wall -Wextra -Wpedantic` clean.
+- `// SPDX-License-Identifier: MS-PL` at the top of every file.
+- Doxygen `@brief` on every public type and method.
+- Every document mutation goes through a `StudioCommand`.
+- Only `cna-studio-viewport` may include CNA headers.
+- New behaviour comes with a test. The suite runs headless in a few seconds.
+- The UI layer talks to `UiDrawData`/`UiInputState`, never straight to a toolkit or to CNA.
+
+---
+
+## Licence
+
+Microsoft Public License (Ms-PL), matching CNA. See [`LICENSE`](LICENSE).
